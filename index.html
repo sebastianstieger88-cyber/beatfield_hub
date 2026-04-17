@@ -8,6 +8,25 @@
 </head>
 <body>
   <div class="app-shell">
+    <nav class="app-nav">
+      <a class="nav-brand" href="#top">BEATFIELD</a>
+      <button id="navToggleBtn" class="nav-toggle" type="button" aria-expanded="false" aria-controls="navLinks">
+        Menue
+      </button>
+      <div class="nav-links" id="navLinks">
+        <a href="#authPanel">Zugang</a>
+        <a href="#sessionPanel">Sitzung</a>
+        <a href="#adminPanel">Admin</a>
+        <a href="#coursePanel">Kurse</a>
+        <a href="#courseListPanel">Kursliste</a>
+        <a href="#attendancePanel">Anwesenheit</a>
+        <a href="#monthlyPanel">Monat</a>
+        <a href="#statsPanel">Statistik</a>
+        <a href="#businessPanel">Business</a>
+        <a href="#reportsPanel">Reports</a>
+      </div>
+    </nav>
+
     <header class="hero">
       <div class="hero-brand">
         <img class="brand-logo" src="beatfield-logo.png" alt="BEATFIELD Logo">
@@ -217,6 +236,12 @@
         </div>
 
         <div id="courseActions" class="hidden">
+          <div class="mobile-quickbar">
+            <button id="mobileTodayBtn" type="button" class="ghost">Heute</button>
+            <button id="mobileMonthBtn" type="button" class="ghost">Monat</button>
+            <button id="mobileReportsBtn" type="button" class="ghost">Reports</button>
+          </div>
+
           <form id="participantForm" class="stack inline-form">
             <label>
               <span>Name</span>
@@ -247,6 +272,8 @@
               <button id="exportBtn" class="primary" type="button">CSV exportieren</button>
             </div>
           </div>
+
+          <div id="mobileSessionSummary" class="stat-card mobile-session-summary"></div>
 
           <div class="table-wrap">
             <table>
@@ -290,6 +317,17 @@
           </div>
         </div>
         <div id="statsCards" class="stats-grid"></div>
+      </section>
+
+      <section class="panel wide hidden" id="businessPanel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Business</p>
+            <h2>Geschaeftszahlen</h2>
+          </div>
+        </div>
+        <div id="businessCards" class="stats-grid"></div>
+        <div id="businessInsights" class="stats-grid business-insights"></div>
       </section>
 
       <section class="panel wide hidden" id="reportsPanel">

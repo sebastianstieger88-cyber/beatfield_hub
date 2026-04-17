@@ -26,7 +26,11 @@ const courseListPanel = document.querySelector("#courseListPanel");
 const attendancePanel = document.querySelector("#attendancePanel");
 const monthlyPanel = document.querySelector("#monthlyPanel");
 const statsPanel = document.querySelector("#statsPanel");
+const businessPanel = document.querySelector("#businessPanel");
 const reportsPanel = document.querySelector("#reportsPanel");
+const appNav = document.querySelector(".app-nav");
+const navToggleBtn = document.querySelector("#navToggleBtn");
+const navLinks = Array.from(document.querySelectorAll(".nav-links a"));
 const loginForm = document.querySelector("#loginForm");
 const signupForm = document.querySelector("#signupForm");
 const resetForm = document.querySelector("#resetForm");
@@ -51,7 +55,13 @@ const participantSectionTitle = document.querySelector("#participantSectionTitle
 const courseActions = document.querySelector("#courseActions");
 const monthlyCards = document.querySelector("#monthlyCards");
 const statsCards = document.querySelector("#statsCards");
+const businessCards = document.querySelector("#businessCards");
+const businessInsights = document.querySelector("#businessInsights");
 const reportPreview = document.querySelector("#reportPreview");
+const mobileTodayBtn = document.querySelector("#mobileTodayBtn");
+const mobileMonthBtn = document.querySelector("#mobileMonthBtn");
+const mobileReportsBtn = document.querySelector("#mobileReportsBtn");
+const mobileSessionSummary = document.querySelector("#mobileSessionSummary");
 const statusHeadline = document.querySelector("#statusHeadline");
 const statusText = document.querySelector("#statusText");
 const backendStatus = document.querySelector("#backendStatus");
@@ -91,6 +101,16 @@ exportMonthlyBtn.addEventListener("click", exportMonthlyReportCsv);
 exportLeaderboardBtn.addEventListener("click", exportLeaderboardCsv);
 exportTrainerReportBtn.addEventListener("click", exportTrainerReportCsv);
 copyInviteLinkBtn.addEventListener("click", handleCopyInviteLink);
+navToggleBtn.addEventListener("click", toggleMobileNav);
+mobileTodayBtn.addEventListener("click", () => scrollToSection("#attendancePanel"));
+mobileMonthBtn.addEventListener("click", () => scrollToSection("#monthlyPanel"));
+mobileReportsBtn.addEventListener("click", () => scrollToSection("#reportsPanel"));
+navLinks.forEach((link) => {
+  link.addEventListener("click", () => {
+    closeMobileNav();
+  });
+});
+window.addEventListener("scroll", updateActiveNavLink, { passive: true });
 
 initialize();
 
@@ -125,6 +145,7 @@ async function initialize() {
 
   await loadProtectedData();
   render();
+  updateActiveNavLink();
 }
 
 async function loadProtectedData() {
@@ -198,7 +219,7 @@ async function fetchSupportData() {
   const participantsQuery = courseIds.length
     ? state.supabase
       .from("participants")
-      .select("id, course_id, full_name, phone")
+      .select("id, course_id, full_name, phone, created_at")
       .in("course_id", courseIds)
       .order("full_name")
     : Promise.resolve({ data: [], error: null });
@@ -468,6 +489,7 @@ function render() {
   attendancePanel.classList.toggle("hidden", !appUnlocked);
   monthlyPanel.classList.toggle("hidden", !appUnlocked);
   statsPanel.classList.toggle("hidden", !appUnlocked);
+  businessPanel.classList.toggle("hidden", !appUnlocked);
   reportsPanel.classList.toggle("hidden", !appUnlocked);
 
   statusHeadline.textContent = loggedIn
@@ -497,7 +519,10 @@ function render() {
   renderParticipants();
   renderMonthlyOverview();
   renderStats();
+  renderBusinessDashboard();
   renderReportPreview();
+  renderMobileSessionSummary();
+  updateActiveNavLink();
 }
 
 function renderTrainerSelect() {
@@ -659,6 +684,30 @@ function renderParticipants() {
   });
 }
 
+function renderMobileSessionSummary() {
+  const course = getSelectedCourse();
+  mobileSessionSummary.innerHTML = "";
+
+  if (!course) {
+    mobileSessionSummary.classList.add("hidden");
+    return;
+  }
+
+  const participants = getParticipantsForCourse(course.id);
+  const session = getSessionForCourseAndDate(course.id, attendanceDate.value);
+  const records = getRecordsForSession(session?.id);
+  const presentCount = records.filter((record) => record.present).length;
+  const absentCount = Math.max(participants.length - presentCount, 0);
+
+  mobileSessionSummary.classList.remove("hidden");
+  mobileSessionSummary.innerHTML = `
+    <h3>${escapeHtml(course.name)}</h3>
+    <p class="hero-stat">${presentCount}/${participants.length}</p>
+    <p class="stat-meta">anwesend am ${escapeHtml(attendanceDate.value || getToday())}</p>
+    <p class="stat-meta">${absentCount} aktuell noch offen oder abwesend</p>
+  `;
+}
+
 function renderStats() {
   statsCards.innerHTML = "";
 
@@ -688,6 +737,87 @@ function renderStats() {
       <p class="stat-meta">durchschnittliche Anwesenheit</p>
     `;
     statsCards.appendChild(card);
+  });
+}
+
+function renderBusinessDashboard() {
+  businessCards.innerHTML = "";
+  businessInsights.innerHTML = "";
+
+  if (!state.courses.length) {
+    businessCards.appendChild(emptyStateTemplate.content.cloneNode(true));
+    return;
+  }
+
+  const selectedMonth = getSelectedMonth();
+  const monthSessions = getSessionsForMonth(selectedMonth);
+  const monthSessionIds = new Set(monthSessions.map((session) => session.id));
+  const monthRecords = state.records.filter((record) => monthSessionIds.has(record.session_id));
+  const presentRecords = monthRecords.filter((record) => record.present).length;
+  const absentRecords = monthRecords.filter((record) => !record.present).length;
+  const totalMarked = presentRecords + absentRecords;
+  const noShowRate = totalMarked ? Math.round((absentRecords / totalMarked) * 100) : 0;
+  const avgAttendance = totalMarked ? Math.round((presentRecords / totalMarked) * 100) : 0;
+  const activeTrainerIds = new Set(state.courses.map((course) => course.trainer_id).filter(Boolean));
+  const newParticipantsThisMonth = state.participants.filter((participant) => {
+    return String(participant.created_at || "").startsWith(selectedMonth);
+  }).length;
+
+  const summaryCards = [
+    { title: "Teilnehmer gesamt", value: state.participants.length, meta: `${newParticipantsThisMonth} neu in ${getSelectedMonthLabel()}` },
+    { title: "Aktive Trainer", value: activeTrainerIds.size, meta: `${state.courses.length} Kurse live` },
+    { title: "Sessions im Monat", value: monthSessions.length, meta: getSelectedMonthLabel() },
+    { title: "No-Show-Rate", value: `${noShowRate}%`, meta: `${avgAttendance}% Anwesenheit` },
+  ];
+
+  summaryCards.forEach((item) => {
+    const card = document.createElement("article");
+    card.className = "stat-card";
+    card.innerHTML = `
+      <h3>${escapeHtml(item.title)}</h3>
+      <p class="hero-stat">${escapeHtml(item.value)}</p>
+      <p class="stat-meta">${escapeHtml(item.meta)}</p>
+    `;
+    businessCards.appendChild(card);
+  });
+
+  const topCourse = getTopCourseByAttendance();
+  const topTrainer = getTopTrainerByAttendance();
+  const busiestWeekday = getBusiestWeekday();
+  const weakestCourse = getWeakestCourseByAttendance();
+
+  const insightCards = [
+    {
+      title: "Staerkster Kurs",
+      value: topCourse ? `${topCourse.name} (${topCourse.rate}%)` : "Noch keine Daten",
+      meta: "beste Anwesenheitsquote",
+    },
+    {
+      title: "Staerkster Trainer",
+      value: topTrainer ? `${topTrainer.name} (${topTrainer.rate}%)` : "Noch keine Daten",
+      meta: "durchschnittliche Anwesenheit",
+    },
+    {
+      title: "Bester Wochentag",
+      value: busiestWeekday ? busiestWeekday.label : "Noch keine Daten",
+      meta: busiestWeekday ? `${busiestWeekday.sessions} Sessions dokumentiert` : "ohne Datenbasis",
+    },
+    {
+      title: "Handlungsbedarf",
+      value: weakestCourse ? `${weakestCourse.name} (${weakestCourse.rate}%)` : "Kein Ausreisser",
+      meta: "niedrigste Anwesenheitsquote",
+    },
+  ];
+
+  insightCards.forEach((item) => {
+    const card = document.createElement("article");
+    card.className = "stat-card";
+    card.innerHTML = `
+      <h3>${escapeHtml(item.title)}</h3>
+      <p class="hero-stat">${escapeHtml(item.value)}</p>
+      <p class="stat-meta">${escapeHtml(item.meta)}</p>
+    `;
+    businessInsights.appendChild(card);
   });
 }
 
@@ -1049,6 +1179,83 @@ function getLowAttendanceParticipants() {
     .filter((participant) => calculateAttendanceRate(course.id, participant.id) < 60));
 }
 
+function getTopCourseByAttendance() {
+  const ranked = state.courses
+    .map((course) => ({
+      name: course.name,
+      rate: getCourseAttendanceAverage(course.id),
+    }))
+    .filter((course) => course.rate !== null)
+    .sort((left, right) => right.rate - left.rate);
+
+  return ranked[0] || null;
+}
+
+function getWeakestCourseByAttendance() {
+  const ranked = state.courses
+    .map((course) => ({
+      name: course.name,
+      rate: getCourseAttendanceAverage(course.id),
+    }))
+    .filter((course) => course.rate !== null)
+    .sort((left, right) => left.rate - right.rate);
+
+  return ranked[0] || null;
+}
+
+function getTopTrainerByAttendance() {
+  const ranked = state.trainers
+    .map((trainer) => {
+      const trainerCourses = state.courses.filter((course) => course.trainer_id === trainer.user_id);
+      if (!trainerCourses.length) {
+        return null;
+      }
+
+      const averages = trainerCourses
+        .map((course) => getCourseAttendanceAverage(course.id))
+        .filter((value) => value !== null);
+
+      if (!averages.length) {
+        return null;
+      }
+
+      return {
+        name: trainer.full_name,
+        rate: Math.round(averages.reduce((sum, value) => sum + value, 0) / averages.length),
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => right.rate - left.rate);
+
+  return ranked[0] || null;
+}
+
+function getBusiestWeekday() {
+  const counts = state.courses.reduce((accumulator, course) => {
+    const key = course.weekday || "Unbekannt";
+    accumulator[key] ||= 0;
+    accumulator[key] += getSessionsForCourse(course.id).length;
+    return accumulator;
+  }, {});
+
+  const ranked = Object.entries(counts)
+    .map(([label, sessions]) => ({ label, sessions }))
+    .sort((left, right) => right.sessions - left.sessions);
+
+  return ranked[0] || null;
+}
+
+function getCourseAttendanceAverage(courseId) {
+  const participants = getParticipantsForCourse(courseId);
+  const sessions = getSessionsForCourse(courseId);
+  if (!participants.length || !sessions.length) {
+    return null;
+  }
+
+  const relevantRecords = state.records.filter((record) => sessions.some((session) => session.id === record.session_id));
+  return Math.round((relevantRecords.filter((record) => record.present).length / (participants.length * sessions.length)) * 100);
+}
+
 function isAdmin() {
   return state.profile?.role === "admin";
 }
@@ -1067,6 +1274,47 @@ function resetProtectedState() {
   state.records = [];
   state.selectedCourseId = null;
   state.participantSearch = "";
+}
+
+function toggleMobileNav() {
+  const isOpen = appNav.classList.toggle("is-open");
+  navToggleBtn.setAttribute("aria-expanded", String(isOpen));
+}
+
+function closeMobileNav() {
+  appNav.classList.remove("is-open");
+  navToggleBtn.setAttribute("aria-expanded", "false");
+}
+
+function scrollToSection(selector) {
+  const element = document.querySelector(selector);
+  if (!element || element.classList.contains("hidden")) {
+    return;
+  }
+
+  element.scrollIntoView({ behavior: "smooth", block: "start" });
+  closeMobileNav();
+}
+
+function updateActiveNavLink() {
+  const candidates = navLinks
+    .map((link) => {
+      const target = document.querySelector(link.getAttribute("href"));
+      if (!target || target.classList.contains("hidden")) {
+        return null;
+      }
+
+      const rect = target.getBoundingClientRect();
+      const offset = Math.abs(rect.top - 140);
+      return { link, offset };
+    })
+    .filter(Boolean)
+    .sort((left, right) => left.offset - right.offset);
+
+  const activeLink = candidates[0]?.link || null;
+  navLinks.forEach((link) => {
+    link.classList.toggle("is-active", link === activeLink);
+  });
 }
 
 function notify(message, isError = false) {

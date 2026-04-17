@@ -46,6 +46,71 @@ a {
   padding: 28px 0 48px;
 }
 
+.app-nav {
+  position: sticky;
+  top: 12px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 18px;
+  margin-bottom: 22px;
+  background: rgba(10, 10, 10, 0.92);
+  border: 1px solid rgba(103, 193, 47, 0.14);
+  border-radius: 18px;
+  box-shadow: 0 18px 32px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(16px);
+}
+
+.nav-brand {
+  color: var(--text);
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.nav-toggle {
+  display: none;
+  background: rgba(103, 193, 47, 0.12);
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.nav-links {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.nav-links a {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 12px;
+  border-radius: 999px;
+  background: rgba(103, 193, 47, 0.08);
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.92rem;
+  transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.nav-links a:hover {
+  background: rgba(103, 193, 47, 0.16);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.nav-links a.is-active {
+  background: var(--accent);
+  color: #0d0d0d;
+  font-weight: 800;
+  box-shadow: 0 0 0 1px rgba(103, 193, 47, 0.18);
+}
+
 .hero {
   display: grid;
   grid-template-columns: 1.35fr 0.85fr;
@@ -276,6 +341,18 @@ button.danger {
   gap: 14px;
 }
 
+.mobile-quickbar {
+  display: none;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.mobile-session-summary {
+  display: none;
+  margin-bottom: 16px;
+}
+
 .participant-cards {
   display: none;
   gap: 14px;
@@ -286,7 +363,8 @@ button.danger {
   border: 1px solid rgba(103, 193, 47, 0.12);
   border-radius: 18px;
   background: linear-gradient(180deg, rgba(26, 26, 26, 0.96) 0%, rgba(14, 14, 14, 0.96) 100%);
-  padding: 16px;
+  padding: 18px;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.18);
 }
 
 .participant-card-head {
@@ -299,6 +377,10 @@ button.danger {
 .participant-card-actions {
   display: flex;
   justify-content: flex-end;
+  margin-top: 14px;
+}
+
+.business-insights {
   margin-top: 14px;
 }
 
@@ -426,6 +508,32 @@ th {
 }
 
 @media (max-width: 860px) {
+  .app-nav {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .nav-links {
+    display: none;
+    width: 100%;
+    justify-content: flex-start;
+    flex-direction: column;
+  }
+
+  .app-nav.is-open .nav-links {
+    display: flex;
+  }
+
+  .nav-links a {
+    width: 100%;
+  }
+
   .hero,
   .grid,
   .auth-grid,
@@ -455,8 +563,50 @@ th {
     display: grid;
   }
 
+  .mobile-quickbar {
+    display: grid;
+  }
+
+  .mobile-quickbar button {
+    min-height: 54px;
+    font-weight: 800;
+  }
+
+  .mobile-session-summary {
+    display: block;
+  }
+
   .table-wrap {
     display: none;
+  }
+
+  .attendance-toolbar {
+    gap: 12px;
+  }
+
+  .attendance-toolbar label input {
+    min-height: 54px;
+  }
+
+  .participant-card h3 {
+    font-size: 1.15rem;
+    margin-bottom: 6px;
+  }
+
+  .participant-card .attendance-toggle {
+    width: 76px;
+    height: 42px;
+  }
+
+  .participant-card .attendance-toggle::after {
+    width: 32px;
+    height: 32px;
+    top: 5px;
+    left: 5px;
+  }
+
+  .participant-card .attendance-toggle.is-present::after {
+    transform: translateX(34px);
   }
 
   h1 {
