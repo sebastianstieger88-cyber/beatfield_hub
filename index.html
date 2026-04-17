@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Beatfield Attendance</title>
   <meta name="theme-color" content="#67c12f">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="alternate icon" href="beatfield-logo.png">
+  <link rel="apple-touch-icon" href="beatfield-logo.png">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -200,6 +203,27 @@
           <button id="copyInviteLinkBtn" type="button" class="ghost">Link kopieren</button>
         </div>
 
+        <form id="trainerDirectoryForm" class="stack inline-form trainer-directory-form">
+          <label>
+            <span>Trainername</span>
+            <input name="fullName" type="text" placeholder="z. B. Celina Engel" required>
+          </label>
+          <label>
+            <span>E-Mail</span>
+            <input name="email" type="email" placeholder="optional">
+          </label>
+          <label>
+            <span>Telefon</span>
+            <input name="phone" type="tel" placeholder="optional">
+          </label>
+          <label class="checkbox-line">
+            <input name="prepareLogin" type="checkbox">
+            <span>Zugang direkt vorbereiten</span>
+          </label>
+          <button type="submit" class="primary">Trainer eintragen</button>
+        </form>
+
+        <div id="trainerDirectoryList" class="stats-grid"></div>
         <div id="inviteList" class="stats-grid"></div>
       </section>
 

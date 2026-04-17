@@ -99,41 +99,46 @@ const exportLeaderboardBtn = document.querySelector("#exportLeaderboardBtn");
 const exportTrainerReportBtn = document.querySelector("#exportTrainerReportBtn");
 const emptyStateTemplate = document.querySelector("#emptyStateTemplate");
 
-attendanceDate.value = getToday();
-monthPicker.value = getCurrentMonth();
+if (attendanceDate) {
+  attendanceDate.value = getToday();
+}
 
-loginForm.addEventListener("submit", handleLogin);
-signupForm.addEventListener("submit", handleSignup);
-resetForm.addEventListener("submit", handleReset);
-updatePasswordForm.addEventListener("submit", handleUpdatePassword);
-logoutBtn.addEventListener("click", handleLogout);
-inviteForm.addEventListener("submit", handleInviteCreate);
-trainerDirectoryForm.addEventListener("submit", handleTrainerDirectoryCreate);
-courseForm.addEventListener("submit", handleCourseCreate);
-participantForm.addEventListener("submit", handleParticipantCreate);
-trialForm.addEventListener("submit", handleTrialCreate);
-attendanceDate.addEventListener("change", render);
-monthPicker.addEventListener("change", render);
-participantSearch.addEventListener("input", () => {
+if (monthPicker) {
+  monthPicker.value = getCurrentMonth();
+}
+
+loginForm?.addEventListener("submit", handleLogin);
+signupForm?.addEventListener("submit", handleSignup);
+resetForm?.addEventListener("submit", handleReset);
+updatePasswordForm?.addEventListener("submit", handleUpdatePassword);
+logoutBtn?.addEventListener("click", handleLogout);
+inviteForm?.addEventListener("submit", handleInviteCreate);
+trainerDirectoryForm?.addEventListener("submit", handleTrainerDirectoryCreate);
+courseForm?.addEventListener("submit", handleCourseCreate);
+participantForm?.addEventListener("submit", handleParticipantCreate);
+trialForm?.addEventListener("submit", handleTrialCreate);
+attendanceDate?.addEventListener("change", render);
+monthPicker?.addEventListener("change", render);
+participantSearch?.addEventListener("input", () => {
   state.participantSearch = participantSearch.value.trim().toLowerCase();
   renderParticipants();
   renderReportPreview();
 });
-markAllPresentBtn.addEventListener("click", () => setAttendanceForAll(true));
-markAllAbsentBtn.addEventListener("click", () => setAttendanceForAll(false));
-exportBtn.addEventListener("click", exportSelectedCourseCsv);
-exportMonthlyBtn.addEventListener("click", exportMonthlyReportCsv);
-exportLeaderboardBtn.addEventListener("click", exportLeaderboardCsv);
-exportTrainerReportBtn.addEventListener("click", exportTrainerReportCsv);
-planNextBtn.addEventListener("click", () => createPlannedSessions("next"));
-planMonthBtn.addEventListener("click", () => createPlannedSessions("month"));
-jumpToTodayBtn.addEventListener("click", handleJumpToToday);
-focusNextCourseBtn.addEventListener("click", handleFocusNextCourse);
-copyInviteLinkBtn.addEventListener("click", handleCopyInviteLink);
-navToggleBtn.addEventListener("click", toggleMobileNav);
-mobileTodayBtn.addEventListener("click", () => scrollToSection("#attendancePanel"));
-mobileMonthBtn.addEventListener("click", () => scrollToSection("#monthlyPanel"));
-mobileReportsBtn.addEventListener("click", () => scrollToSection("#reportsPanel"));
+markAllPresentBtn?.addEventListener("click", () => setAttendanceForAll(true));
+markAllAbsentBtn?.addEventListener("click", () => setAttendanceForAll(false));
+exportBtn?.addEventListener("click", exportSelectedCourseCsv);
+exportMonthlyBtn?.addEventListener("click", exportMonthlyReportCsv);
+exportLeaderboardBtn?.addEventListener("click", exportLeaderboardCsv);
+exportTrainerReportBtn?.addEventListener("click", exportTrainerReportCsv);
+planNextBtn?.addEventListener("click", () => createPlannedSessions("next"));
+planMonthBtn?.addEventListener("click", () => createPlannedSessions("month"));
+jumpToTodayBtn?.addEventListener("click", handleJumpToToday);
+focusNextCourseBtn?.addEventListener("click", handleFocusNextCourse);
+copyInviteLinkBtn?.addEventListener("click", handleCopyInviteLink);
+navToggleBtn?.addEventListener("click", toggleMobileNav);
+mobileTodayBtn?.addEventListener("click", () => scrollToSection("#attendancePanel"));
+mobileMonthBtn?.addEventListener("click", () => scrollToSection("#monthlyPanel"));
+mobileReportsBtn?.addEventListener("click", () => scrollToSection("#reportsPanel"));
 navLinks.forEach((link) => {
   link.addEventListener("click", () => {
     closeNavGroups();
