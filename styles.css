@@ -520,8 +520,12 @@ button.danger {
 }
 
 .course-card {
-  cursor: pointer;
   text-align: left;
+}
+
+.course-card-body {
+  display: grid;
+  gap: 4px;
 }
 
 .course-card.active {

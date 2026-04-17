@@ -1226,19 +1226,43 @@ function renderCourseList() {
 
   state.courses.forEach((course) => {
     const trainer = getCourseTrainerName(course);
-    const card = document.createElement("button");
-    card.type = "button";
+    const card = document.createElement("article");
     card.className = `course-card${course.id === state.selectedCourseId ? " active" : ""}`;
     card.innerHTML = `
-      <h3>${escapeHtml(course.name)}</h3>
-      <p class="course-meta">${escapeHtml(course.weekday)}${course.time ? ` - ${escapeHtml(course.time)} Uhr` : ""}</p>
-      <p class="course-meta">${course.location ? escapeHtml(course.location) : "Ort noch nicht eingetragen"}</p>
-      <p class="course-meta">Trainer: ${escapeHtml(trainer)}</p>
+      <div class="course-card-body">
+        <h3>${escapeHtml(course.name)}</h3>
+        <p class="course-meta">${escapeHtml(course.weekday)}${course.time ? ` - ${escapeHtml(course.time)} Uhr` : ""}</p>
+        <p class="course-meta">${course.location ? escapeHtml(course.location) : "Ort noch nicht eingetragen"}</p>
+        <p class="course-meta">Trainer: ${escapeHtml(trainer)}</p>
+      </div>
     `;
-    card.addEventListener("click", () => {
+
+    const selectBtn = document.createElement("button");
+    selectBtn.type = "button";
+    selectBtn.className = "ghost";
+    selectBtn.textContent = "Kurs oeffnen";
+    selectBtn.addEventListener("click", () => {
       state.selectedCourseId = course.id;
       render();
     });
+
+    const actions = document.createElement("div");
+    actions.className = "stat-card-actions";
+    actions.appendChild(selectBtn);
+
+    if (isAdmin()) {
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "danger";
+      deleteBtn.textContent = "Kurs loeschen";
+      deleteBtn.addEventListener("click", async () => {
+        state.selectedCourseId = course.id;
+        await handleCourseDelete();
+      });
+      actions.appendChild(deleteBtn);
+    }
+
+    card.appendChild(actions);
     courseList.appendChild(card);
   });
 }
