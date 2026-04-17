@@ -1,0 +1,9 @@
+git config --global user.name "Sebastian Stieger"
+git config --global user.email "DEINE_GITHUB_EMAIL"
+cd "C:\Users\sebas\Desktop\Beatfield\outdoor-fitness-anwesenheit"
+git init
+git add .
+git commit -m "Initial commit"
+git branch -M main
+git remote add origin https://github.com/sebastianstieger88-cyber/beatfield_hub.git
+git push -u origin main
