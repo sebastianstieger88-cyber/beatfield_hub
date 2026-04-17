@@ -1241,6 +1241,7 @@ function renderCourseList() {
     const openCourse = () => {
       state.selectedCourseId = course.id;
       render();
+      scrollToSection("#attendancePanel");
     };
 
     card.addEventListener("click", openCourse);
