@@ -27,6 +27,7 @@
         <details class="nav-group">
           <summary><span class="nav-icon">◆</span><span>Organisation</span></summary>
           <div class="nav-submenu">
+            <a href="#todayPanel">Heute</a>
             <a href="#coursePanel">Kurse</a>
             <a href="#courseListPanel">Kursliste</a>
             <a href="#planningPanel">Planung</a>
@@ -49,6 +50,7 @@
       <div class="hero-brand">
         <img class="brand-logo" src="beatfield-logo.png" alt="BEATFIELD Logo">
         <p class="eyebrow">Beatfield Attendance</p>
+        <div class="version-badge">Version 2</div>
         <h1>Produktionsversion fuer euer Team</h1>
         <p class="hero-copy">
           Echte Benutzerkonten mit Supabase Auth, rollenbasierter Zugriff und Hosting-Vorbereitung fuer Vercel.
@@ -153,6 +155,10 @@
             <h3>Rolle</h3>
             <p class="stat-meta" id="sessionRole">-</p>
           </article>
+          <article class="stat-card">
+            <h3>Startmodus</h3>
+            <p class="stat-meta" id="sessionMode">-</p>
+          </article>
         </div>
         <form id="updatePasswordForm" class="stack reset-form hidden">
           <label>
@@ -234,6 +240,20 @@
           </label>
           <button type="submit" class="primary">Kurs speichern</button>
         </form>
+      </section>
+
+      <section class="panel hidden" id="todayPanel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Version 2</p>
+            <h2>Heute im Blick</h2>
+          </div>
+        </div>
+        <div id="todayCards" class="stats-grid"></div>
+        <div class="today-actions">
+          <button id="jumpToTodayBtn" type="button" class="primary">Heute oeffnen</button>
+          <button id="focusNextCourseBtn" type="button" class="ghost">Naechsten Kurs fokussieren</button>
+        </div>
       </section>
 
       <section class="panel hidden" id="courseListPanel">

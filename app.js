@@ -26,6 +26,7 @@ const authPanel = document.querySelector("#authPanel");
 const sessionPanel = document.querySelector("#sessionPanel");
 const adminPanel = document.querySelector("#adminPanel");
 const coursePanel = document.querySelector("#coursePanel");
+const todayPanel = document.querySelector("#todayPanel");
 const courseListPanel = document.querySelector("#courseListPanel");
 const planningPanel = document.querySelector("#planningPanel");
 const attendancePanel = document.querySelector("#attendancePanel");
@@ -58,6 +59,9 @@ const courseList = document.querySelector("#courseList");
 const planningPreview = document.querySelector("#planningPreview");
 const planNextBtn = document.querySelector("#planNextBtn");
 const planMonthBtn = document.querySelector("#planMonthBtn");
+const todayCards = document.querySelector("#todayCards");
+const jumpToTodayBtn = document.querySelector("#jumpToTodayBtn");
+const focusNextCourseBtn = document.querySelector("#focusNextCourseBtn");
 const participantTableBody = document.querySelector("#participantTableBody");
 const participantCards = document.querySelector("#participantCards");
 const participantSectionTitle = document.querySelector("#participantSectionTitle");
@@ -78,6 +82,7 @@ const backendStatus = document.querySelector("#backendStatus");
 const userStatus = document.querySelector("#userStatus");
 const sessionName = document.querySelector("#sessionName");
 const sessionRole = document.querySelector("#sessionRole");
+const sessionMode = document.querySelector("#sessionMode");
 const markAllPresentBtn = document.querySelector("#markAllPresentBtn");
 const markAllAbsentBtn = document.querySelector("#markAllAbsentBtn");
 const exportBtn = document.querySelector("#exportBtn");
@@ -112,6 +117,8 @@ exportLeaderboardBtn.addEventListener("click", exportLeaderboardCsv);
 exportTrainerReportBtn.addEventListener("click", exportTrainerReportCsv);
 planNextBtn.addEventListener("click", () => createPlannedSessions("next"));
 planMonthBtn.addEventListener("click", () => createPlannedSessions("month"));
+jumpToTodayBtn.addEventListener("click", handleJumpToToday);
+focusNextCourseBtn.addEventListener("click", handleFocusNextCourse);
 copyInviteLinkBtn.addEventListener("click", handleCopyInviteLink);
 navToggleBtn.addEventListener("click", toggleMobileNav);
 mobileTodayBtn.addEventListener("click", () => scrollToSection("#attendancePanel"));
@@ -171,11 +178,13 @@ async function initialize() {
     await loadProtectedData();
     await flushOfflineQueue();
     render();
+    applyRoleLanding();
   });
 
   await loadProtectedData();
   await flushOfflineQueue();
   render();
+  applyRoleLanding();
   updateActiveNavLink();
 }
 
@@ -522,6 +531,7 @@ function render() {
   sessionPanel.classList.toggle("hidden", !loggedIn);
   updatePasswordForm.classList.toggle("hidden", !loggedIn || !recoveryMode);
   adminPanel.classList.toggle("hidden", !loggedIn || !isAdmin());
+  todayPanel.classList.toggle("hidden", !appUnlocked);
   coursePanel.classList.toggle("hidden", !loggedIn || !isAdmin());
   courseListPanel.classList.toggle("hidden", !appUnlocked);
   planningPanel.classList.toggle("hidden", !appUnlocked);
@@ -560,9 +570,11 @@ function render() {
   userStatus.textContent = loggedIn ? state.profile.full_name : "Niemand angemeldet";
   sessionName.textContent = state.profile?.full_name || "-";
   sessionRole.textContent = state.profile?.role || "-";
+  sessionMode.textContent = state.profile?.role === "trainer" ? "Heute zuerst" : state.profile?.role === "admin" ? "Gesamtuebersicht" : "-";
 
   renderTrainerSelect();
   renderInvites();
+  renderTodayDashboard();
   renderCourseList();
   renderPlanning();
   renderParticipants();
@@ -572,6 +584,67 @@ function render() {
   renderReportPreview();
   renderMobileSessionSummary();
   updateActiveNavLink();
+}
+
+function applyRoleLanding() {
+  if (!state.profile) {
+    return;
+  }
+
+  if (state.profile.role === "trainer") {
+    setTimeout(() => {
+      scrollToSection("#todayPanel");
+    }, 0);
+  }
+}
+
+function renderTodayDashboard() {
+  todayCards.innerHTML = "";
+
+  if (!state.courses.length) {
+    todayCards.appendChild(emptyStateTemplate.content.cloneNode(true));
+    return;
+  }
+
+  const today = getToday();
+  const todaySessions = state.sessions.filter((session) => session.session_date === today);
+  const todaySessionIds = new Set(todaySessions.map((session) => session.id));
+  const todayRecords = state.records.filter((record) => todaySessionIds.has(record.session_id));
+  const nextCourse = getNextCourseForToday();
+
+  const items = [
+    {
+      title: "Heute geplante Sessions",
+      value: todaySessions.length,
+      meta: formatDateLabel(today),
+    },
+    {
+      title: "Heutige Check-ins",
+      value: todayRecords.filter((record) => record.present).length,
+      meta: "aktuell anwesend markiert",
+    },
+    {
+      title: "Offene Offline-Aktionen",
+      value: state.pendingActions.length,
+      meta: state.isOffline ? "werden spaeter synchronisiert" : "bereit",
+    },
+    {
+      title: "Naechster Fokus",
+      value: nextCourse ? nextCourse.name : "Kein weiterer Kurs heute",
+      meta: nextCourse?.time ? `${nextCourse.time} Uhr` : "kein Termin geplant",
+    },
+  ];
+
+  items.forEach((item) => {
+    const card = document.createElement("article");
+    card.className = "stat-card";
+    card.innerHTML = `
+      <h3>${escapeHtml(item.title)}</h3>
+      <p class="hero-stat">${escapeHtml(item.value)}</p>
+      <p class="stat-meta">${escapeHtml(item.meta)}</p>
+    `;
+    todayCards.appendChild(card);
+  });
 }
 
 function renderPlanning() {
@@ -673,6 +746,25 @@ async function handleCopyInviteLink() {
   } catch (error) {
     notify("Link konnte nicht automatisch kopiert werden.", true);
   }
+}
+
+function handleJumpToToday() {
+  attendanceDate.value = getToday();
+  render();
+  scrollToSection("#attendancePanel");
+}
+
+function handleFocusNextCourse() {
+  const nextCourse = getNextCourseForToday();
+  if (!nextCourse) {
+    notify("Heute ist kein weiterer Kurs mit Terminplanung vorhanden.");
+    return;
+  }
+
+  state.selectedCourseId = nextCourse.id;
+  attendanceDate.value = getToday();
+  render();
+  scrollToSection("#attendancePanel");
 }
 
 function renderCourseList() {
@@ -1493,6 +1585,20 @@ function getCourseAttendanceAverage(courseId) {
   return Math.round((relevantRecords.filter((record) => record.present).length / (participants.length * sessions.length)) * 100);
 }
 
+function getNextCourseForToday() {
+  const todayWeekday = new Date().toLocaleDateString("de-DE", { weekday: "long" });
+  const todayCourses = state.courses
+    .filter((course) => course.weekday === todayWeekday)
+    .sort((left, right) => String(left.time || "").localeCompare(String(right.time || "")));
+
+  if (!todayCourses.length) {
+    return null;
+  }
+
+  const nowMinutes = getCurrentMinutes();
+  return todayCourses.find((course) => getTimeInMinutes(course.time) >= nowMinutes) || todayCourses[0];
+}
+
 function isAdmin() {
   return state.profile?.role === "admin";
 }
@@ -1835,6 +1941,20 @@ function getCurrentMonth() {
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   return `${year}-${month}`;
+}
+
+function getCurrentMinutes() {
+  const now = new Date();
+  return (now.getHours() * 60) + now.getMinutes();
+}
+
+function getTimeInMinutes(value) {
+  if (!value || !String(value).includes(":")) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const [hours, minutes] = String(value).split(":").map(Number);
+  return (hours * 60) + minutes;
 }
 
 function slugify(value) {
