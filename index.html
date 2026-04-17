@@ -16,17 +16,32 @@
         Menue
       </button>
       <div class="nav-links" id="navLinks">
-        <a href="#authPanel">Zugang</a>
-        <a href="#sessionPanel">Sitzung</a>
-        <a href="#adminPanel">Admin</a>
-        <a href="#coursePanel">Kurse</a>
-        <a href="#courseListPanel">Kursliste</a>
-        <a href="#planningPanel">Planung</a>
-        <a href="#attendancePanel">Anwesenheit</a>
-        <a href="#monthlyPanel">Monat</a>
-        <a href="#statsPanel">Statistik</a>
-        <a href="#businessPanel">Business</a>
-        <a href="#reportsPanel">Reports</a>
+        <details class="nav-group">
+          <summary><span class="nav-icon">●</span><span>Zugang</span></summary>
+          <div class="nav-submenu">
+            <a href="#authPanel">Login & Signup</a>
+            <a href="#sessionPanel">Sitzung</a>
+            <a href="#adminPanel">Admin</a>
+          </div>
+        </details>
+        <details class="nav-group">
+          <summary><span class="nav-icon">◆</span><span>Organisation</span></summary>
+          <div class="nav-submenu">
+            <a href="#coursePanel">Kurse</a>
+            <a href="#courseListPanel">Kursliste</a>
+            <a href="#planningPanel">Planung</a>
+            <a href="#attendancePanel">Anwesenheit</a>
+          </div>
+        </details>
+        <details class="nav-group">
+          <summary><span class="nav-icon">▲</span><span>Analyse</span></summary>
+          <div class="nav-submenu">
+            <a href="#monthlyPanel">Monat</a>
+            <a href="#statsPanel">Statistik</a>
+            <a href="#businessPanel">Business</a>
+            <a href="#reportsPanel">Reports</a>
+          </div>
+        </details>
       </div>
     </nav>
 

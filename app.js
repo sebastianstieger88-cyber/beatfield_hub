@@ -36,6 +36,7 @@ const reportsPanel = document.querySelector("#reportsPanel");
 const appNav = document.querySelector(".app-nav");
 const navToggleBtn = document.querySelector("#navToggleBtn");
 const navLinks = Array.from(document.querySelectorAll(".nav-links a"));
+const navGroups = Array.from(document.querySelectorAll(".nav-group"));
 const loginForm = document.querySelector("#loginForm");
 const signupForm = document.querySelector("#signupForm");
 const resetForm = document.querySelector("#resetForm");
@@ -119,6 +120,19 @@ mobileReportsBtn.addEventListener("click", () => scrollToSection("#reportsPanel"
 navLinks.forEach((link) => {
   link.addEventListener("click", () => {
     closeMobileNav();
+  });
+});
+navGroups.forEach((group) => {
+  group.addEventListener("toggle", () => {
+    if (!group.open) {
+      return;
+    }
+
+    navGroups.forEach((otherGroup) => {
+      if (otherGroup !== group) {
+        otherGroup.open = false;
+      }
+    });
   });
 });
 window.addEventListener("scroll", updateActiveNavLink, { passive: true });
