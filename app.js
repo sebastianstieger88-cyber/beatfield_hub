@@ -136,6 +136,7 @@ mobileMonthBtn.addEventListener("click", () => scrollToSection("#monthlyPanel"))
 mobileReportsBtn.addEventListener("click", () => scrollToSection("#reportsPanel"));
 navLinks.forEach((link) => {
   link.addEventListener("click", () => {
+    closeNavGroups();
     closeMobileNav();
   });
 });
@@ -2037,6 +2038,12 @@ function resetProtectedState() {
 function toggleMobileNav() {
   const isOpen = appNav.classList.toggle("is-open");
   navToggleBtn.setAttribute("aria-expanded", String(isOpen));
+}
+
+function closeNavGroups() {
+  navGroups.forEach((group) => {
+    group.open = false;
+  });
 }
 
 function closeMobileNav() {
