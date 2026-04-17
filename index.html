@@ -30,6 +30,8 @@
         <details class="nav-group">
           <summary><span class="nav-icon">◆</span><span>Organisation</span></summary>
           <div class="nav-submenu">
+            <a href="#seasonPanel">Seasons</a>
+            <a href="#bookingPanel">Buchungen</a>
             <a href="#todayPanel">Heute</a>
             <a href="#trialsPanel">Probetraining</a>
             <a href="#coursePanel">Kurse</a>
@@ -270,6 +272,85 @@
         </form>
       </section>
 
+      <section class="panel hidden" id="seasonPanel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Version 4</p>
+            <h2>Seasons</h2>
+          </div>
+        </div>
+        <form id="seasonForm" class="stack inline-form season-form">
+          <label>
+            <span>Season-Name</span>
+            <input name="name" type="text" placeholder="z. B. Season 07" required>
+          </label>
+          <label>
+            <span>Startdatum</span>
+            <input name="startDate" type="date" required>
+          </label>
+          <label>
+            <span>Status</span>
+            <select name="status">
+              <option value="geplant">Geplant</option>
+              <option value="aktiv">Aktiv</option>
+              <option value="abgeschlossen">Abgeschlossen</option>
+            </select>
+          </label>
+          <button type="submit" class="primary">Season anlegen</button>
+        </form>
+        <div id="seasonList" class="stats-grid"></div>
+      </section>
+
+      <section class="panel hidden" id="bookingPanel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Version 4</p>
+            <h2>Buchungen</h2>
+          </div>
+        </div>
+        <form id="seasonBookingForm" class="stack">
+          <div class="booking-grid">
+            <label>
+              <span>Season</span>
+              <select id="bookingSeasonSelect" name="seasonId"></select>
+            </label>
+            <label>
+              <span>Name</span>
+              <input name="fullName" type="text" placeholder="Vor- und Nachname" required>
+            </label>
+            <label>
+              <span>Telefon</span>
+              <input name="phone" type="tel" placeholder="Optional">
+            </label>
+            <label>
+              <span>Paket</span>
+              <select id="bookingPackageSelect" name="packageType">
+                <option value="1x TRAIN">1x TRAIN</option>
+                <option value="2x BEAT">2x BEAT</option>
+                <option value="3x REPEAT">3x REPEAT</option>
+              </select>
+            </label>
+          </div>
+          <fieldset class="weekday-picker">
+            <legend>Trainingstage</legend>
+            <label class="checkbox-line">
+              <input type="checkbox" name="selectedDays" value="Montag">
+              <span>Montag</span>
+            </label>
+            <label class="checkbox-line">
+              <input type="checkbox" name="selectedDays" value="Mittwoch">
+              <span>Mittwoch</span>
+            </label>
+            <label class="checkbox-line">
+              <input type="checkbox" name="selectedDays" value="Samstag">
+              <span>Samstag</span>
+            </label>
+          </fieldset>
+          <button type="submit" class="primary">Buchung speichern</button>
+        </form>
+        <div id="bookingList" class="stats-grid"></div>
+      </section>
+
       <section class="panel hidden" id="todayPanel">
         <div class="panel-heading">
           <div>
@@ -374,6 +455,10 @@
           </div>
 
           <div class="attendance-toolbar">
+            <label>
+              <span>Season</span>
+              <select id="attendanceSeasonSelect"></select>
+            </label>
             <label>
               <span>Termin</span>
               <input id="attendanceDate" type="date">

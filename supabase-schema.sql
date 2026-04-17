@@ -7,6 +7,15 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.trainer_directory (
+  id uuid primary key default gen_random_uuid(),
+  full_name text not null,
+  email text,
+  phone text,
+  linked_user_id uuid references public.profiles(user_id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.invite_codes (
   id uuid primary key default gen_random_uuid(),
   code text not null unique,
@@ -42,15 +51,6 @@ begin
 end
 $$;
 
-create table if not exists public.trainer_directory (
-  id uuid primary key default gen_random_uuid(),
-  full_name text not null,
-  email text,
-  phone text,
-  linked_user_id uuid references public.profiles(user_id) on delete set null,
-  created_at timestamptz not null default now()
-);
-
 create table if not exists public.courses (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -64,6 +64,25 @@ create table if not exists public.courses (
 alter table public.courses
   add column if not exists trainer_directory_id uuid references public.trainer_directory(id) on delete set null;
 
+create table if not exists public.seasons (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  start_date date not null,
+  end_date date not null,
+  status text not null default 'geplant' check (status in ('geplant', 'aktiv', 'abgeschlossen')),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.season_bookings (
+  id uuid primary key default gen_random_uuid(),
+  season_id uuid not null references public.seasons(id) on delete cascade,
+  full_name text not null,
+  phone text,
+  package_type text not null check (package_type in ('1x TRAIN', '2x BEAT', '3x REPEAT')),
+  selected_days text[] not null,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.participants (
   id uuid primary key default gen_random_uuid(),
   course_id uuid not null references public.courses(id) on delete cascade,
@@ -71,6 +90,12 @@ create table if not exists public.participants (
   phone text,
   created_at timestamptz not null default now()
 );
+
+alter table public.participants
+  add column if not exists season_id uuid references public.seasons(id) on delete cascade;
+
+alter table public.participants
+  add column if not exists season_booking_id uuid references public.season_bookings(id) on delete set null;
 
 create table if not exists public.trial_requests (
   id uuid primary key default gen_random_uuid(),
@@ -197,6 +222,8 @@ alter table public.profiles enable row level security;
 alter table public.invite_codes enable row level security;
 alter table public.trainer_directory enable row level security;
 alter table public.courses enable row level security;
+alter table public.seasons enable row level security;
+alter table public.season_bookings enable row level security;
 alter table public.participants enable row level security;
 alter table public.trial_requests enable row level security;
 alter table public.attendance_sessions enable row level security;
@@ -251,6 +278,36 @@ on public.courses
 for select
 to authenticated
 using (public.current_user_role() = 'admin');
+
+drop policy if exists "authenticated can read seasons" on public.seasons;
+create policy "authenticated can read seasons"
+on public.seasons
+for select
+to authenticated
+using (true);
+
+drop policy if exists "admins manage seasons" on public.seasons;
+create policy "admins manage seasons"
+on public.seasons
+for all
+to authenticated
+using (public.current_user_role() = 'admin')
+with check (public.current_user_role() = 'admin');
+
+drop policy if exists "authenticated can read season bookings" on public.season_bookings;
+create policy "authenticated can read season bookings"
+on public.season_bookings
+for select
+to authenticated
+using (true);
+
+drop policy if exists "admins manage season bookings" on public.season_bookings;
+create policy "admins manage season bookings"
+on public.season_bookings
+for all
+to authenticated
+using (public.current_user_role() = 'admin')
+with check (public.current_user_role() = 'admin');
 
 create policy "trainers see assigned courses"
 on public.courses
