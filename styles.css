@@ -520,6 +520,7 @@ button.danger {
 }
 
 .course-card {
+  cursor: pointer;
   text-align: left;
 }
 

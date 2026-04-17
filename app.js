@@ -1228,6 +1228,7 @@ function renderCourseList() {
     const trainer = getCourseTrainerName(course);
     const card = document.createElement("article");
     card.className = `course-card${course.id === state.selectedCourseId ? " active" : ""}`;
+    card.tabIndex = 0;
     card.innerHTML = `
       <div class="course-card-body">
         <h3>${escapeHtml(course.name)}</h3>
@@ -1237,13 +1238,26 @@ function renderCourseList() {
       </div>
     `;
 
+    const openCourse = () => {
+      state.selectedCourseId = course.id;
+      render();
+    };
+
+    card.addEventListener("click", openCourse);
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openCourse();
+      }
+    });
+
     const selectBtn = document.createElement("button");
     selectBtn.type = "button";
     selectBtn.className = "ghost";
     selectBtn.textContent = "Kurs oeffnen";
-    selectBtn.addEventListener("click", () => {
-      state.selectedCourseId = course.id;
-      render();
+    selectBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openCourse();
     });
 
     const actions = document.createElement("div");
@@ -1255,7 +1269,8 @@ function renderCourseList() {
       deleteBtn.type = "button";
       deleteBtn.className = "danger";
       deleteBtn.textContent = "Kurs loeschen";
-      deleteBtn.addEventListener("click", async () => {
+      deleteBtn.addEventListener("click", async (event) => {
+        event.stopPropagation();
         state.selectedCourseId = course.id;
         await handleCourseDelete();
       });
