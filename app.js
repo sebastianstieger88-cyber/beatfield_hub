@@ -59,6 +59,7 @@ const attendanceDate = document.querySelector("#attendanceDate");
 const monthPicker = document.querySelector("#monthPicker");
 const participantSearch = document.querySelector("#participantSearch");
 const trainerSelect = document.querySelector("#trainerSelect");
+const deleteCourseBtn = document.querySelector("#deleteCourseBtn");
 const trainerDirectoryList = document.querySelector("#trainerDirectoryList");
 const trialCourseSelect = document.querySelector("#trialCourseSelect");
 const inviteList = document.querySelector("#inviteList");
@@ -115,6 +116,7 @@ logoutBtn?.addEventListener("click", handleLogout);
 inviteForm?.addEventListener("submit", handleInviteCreate);
 trainerDirectoryForm?.addEventListener("submit", handleTrainerDirectoryCreate);
 courseForm?.addEventListener("submit", handleCourseCreate);
+deleteCourseBtn?.addEventListener("click", handleCourseDelete);
 participantForm?.addEventListener("submit", handleParticipantCreate);
 trialForm?.addEventListener("submit", handleTrialCreate);
 attendanceDate?.addEventListener("change", render);
@@ -633,6 +635,76 @@ async function handleCourseCreate(event) {
   notify("Kurs gespeichert.");
 }
 
+async function handleCourseDelete() {
+  if (!isAdmin()) {
+    return;
+  }
+
+  const course = getSelectedCourse();
+  if (!course) {
+    notify("Bitte zuerst einen Kurs auswaehlen.", true);
+    return;
+  }
+
+  if (state.isOffline) {
+    notify("Kurse koennen nur online geloescht werden.", true);
+    return;
+  }
+
+  const confirmed = window.confirm(`Soll der Kurs "${course.name}" wirklich geloescht werden? Teilnehmer, Termine und Anwesenheiten dieses Kurses gehen dabei verloren.`);
+  if (!confirmed) {
+    return;
+  }
+
+  const { error } = await state.supabase
+    .from("courses")
+    .delete()
+    .eq("id", course.id);
+
+  if (error) {
+    notify(getFriendlySupabaseMessage(error, "Kurs konnte nicht geloescht werden."), true);
+    return;
+  }
+
+  await fetchVisibleCourses();
+  await fetchSupportData();
+  persistOfflineCache();
+  render();
+  notify(`Kurs "${course.name}" wurde geloescht.`);
+}
+
+async function handleTrainerDirectoryDelete(entry) {
+  if (!isAdmin() || !entry || entry.linked_user_id) {
+    return;
+  }
+
+  if (state.isOffline) {
+    notify("Trainer koennen nur online geloescht werden.", true);
+    return;
+  }
+
+  const confirmed = window.confirm(`Soll der Trainer "${entry.full_name}" wirklich geloescht werden? Kurszuweisungen dieses manuellen Eintrags werden dabei entfernt.`);
+  if (!confirmed) {
+    return;
+  }
+
+  const { error } = await state.supabase
+    .from("trainer_directory")
+    .delete()
+    .eq("id", entry.id);
+
+  if (error) {
+    notify(getFriendlySupabaseMessage(error, "Trainer konnte nicht geloescht werden."), true);
+    return;
+  }
+
+  await fetchVisibleCourses();
+  await fetchSupportData();
+  persistOfflineCache();
+  render();
+  notify(`Trainer "${entry.full_name}" wurde geloescht.`);
+}
+
 async function handleParticipantCreate(event) {
   event.preventDefault();
 
@@ -746,6 +818,9 @@ function render() {
   sessionName.textContent = state.profile?.full_name || "-";
   sessionRole.textContent = state.profile?.role || "-";
   sessionMode.textContent = state.profile?.role === "trainer" ? "Heute zuerst" : state.profile?.role === "admin" ? "Gesamtuebersicht" : "-";
+  if (deleteCourseBtn) {
+    deleteCourseBtn.disabled = !isAdmin() || !state.selectedCourseId;
+  }
 
   renderTrainerSelect();
   renderTrainerDirectory();
@@ -946,6 +1021,26 @@ function renderTrainerDirectory() {
       });
 
       actions.appendChild(regenerateBtn);
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "danger";
+      deleteBtn.textContent = "Trainer loeschen";
+      deleteBtn.addEventListener("click", async () => {
+        await handleTrainerDirectoryDelete(entry);
+      });
+      actions.appendChild(deleteBtn);
+      card.appendChild(actions);
+    } else if (!entry.linked_user_id) {
+      const actions = document.createElement("div");
+      actions.className = "stat-card-actions";
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "danger";
+      deleteBtn.textContent = "Trainer loeschen";
+      deleteBtn.addEventListener("click", async () => {
+        await handleTrainerDirectoryDelete(entry);
+      });
+      actions.appendChild(deleteBtn);
       card.appendChild(actions);
     }
 

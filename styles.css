@@ -315,6 +315,12 @@ label span,
   gap: 14px;
 }
 
+.form-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .auth-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -675,6 +681,10 @@ th {
   .trainer-form,
   .trainer-directory-form {
     grid-template-columns: 1fr;
+  }
+
+  .form-actions {
+    display: grid;
   }
 
   .wide {
