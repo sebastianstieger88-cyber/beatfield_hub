@@ -11,6 +11,7 @@ const state = {
   profile: null,
   courses: [],
   trainers: [],
+  trainerDirectory: [],
   invites: [],
   participants: [],
   trialRequests: [],
@@ -46,6 +47,7 @@ const resetForm = document.querySelector("#resetForm");
 const updatePasswordForm = document.querySelector("#updatePasswordForm");
 const logoutBtn = document.querySelector("#logoutBtn");
 const inviteForm = document.querySelector("#inviteForm");
+const trainerDirectoryForm = document.querySelector("#trainerDirectoryForm");
 const courseForm = document.querySelector("#courseForm");
 const participantForm = document.querySelector("#participantForm");
 const trialForm = document.querySelector("#trialForm");
@@ -57,6 +59,7 @@ const attendanceDate = document.querySelector("#attendanceDate");
 const monthPicker = document.querySelector("#monthPicker");
 const participantSearch = document.querySelector("#participantSearch");
 const trainerSelect = document.querySelector("#trainerSelect");
+const trainerDirectoryList = document.querySelector("#trainerDirectoryList");
 const trialCourseSelect = document.querySelector("#trialCourseSelect");
 const inviteList = document.querySelector("#inviteList");
 const courseList = document.querySelector("#courseList");
@@ -105,6 +108,7 @@ resetForm.addEventListener("submit", handleReset);
 updatePasswordForm.addEventListener("submit", handleUpdatePassword);
 logoutBtn.addEventListener("click", handleLogout);
 inviteForm.addEventListener("submit", handleInviteCreate);
+trainerDirectoryForm.addEventListener("submit", handleTrainerDirectoryCreate);
 courseForm.addEventListener("submit", handleCourseCreate);
 participantForm.addEventListener("submit", handleParticipantCreate);
 trialForm.addEventListener("submit", handleTrialCreate);
@@ -231,7 +235,7 @@ async function fetchProfile() {
 async function fetchVisibleCourses() {
   let query = state.supabase
     .from("courses")
-    .select("id, name, location, weekday, time, trainer_id")
+    .select("id, name, location, weekday, time, trainer_id, trainer_directory_id")
     .order("weekday")
     .order("time");
 
@@ -262,10 +266,15 @@ async function fetchSupportData() {
     .in("role", ["admin", "trainer"])
     .order("full_name");
 
+  const trainerDirectoryQuery = state.supabase
+    .from("trainer_directory")
+    .select("id, full_name, email, phone, linked_user_id")
+    .order("full_name");
+
   const inviteQuery = isAdmin()
     ? state.supabase
       .from("invite_codes")
-      .select("id, code, role, active, used_at")
+      .select("id, code, role, active, used_at, created_at, invited_email, trainer_directory_id")
       .order("created_at", { ascending: false })
     : Promise.resolve({ data: [], error: null });
 
@@ -293,8 +302,9 @@ async function fetchSupportData() {
       .order("created_at", { ascending: false })
     : Promise.resolve({ data: [], error: null });
 
-  const [trainerResult, inviteResult, participantResult, sessionResult, trialResult] = await Promise.all([
+  const [trainerResult, trainerDirectoryResult, inviteResult, participantResult, sessionResult, trialResult] = await Promise.all([
     trainerQuery,
+    trainerDirectoryQuery,
     inviteQuery,
     participantsQuery,
     sessionsQuery,
@@ -303,6 +313,9 @@ async function fetchSupportData() {
 
   if (trainerResult.error) {
     notify(trainerResult.error.message, true);
+  }
+  if (trainerDirectoryResult.error) {
+    notify(trainerDirectoryResult.error.message, true);
   }
   if (inviteResult.error) {
     notify(inviteResult.error.message, true);
@@ -318,6 +331,7 @@ async function fetchSupportData() {
   }
 
   state.trainers = trainerResult.data || [];
+  state.trainerDirectory = trainerDirectoryResult.data || [];
   state.invites = inviteResult.data || [];
   state.participants = participantResult.data || [];
   state.sessions = sessionResult.data || [];
@@ -479,6 +493,105 @@ async function handleInviteCreate(event) {
   notify(`Einladungscode ${code} wurde erstellt.`);
 }
 
+async function handleTrainerDirectoryCreate(event) {
+  event.preventDefault();
+
+  if (!isAdmin()) {
+    return;
+  }
+
+  const formData = new FormData(trainerDirectoryForm);
+  const fullName = String(formData.get("fullName")).trim();
+  const email = String(formData.get("email")).trim().toLowerCase();
+  const phone = String(formData.get("phone")).trim();
+  const prepareLogin = formData.get("prepareLogin") === "on";
+
+  if (prepareLogin && !email) {
+    notify("Bitte eine E-Mail eintragen, wenn direkt ein Trainerzugang vorbereitet werden soll.", true);
+    return;
+  }
+
+  if (email && state.trainerDirectory.some((entry) => String(entry.email || "").trim().toLowerCase() === email)) {
+    notify("Zu dieser E-Mail gibt es bereits einen Trainer-Eintrag.", true);
+    return;
+  }
+
+  const trainerInsertResult = await state.supabase
+    .from("trainer_directory")
+    .insert({
+      full_name: fullName,
+      email: email || null,
+      phone: phone || null,
+    })
+    .select("id")
+    .single();
+
+  if (trainerInsertResult.error) {
+    notify(trainerInsertResult.error.message, true);
+    return;
+  }
+
+  const trainerDirectoryId = trainerInsertResult.data.id;
+
+  let inviteCode = null;
+  if (prepareLogin) {
+    inviteCode = generateInviteCode();
+    const inviteResult = await state.supabase
+      .from("invite_codes")
+      .insert({
+        code: inviteCode,
+        role: "trainer",
+        created_by: state.session.user.id,
+        invited_email: email,
+        trainer_directory_id: trainerDirectoryId,
+      });
+
+    if (inviteResult.error) {
+      notify(`Trainer wurde eingetragen, aber der Zugangscode konnte nicht erstellt werden: ${inviteResult.error.message}`, true);
+      await fetchSupportData();
+      render();
+      return;
+    }
+  }
+
+  trainerDirectoryForm.reset();
+  await fetchSupportData();
+  if (inviteCode) {
+    showInviteOutput(inviteCode);
+  }
+  render();
+  notify(inviteCode
+    ? `Trainer eingetragen und Zugang vorbereitet fuer ${email}.`
+    : "Trainer wurde eingetragen.");
+}
+
+async function handleTrainerInviteRegenerate(entry) {
+  if (!isAdmin() || !entry?.email) {
+    return;
+  }
+
+  const inviteCode = generateInviteCode();
+  const inviteResult = await state.supabase
+    .from("invite_codes")
+    .insert({
+      code: inviteCode,
+      role: "trainer",
+      created_by: state.session.user.id,
+      invited_email: String(entry.email).trim().toLowerCase(),
+      trainer_directory_id: entry.id,
+    });
+
+  if (inviteResult.error) {
+    notify(inviteResult.error.message, true);
+    return;
+  }
+
+  await fetchSupportData();
+  showInviteOutput(inviteCode);
+  render();
+  notify(`Neuer Trainerzugang fuer ${entry.email} wurde vorbereitet.`);
+}
+
 async function handleCourseCreate(event) {
   event.preventDefault();
 
@@ -487,6 +600,7 @@ async function handleCourseCreate(event) {
   }
 
   const formData = new FormData(courseForm);
+  const trainerSelection = parseTrainerSelection(formData.get("trainerId"));
   const { data, error } = await state.supabase
     .from("courses")
     .insert({
@@ -494,7 +608,8 @@ async function handleCourseCreate(event) {
       location: String(formData.get("location")).trim(),
       weekday: String(formData.get("weekday")).trim(),
       time: String(formData.get("time")).trim() || null,
-      trainer_id: String(formData.get("trainerId")) || null,
+      trainer_id: trainerSelection.trainerId,
+      trainer_directory_id: trainerSelection.directoryId,
     })
     .select("id")
     .single();
@@ -548,10 +663,15 @@ async function handleTrialCreate(event) {
   }
 
   const formData = new FormData(trialForm);
+  const courseId = normalizeOptionalId(formData.get("courseId"));
+  if (!courseId) {
+    notify("Bitte zuerst einen gueltigen Kurs fuer das Probetraining auswaehlen.", true);
+    return;
+  }
   const { error } = await state.supabase
     .from("trial_requests")
     .insert({
-      course_id: String(formData.get("courseId")),
+      course_id: courseId,
       full_name: String(formData.get("fullName")).trim(),
       email: String(formData.get("email")).trim(),
       phone: String(formData.get("phone")).trim(),
@@ -622,6 +742,7 @@ function render() {
   sessionMode.textContent = state.profile?.role === "trainer" ? "Heute zuerst" : state.profile?.role === "admin" ? "Gesamtuebersicht" : "-";
 
   renderTrainerSelect();
+  renderTrainerDirectory();
   renderTrialCourseSelect();
   renderInvites();
   renderTrials();
@@ -748,11 +869,68 @@ function renderPlanning() {
 function renderTrainerSelect() {
   trainerSelect.innerHTML = "";
 
+  const emptyOption = document.createElement("option");
+  emptyOption.value = "";
+  emptyOption.textContent = "Nicht zugewiesen";
+  trainerSelect.appendChild(emptyOption);
+
   state.trainers.forEach((trainer) => {
     const option = document.createElement("option");
-    option.value = trainer.user_id;
+    option.value = `auth:${trainer.user_id}`;
     option.textContent = `${trainer.full_name} (${trainer.role})`;
     trainerSelect.appendChild(option);
+  });
+
+  state.trainerDirectory
+    .filter((entry) => !entry.linked_user_id)
+    .forEach((entry) => {
+      const option = document.createElement("option");
+      option.value = `directory:${entry.id}`;
+      option.textContent = `${entry.full_name} (manuell)`;
+      trainerSelect.appendChild(option);
+    });
+}
+
+function renderTrainerDirectory() {
+  trainerDirectoryList.innerHTML = "";
+
+  if (!isAdmin()) {
+    return;
+  }
+
+  if (!state.trainerDirectory.length) {
+    trainerDirectoryList.appendChild(emptyStateTemplate.content.cloneNode(true));
+    return;
+  }
+
+  state.trainerDirectory.forEach((entry) => {
+    const accessState = getTrainerAccessState(entry);
+    const card = document.createElement("article");
+    card.className = "stat-card";
+    card.innerHTML = `
+      <h3>${escapeHtml(entry.full_name)}</h3>
+      <p class="stat-meta">${entry.email ? escapeHtml(entry.email) : "Keine E-Mail"}</p>
+      <p class="stat-meta">${entry.phone ? escapeHtml(entry.phone) : "Keine Telefonnummer"}</p>
+      <p class="stat-meta">Status: ${escapeHtml(accessState.label)}</p>
+    `;
+
+    if (!entry.linked_user_id && entry.email) {
+      const actions = document.createElement("div");
+      actions.className = "stat-card-actions";
+
+      const regenerateBtn = document.createElement("button");
+      regenerateBtn.type = "button";
+      regenerateBtn.className = "ghost";
+      regenerateBtn.textContent = "Zugang neu erzeugen";
+      regenerateBtn.addEventListener("click", async () => {
+        await handleTrainerInviteRegenerate(entry);
+      });
+
+      actions.appendChild(regenerateBtn);
+      card.appendChild(actions);
+    }
+
+    trainerDirectoryList.appendChild(card);
   });
 }
 
@@ -933,7 +1111,7 @@ function renderCourseList() {
   }
 
   state.courses.forEach((course) => {
-    const trainer = getTrainerName(course.trainer_id);
+    const trainer = getCourseTrainerName(course);
     const card = document.createElement("button");
     card.type = "button";
     card.className = `course-card${course.id === state.selectedCourseId ? " active" : ""}`;
@@ -1071,7 +1249,7 @@ function renderStats() {
       <h3>${escapeHtml(course.name)}</h3>
       <p class="stat-meta">${courseParticipants.length} Teilnehmer</p>
       <p class="stat-meta">${courseSessions.length} dokumentierte Termine</p>
-      <p class="stat-meta">Trainer: ${escapeHtml(getTrainerName(course.trainer_id))}</p>
+      <p class="stat-meta">Trainer: ${escapeHtml(getCourseTrainerName(course))}</p>
       <p class="hero-stat">${average}%</p>
       <p class="stat-meta">durchschnittliche Anwesenheit</p>
     `;
@@ -1097,7 +1275,11 @@ function renderBusinessDashboard() {
   const totalMarked = presentRecords + absentRecords;
   const noShowRate = totalMarked ? Math.round((absentRecords / totalMarked) * 100) : 0;
   const avgAttendance = totalMarked ? Math.round((presentRecords / totalMarked) * 100) : 0;
-  const activeTrainerIds = new Set(state.courses.map((course) => course.trainer_id).filter(Boolean));
+  const activeTrainerIds = new Set(
+    state.courses
+      .map((course) => getCourseTrainerKey(course))
+      .filter(Boolean),
+  );
   const newParticipantsThisMonth = state.participants.filter((participant) => {
     return String(participant.created_at || "").startsWith(selectedMonth);
   }).length;
@@ -1447,7 +1629,7 @@ function exportMonthlyReportCsv() {
       rows.push([
         getSelectedMonthLabel(),
         course?.name || "-",
-        getTrainerName(course?.trainer_id),
+        getCourseTrainerName(course),
         session.session_date,
         participant.full_name,
         record?.present ? "Ja" : "Nein",
@@ -1484,8 +1666,10 @@ function exportLeaderboardCsv() {
 function exportTrainerReportCsv() {
   const rows = [["Trainer", "Kurse", "Termine", "Teilnehmer", "Durchschnitt"]];
 
-  state.trainers.forEach((trainer) => {
-    const trainerCourses = state.courses.filter((course) => course.trainer_id === trainer.user_id);
+  const trainerSummaries = getTrainerSummaries();
+
+  trainerSummaries.forEach((trainer) => {
+    const trainerCourses = state.courses.filter((course) => getCourseTrainerKey(course) === trainer.key);
     const trainerSessions = trainerCourses.flatMap((course) => getSessionsForCourse(course.id));
     const trainerParticipants = trainerCourses.flatMap((course) => getParticipantsForCourse(course.id));
     const trainerRecords = state.records.filter((record) => trainerSessions.some((session) => session.id === record.session_id));
@@ -1494,7 +1678,7 @@ function exportTrainerReportCsv() {
       : 0;
 
     rows.push([
-      trainer.full_name,
+      trainer.name,
       trainerCourses.length,
       trainerSessions.length,
       trainerParticipants.length,
@@ -1569,6 +1753,78 @@ function getRecordsForSession(sessionId) {
 
 function getTrainerName(trainerId) {
   return state.trainers.find((trainer) => trainer.user_id === trainerId)?.full_name || "Nicht zugewiesen";
+}
+
+function getTrainerDirectoryName(directoryId) {
+  return state.trainerDirectory.find((entry) => entry.id === directoryId)?.full_name || "Nicht zugewiesen";
+}
+
+function getCourseTrainerName(course) {
+  if (!course) {
+    return "Nicht zugewiesen";
+  }
+
+  if (course.trainer_id) {
+    return getTrainerName(course.trainer_id);
+  }
+
+  if (course.trainer_directory_id) {
+    return getTrainerDirectoryName(course.trainer_directory_id);
+  }
+
+  return "Nicht zugewiesen";
+}
+
+function getCourseTrainerKey(course) {
+  if (!course) {
+    return null;
+  }
+
+  if (course.trainer_id) {
+    return `auth:${course.trainer_id}`;
+  }
+
+  if (course.trainer_directory_id) {
+    return `directory:${course.trainer_directory_id}`;
+  }
+
+  return null;
+}
+
+function getLatestInviteForTrainer(entry) {
+  if (!entry) {
+    return null;
+  }
+
+  const normalizedEmail = String(entry.email || "").trim().toLowerCase();
+  return state.invites.find((invite) => {
+    const inviteEmail = String(invite.invited_email || "").trim().toLowerCase();
+    return invite.trainer_directory_id === entry.id
+      || (normalizedEmail && inviteEmail === normalizedEmail);
+  }) || null;
+}
+
+function getTrainerAccessState(entry) {
+  if (!entry) {
+    return { label: "Unbekannt" };
+  }
+
+  if (entry.linked_user_id) {
+    return { label: "Registriert" };
+  }
+
+  const latestInvite = getLatestInviteForTrainer(entry);
+  if (latestInvite?.active) {
+    return {
+      label: `Einladung offen (${latestInvite.code})`,
+    };
+  }
+
+  if (entry.email) {
+    return { label: "Noch kein Zugang vorbereitet" };
+  }
+
+  return { label: "Manuell ohne E-Mail" };
 }
 
 function getSelectedMonth() {
@@ -1690,9 +1946,9 @@ function getWeakestCourseByAttendance() {
 }
 
 function getTopTrainerByAttendance() {
-  const ranked = state.trainers
+  const ranked = getTrainerSummaries()
     .map((trainer) => {
-      const trainerCourses = state.courses.filter((course) => course.trainer_id === trainer.user_id);
+      const trainerCourses = state.courses.filter((course) => getCourseTrainerKey(course) === trainer.key);
       if (!trainerCourses.length) {
         return null;
       }
@@ -1706,7 +1962,7 @@ function getTopTrainerByAttendance() {
       }
 
       return {
-        name: trainer.full_name,
+        name: trainer.name,
         rate: Math.round(averages.reduce((sum, value) => sum + value, 0) / averages.length),
       };
     })
@@ -1768,6 +2024,7 @@ function resetProtectedState() {
   state.profile = null;
   state.courses = [];
   state.trainers = [];
+  state.trainerDirectory = [];
   state.invites = [];
   state.participants = [];
   state.trialRequests = [];
@@ -1976,6 +2233,7 @@ function persistOfflineCache() {
     profile: state.profile,
     courses: state.courses,
     trainers: state.trainers,
+    trainerDirectory: state.trainerDirectory,
     invites: state.invites,
     participants: state.participants,
     trialRequests: state.trialRequests,
@@ -1997,6 +2255,7 @@ function hydrateFromOfflineCache() {
     state.profile = cached.profile || state.profile;
     state.courses = Array.isArray(cached.courses) ? cached.courses : [];
     state.trainers = Array.isArray(cached.trainers) ? cached.trainers : [];
+    state.trainerDirectory = Array.isArray(cached.trainerDirectory) ? cached.trainerDirectory : [];
     state.invites = Array.isArray(cached.invites) ? cached.invites : [];
     state.participants = Array.isArray(cached.participants) ? cached.participants : [];
     state.trialRequests = Array.isArray(cached.trialRequests) ? cached.trialRequests : [];
@@ -2101,6 +2360,61 @@ function getCurrentMonth() {
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   return `${year}-${month}`;
+}
+
+function normalizeOptionalId(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const normalized = String(value).trim();
+  if (!normalized || normalized.toLowerCase() === "null" || normalized.toLowerCase() === "undefined") {
+    return null;
+  }
+
+  return normalized;
+}
+
+function parseTrainerSelection(value) {
+  const normalized = normalizeOptionalId(value);
+  if (!normalized) {
+    return { trainerId: null, directoryId: null };
+  }
+
+  if (normalized.startsWith("auth:")) {
+    return {
+      trainerId: normalized.replace("auth:", ""),
+      directoryId: null,
+    };
+  }
+
+  if (normalized.startsWith("directory:")) {
+    return {
+      trainerId: null,
+      directoryId: normalized.replace("directory:", ""),
+    };
+  }
+
+  return {
+    trainerId: normalized,
+    directoryId: null,
+  };
+}
+
+function getTrainerSummaries() {
+  const authSummaries = state.trainers.map((trainer) => ({
+    key: `auth:${trainer.user_id}`,
+    name: trainer.full_name,
+  }));
+
+  const manualSummaries = state.trainerDirectory
+    .filter((entry) => !entry.linked_user_id)
+    .map((entry) => ({
+      key: `directory:${entry.id}`,
+      name: entry.full_name,
+    }));
+
+  return [...authSummaries, ...manualSummaries];
 }
 
 function getCurrentMinutes() {

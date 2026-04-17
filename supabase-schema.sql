@@ -14,8 +14,41 @@ create table if not exists public.invite_codes (
   active boolean not null default true,
   created_by uuid references public.profiles(user_id) on delete set null,
   used_by uuid references public.profiles(user_id) on delete set null,
+  invited_email text,
+  trainer_directory_id uuid,
   created_at timestamptz not null default now(),
   used_at timestamptz
+);
+
+alter table public.invite_codes
+  add column if not exists invited_email text;
+
+alter table public.invite_codes
+  add column if not exists trainer_directory_id uuid;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'invite_codes_trainer_directory_id_fkey'
+  ) then
+    alter table public.invite_codes
+      add constraint invite_codes_trainer_directory_id_fkey
+      foreign key (trainer_directory_id)
+      references public.trainer_directory(id)
+      on delete set null;
+  end if;
+end
+$$;
+
+create table if not exists public.trainer_directory (
+  id uuid primary key default gen_random_uuid(),
+  full_name text not null,
+  email text,
+  phone text,
+  linked_user_id uuid references public.profiles(user_id) on delete set null,
+  created_at timestamptz not null default now()
 );
 
 create table if not exists public.courses (
@@ -27,6 +60,9 @@ create table if not exists public.courses (
   trainer_id uuid references public.profiles(user_id) on delete set null,
   created_at timestamptz not null default now()
 );
+
+alter table public.courses
+  add column if not exists trainer_directory_id uuid references public.trainer_directory(id) on delete set null;
 
 create table if not exists public.participants (
   id uuid primary key default gen_random_uuid(),
@@ -85,6 +121,8 @@ declare
   resolved_role text := 'pending';
   invite_role text;
   invite_id uuid;
+  invite_trainer_directory_id uuid;
+  linked_trainer_directory_id uuid;
   profile_count integer;
 begin
   select count(*) into profile_count from public.profiles;
@@ -92,8 +130,8 @@ begin
   if profile_count = 0 then
     resolved_role := 'admin';
   elsif coalesce(new.raw_user_meta_data ->> 'invite_code', '') <> '' then
-    select id, role
-    into invite_id, invite_role
+    select id, role, trainer_directory_id
+    into invite_id, invite_role, invite_trainer_directory_id
     from public.invite_codes
     where code = new.raw_user_meta_data ->> 'invite_code'
       and active = true
@@ -120,6 +158,32 @@ begin
     where id = invite_id;
   end if;
 
+  update public.trainer_directory
+  set linked_user_id = new.id
+  where id = (
+    select id
+    from public.trainer_directory
+    where linked_user_id is null
+      and (
+        (invite_trainer_directory_id is not null and id = invite_trainer_directory_id)
+        or (
+          invite_trainer_directory_id is null
+          and email is not null
+          and lower(email) = lower(new.email)
+        )
+      )
+    order by created_at desc
+    limit 1
+  )
+  returning id into linked_trainer_directory_id;
+
+  if linked_trainer_directory_id is not null then
+    update public.courses
+    set trainer_id = new.id
+    where trainer_directory_id = linked_trainer_directory_id
+      and trainer_id is null;
+  end if;
+
   return new;
 end;
 $$;
@@ -131,6 +195,7 @@ for each row execute procedure public.handle_new_user();
 
 alter table public.profiles enable row level security;
 alter table public.invite_codes enable row level security;
+alter table public.trainer_directory enable row level security;
 alter table public.courses enable row level security;
 alter table public.participants enable row level security;
 alter table public.trial_requests enable row level security;
@@ -161,6 +226,21 @@ with check (public.current_user_role() = 'admin');
 
 create policy "admin manage invite codes"
 on public.invite_codes
+for all
+to authenticated
+using (public.current_user_role() = 'admin')
+with check (public.current_user_role() = 'admin');
+
+drop policy if exists "authenticated can read trainer directory" on public.trainer_directory;
+create policy "authenticated can read trainer directory"
+on public.trainer_directory
+for select
+to authenticated
+using (true);
+
+drop policy if exists "admins manage trainer directory" on public.trainer_directory;
+create policy "admins manage trainer directory"
+on public.trainer_directory
 for all
 to authenticated
 using (public.current_user_role() = 'admin')

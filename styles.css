@@ -410,6 +410,31 @@ button.danger {
   grid-template-columns: 1.3fr 1.1fr 1fr 1.1fr auto;
 }
 
+.trainer-directory-form {
+  grid-template-columns: 1.3fr 1.1fr 1fr 0.95fr auto;
+}
+
+.checkbox-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 100%;
+  padding: 14px 16px;
+  border: 1px solid rgba(103, 193, 47, 0.14);
+  border-radius: 16px;
+  background: #0e0e0e;
+}
+
+.checkbox-line input {
+  width: auto;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.checkbox-line span {
+  color: var(--text);
+}
+
 .trial-actions {
   display: flex;
   gap: 10px;
@@ -464,6 +489,12 @@ button.danger {
 }
 
 .participant-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
+.stat-card-actions {
   display: flex;
   justify-content: flex-end;
   margin-top: 14px;
@@ -641,7 +672,8 @@ th {
   .grid,
   .auth-grid,
   .inline-form,
-  .trainer-form {
+  .trainer-form,
+  .trainer-directory-form {
     grid-template-columns: 1fr;
   }
 
