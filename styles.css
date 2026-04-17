@@ -208,6 +208,20 @@ a {
   gap: 10px;
 }
 
+.version-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(103, 193, 47, 0.14);
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .brand-logo {
   width: min(440px, 100%);
   max-height: 150px;
@@ -390,6 +404,24 @@ button.danger {
 .report-actions {
   display: grid;
   gap: 14px;
+}
+
+.trial-form {
+  grid-template-columns: 1.3fr 1.1fr 1fr 1.1fr auto;
+}
+
+.trial-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.today-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
 }
 
 .planning-actions {
@@ -640,6 +672,14 @@ th {
 
   .planning-actions {
     display: grid;
+  }
+
+  .today-actions {
+    display: grid;
+  }
+
+  .trial-form {
+    grid-template-columns: 1fr;
   }
 
   .mobile-quickbar button {

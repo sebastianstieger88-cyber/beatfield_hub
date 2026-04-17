@@ -28,6 +28,7 @@
           <summary><span class="nav-icon">◆</span><span>Organisation</span></summary>
           <div class="nav-submenu">
             <a href="#todayPanel">Heute</a>
+            <a href="#trialsPanel">Probetraining</a>
             <a href="#coursePanel">Kurse</a>
             <a href="#courseListPanel">Kursliste</a>
             <a href="#planningPanel">Planung</a>
@@ -245,7 +246,7 @@
       <section class="panel hidden" id="todayPanel">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">Version 2</p>
+            <p class="eyebrow">Version 3</p>
             <h2>Heute im Blick</h2>
           </div>
         </div>
@@ -254,6 +255,35 @@
           <button id="jumpToTodayBtn" type="button" class="primary">Heute oeffnen</button>
           <button id="focusNextCourseBtn" type="button" class="ghost">Naechsten Kurs fokussieren</button>
         </div>
+      </section>
+
+      <section class="panel wide hidden" id="trialsPanel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Version 3</p>
+            <h2>Probetraining & Conversion</h2>
+          </div>
+        </div>
+        <form id="trialForm" class="stack inline-form trial-form">
+          <label>
+            <span>Name</span>
+            <input name="fullName" type="text" placeholder="Vor- und Nachname" required>
+          </label>
+          <label>
+            <span>E-Mail</span>
+            <input name="email" type="email" placeholder="max@beispiel.de">
+          </label>
+          <label>
+            <span>Telefon</span>
+            <input name="phone" type="tel" placeholder="Optional">
+          </label>
+          <label>
+            <span>Kurs</span>
+            <select name="courseId" id="trialCourseSelect"></select>
+          </label>
+          <button type="submit" class="primary">Probetraining anlegen</button>
+        </form>
+        <div id="trialCards" class="stats-grid"></div>
       </section>
 
       <section class="panel hidden" id="courseListPanel">

@@ -13,6 +13,7 @@ const state = {
   trainers: [],
   invites: [],
   participants: [],
+  trialRequests: [],
   sessions: [],
   records: [],
   selectedCourseId: null,
@@ -25,6 +26,7 @@ const setupNotice = document.querySelector("#setupNotice");
 const authPanel = document.querySelector("#authPanel");
 const sessionPanel = document.querySelector("#sessionPanel");
 const adminPanel = document.querySelector("#adminPanel");
+const trialsPanel = document.querySelector("#trialsPanel");
 const coursePanel = document.querySelector("#coursePanel");
 const todayPanel = document.querySelector("#todayPanel");
 const courseListPanel = document.querySelector("#courseListPanel");
@@ -46,6 +48,7 @@ const logoutBtn = document.querySelector("#logoutBtn");
 const inviteForm = document.querySelector("#inviteForm");
 const courseForm = document.querySelector("#courseForm");
 const participantForm = document.querySelector("#participantForm");
+const trialForm = document.querySelector("#trialForm");
 const inviteOutput = document.querySelector("#inviteOutput");
 const inviteOutputCode = document.querySelector("#inviteOutputCode");
 const inviteOutputLink = document.querySelector("#inviteOutputLink");
@@ -54,8 +57,10 @@ const attendanceDate = document.querySelector("#attendanceDate");
 const monthPicker = document.querySelector("#monthPicker");
 const participantSearch = document.querySelector("#participantSearch");
 const trainerSelect = document.querySelector("#trainerSelect");
+const trialCourseSelect = document.querySelector("#trialCourseSelect");
 const inviteList = document.querySelector("#inviteList");
 const courseList = document.querySelector("#courseList");
+const trialCards = document.querySelector("#trialCards");
 const planningPreview = document.querySelector("#planningPreview");
 const planNextBtn = document.querySelector("#planNextBtn");
 const planMonthBtn = document.querySelector("#planMonthBtn");
@@ -102,6 +107,7 @@ logoutBtn.addEventListener("click", handleLogout);
 inviteForm.addEventListener("submit", handleInviteCreate);
 courseForm.addEventListener("submit", handleCourseCreate);
 participantForm.addEventListener("submit", handleParticipantCreate);
+trialForm.addEventListener("submit", handleTrialCreate);
 attendanceDate.addEventListener("change", render);
 monthPicker.addEventListener("change", render);
 participantSearch.addEventListener("input", () => {
@@ -279,11 +285,20 @@ async function fetchSupportData() {
       .order("session_date")
     : Promise.resolve({ data: [], error: null });
 
-  const [trainerResult, inviteResult, participantResult, sessionResult] = await Promise.all([
+  const trialsQuery = courseIds.length
+    ? state.supabase
+      .from("trial_requests")
+      .select("id, course_id, full_name, email, phone, status, notes, created_at, converted_participant_id")
+      .in("course_id", courseIds)
+      .order("created_at", { ascending: false })
+    : Promise.resolve({ data: [], error: null });
+
+  const [trainerResult, inviteResult, participantResult, sessionResult, trialResult] = await Promise.all([
     trainerQuery,
     inviteQuery,
     participantsQuery,
     sessionsQuery,
+    trialsQuery,
   ]);
 
   if (trainerResult.error) {
@@ -298,11 +313,15 @@ async function fetchSupportData() {
   if (sessionResult.error) {
     notify(sessionResult.error.message, true);
   }
+  if (trialResult.error) {
+    notify(trialResult.error.message, true);
+  }
 
   state.trainers = trainerResult.data || [];
   state.invites = inviteResult.data || [];
   state.participants = participantResult.data || [];
   state.sessions = sessionResult.data || [];
+  state.trialRequests = trialResult.data || [];
 
   const sessionIds = state.sessions.map((session) => session.id);
   if (!sessionIds.length) {
@@ -521,6 +540,35 @@ async function handleParticipantCreate(event) {
   notify("Teilnehmer hinzugefuegt.");
 }
 
+async function handleTrialCreate(event) {
+  event.preventDefault();
+
+  if (!state.supabase) {
+    return;
+  }
+
+  const formData = new FormData(trialForm);
+  const { error } = await state.supabase
+    .from("trial_requests")
+    .insert({
+      course_id: String(formData.get("courseId")),
+      full_name: String(formData.get("fullName")).trim(),
+      email: String(formData.get("email")).trim(),
+      phone: String(formData.get("phone")).trim(),
+      status: "angefragt",
+    });
+
+  if (error) {
+    notify(error.message, true);
+    return;
+  }
+
+  trialForm.reset();
+  await fetchSupportData();
+  render();
+  notify("Probetraining angelegt.");
+}
+
 function render() {
   const connected = Boolean(state.supabase);
   const loggedIn = Boolean(state.session && state.profile);
@@ -531,6 +579,7 @@ function render() {
   sessionPanel.classList.toggle("hidden", !loggedIn);
   updatePasswordForm.classList.toggle("hidden", !loggedIn || !recoveryMode);
   adminPanel.classList.toggle("hidden", !loggedIn || !isAdmin());
+  trialsPanel.classList.toggle("hidden", !appUnlocked);
   todayPanel.classList.toggle("hidden", !appUnlocked);
   coursePanel.classList.toggle("hidden", !loggedIn || !isAdmin());
   courseListPanel.classList.toggle("hidden", !appUnlocked);
@@ -573,7 +622,9 @@ function render() {
   sessionMode.textContent = state.profile?.role === "trainer" ? "Heute zuerst" : state.profile?.role === "admin" ? "Gesamtuebersicht" : "-";
 
   renderTrainerSelect();
+  renderTrialCourseSelect();
   renderInvites();
+  renderTrials();
   renderTodayDashboard();
   renderCourseList();
   renderPlanning();
@@ -611,6 +662,7 @@ function renderTodayDashboard() {
   const todaySessionIds = new Set(todaySessions.map((session) => session.id));
   const todayRecords = state.records.filter((record) => todaySessionIds.has(record.session_id));
   const nextCourse = getNextCourseForToday();
+  const openTrials = state.trialRequests.filter((trial) => trial.status !== "konvertiert" && trial.status !== "abgesagt").length;
 
   const items = [
     {
@@ -627,6 +679,11 @@ function renderTodayDashboard() {
       title: "Offene Offline-Aktionen",
       value: state.pendingActions.length,
       meta: state.isOffline ? "werden spaeter synchronisiert" : "bereit",
+    },
+    {
+      title: "Offene Probetrainings",
+      value: openTrials,
+      meta: "aktuelle Conversion-Chancen",
     },
     {
       title: "Naechster Fokus",
@@ -724,6 +781,56 @@ function renderInvites() {
   });
 }
 
+function renderTrialCourseSelect() {
+  trialCourseSelect.innerHTML = "";
+
+  state.courses.forEach((course) => {
+    const option = document.createElement("option");
+    option.value = course.id;
+    option.textContent = `${course.name}${course.time ? ` - ${course.time} Uhr` : ""}`;
+    trialCourseSelect.appendChild(option);
+  });
+}
+
+function renderTrials() {
+  trialCards.innerHTML = "";
+
+  if (!state.trialRequests.length) {
+    trialCards.appendChild(emptyStateTemplate.content.cloneNode(true));
+    return;
+  }
+
+  state.trialRequests.forEach((trial) => {
+    const course = state.courses.find((entry) => entry.id === trial.course_id);
+    const card = document.createElement("article");
+    card.className = "stat-card";
+    card.innerHTML = `
+      <h3>${escapeHtml(trial.full_name)}</h3>
+      <p class="stat-meta">${course ? escapeHtml(course.name) : "Kein Kurs"}</p>
+      <p class="stat-meta">${trial.email ? escapeHtml(trial.email) : "Keine E-Mail"}</p>
+      <p class="stat-meta">${trial.phone ? escapeHtml(trial.phone) : "Keine Telefonnummer"}</p>
+      <p class="stat-meta">Status: ${escapeHtml(trial.status)}</p>
+      <div class="trial-actions">
+        <button type="button" class="ghost" data-trial-action="booked">Gebucht</button>
+        <button type="button" class="ghost" data-trial-action="attended">Teilgenommen</button>
+        <button type="button" class="primary" data-trial-action="convert">Konvertieren</button>
+      </div>
+    `;
+
+    card.querySelector('[data-trial-action="booked"]').addEventListener("click", async () => {
+      await updateTrialStatus(trial.id, "gebucht");
+    });
+    card.querySelector('[data-trial-action="attended"]').addEventListener("click", async () => {
+      await updateTrialStatus(trial.id, "teilgenommen");
+    });
+    card.querySelector('[data-trial-action="convert"]').addEventListener("click", async () => {
+      await convertTrialToParticipant(trial);
+    });
+
+    trialCards.appendChild(card);
+  });
+}
+
 function showInviteOutput(code) {
   const link = buildInviteLink(code);
   inviteOutput.classList.remove("hidden");
@@ -746,6 +853,56 @@ async function handleCopyInviteLink() {
   } catch (error) {
     notify("Link konnte nicht automatisch kopiert werden.", true);
   }
+}
+
+async function updateTrialStatus(trialId, status) {
+  const { error } = await state.supabase
+    .from("trial_requests")
+    .update({ status })
+    .eq("id", trialId);
+
+  if (error) {
+    notify(error.message, true);
+    return;
+  }
+
+  await fetchSupportData();
+  render();
+  notify(`Probetraining auf "${status}" gesetzt.`);
+}
+
+async function convertTrialToParticipant(trial) {
+  const { data, error } = await state.supabase
+    .from("participants")
+    .insert({
+      course_id: trial.course_id,
+      full_name: trial.full_name,
+      phone: trial.phone || "",
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    notify(error.message, true);
+    return;
+  }
+
+  const updateResult = await state.supabase
+    .from("trial_requests")
+    .update({
+      status: "konvertiert",
+      converted_participant_id: data.id,
+    })
+    .eq("id", trial.id);
+
+  if (updateResult.error) {
+    notify(updateResult.error.message, true);
+    return;
+  }
+
+  await fetchSupportData();
+  render();
+  notify("Probetraining wurde in Teilnehmer uebernommen.");
 }
 
 function handleJumpToToday() {
@@ -1613,6 +1770,7 @@ function resetProtectedState() {
   state.trainers = [];
   state.invites = [];
   state.participants = [];
+  state.trialRequests = [];
   state.sessions = [];
   state.records = [];
   state.selectedCourseId = null;
@@ -1820,6 +1978,7 @@ function persistOfflineCache() {
     trainers: state.trainers,
     invites: state.invites,
     participants: state.participants,
+    trialRequests: state.trialRequests,
     sessions: state.sessions,
     records: state.records,
     selectedCourseId: state.selectedCourseId,
@@ -1840,6 +1999,7 @@ function hydrateFromOfflineCache() {
     state.trainers = Array.isArray(cached.trainers) ? cached.trainers : [];
     state.invites = Array.isArray(cached.invites) ? cached.invites : [];
     state.participants = Array.isArray(cached.participants) ? cached.participants : [];
+    state.trialRequests = Array.isArray(cached.trialRequests) ? cached.trialRequests : [];
     state.sessions = Array.isArray(cached.sessions) ? cached.sessions : [];
     state.records = Array.isArray(cached.records) ? cached.records : [];
     state.selectedCourseId = cached.selectedCourseId || state.selectedCourseId;

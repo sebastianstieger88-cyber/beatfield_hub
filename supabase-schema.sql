@@ -36,6 +36,18 @@ create table if not exists public.participants (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.trial_requests (
+  id uuid primary key default gen_random_uuid(),
+  course_id uuid not null references public.courses(id) on delete cascade,
+  full_name text not null,
+  email text,
+  phone text,
+  status text not null default 'angefragt' check (status in ('angefragt', 'gebucht', 'teilgenommen', 'konvertiert', 'abgesagt')),
+  notes text,
+  converted_participant_id uuid references public.participants(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.attendance_sessions (
   id uuid primary key default gen_random_uuid(),
   course_id uuid not null references public.courses(id) on delete cascade,
@@ -121,6 +133,7 @@ alter table public.profiles enable row level security;
 alter table public.invite_codes enable row level security;
 alter table public.courses enable row level security;
 alter table public.participants enable row level security;
+alter table public.trial_requests enable row level security;
 alter table public.attendance_sessions enable row level security;
 alter table public.attendance_records enable row level security;
 
@@ -202,6 +215,40 @@ with check (
     select 1
     from public.courses
     where courses.id = participants.course_id
+      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+  )
+);
+
+create policy "trials visible to course owners"
+on public.trial_requests
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.courses
+    where courses.id = trial_requests.course_id
+      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+  )
+);
+
+create policy "trials managed by course owners"
+on public.trial_requests
+for all
+to authenticated
+using (
+  exists (
+    select 1
+    from public.courses
+    where courses.id = trial_requests.course_id
+      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.courses
+    where courses.id = trial_requests.course_id
       and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
   )
 );
