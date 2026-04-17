@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Beatfield Attendance</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Beatfield Attendance</p>
+        <h1>Produktionsversion fuer euer Team</h1>
+        <p class="hero-copy">
+          Echte Benutzerkonten mit Supabase Auth, rollenbasierter Zugriff und Hosting-Vorbereitung fuer Vercel.
+        </p>
+      </div>
+      <div class="hero-card">
+        <p class="hero-stat-label">Status</p>
+        <p class="hero-stat" id="statusHeadline">Setup erforderlich</p>
+        <p class="hero-hint" id="statusText">Bitte zuerst Supabase konfigurieren.</p>
+      </div>
+    </header>
+
+    <main class="grid">
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Setup</p>
+            <h2>Verbindung</h2>
+          </div>
+        </div>
+        <div id="setupNotice" class="empty-state hidden">
+          <p>Tragt zuerst `supabaseUrl`, `supabaseAnonKey` und `siteUrl` in `config.js` ein.</p>
+        </div>
+        <div class="stats-grid">
+          <article class="stat-card">
+            <h3>Backend</h3>
+            <p class="stat-meta" id="backendStatus">Nicht verbunden</p>
+          </article>
+          <article class="stat-card">
+            <h3>Benutzer</h3>
+            <p class="stat-meta" id="userStatus">Niemand angemeldet</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel" id="authPanel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Zugang</p>
+            <h2>Login und Signup</h2>
+          </div>
+        </div>
+        <div class="auth-grid">
+          <form id="loginForm" class="stack">
+            <label>
+              <span>E-Mail</span>
+              <input name="email" type="email" required>
+            </label>
+            <label>
+              <span>Passwort</span>
+              <input name="password" type="password" required>
+            </label>
+            <button type="submit" class="primary">Einloggen</button>
+          </form>
+
+          <form id="signupForm" class="stack">
+            <label>
+              <span>Name</span>
+              <input name="fullName" type="text" required>
+            </label>
+            <label>
+              <span>E-Mail</span>
+              <input name="email" type="email" required>
+            </label>
+            <label>
+              <span>Passwort</span>
+              <input name="password" type="password" minlength="8" required>
+            </label>
+            <label>
+              <span>Einladungscode</span>
+              <input name="inviteCode" type="text" placeholder="Optional fuer Trainerzugang">
+            </label>
+            <button type="submit" class="primary">Konto anlegen</button>
+          </form>
+        </div>
+
+        <form id="resetForm" class="stack reset-form">
+          <label>
+            <span>Passwort vergessen? Reset per E-Mail</span>
+            <input name="email" type="email" placeholder="team@beatfield.de" required>
+          </label>
+          <button type="submit" class="ghost">Reset-Mail senden</button>
+        </form>
+      </section>
+
+      <section class="panel hidden" id="sessionPanel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Sitzung</p>
+            <h2>Angemeldet</h2>
+          </div>
+          <button id="logoutBtn" type="button" class="ghost">Ausloggen</button>
+        </div>
+        <div class="stats-grid">
+          <article class="stat-card">
+            <h3>Name</h3>
+            <p class="stat-meta" id="sessionName">-</p>
+          </article>
+          <article class="stat-card">
+            <h3>Rolle</h3>
+            <p class="stat-meta" id="sessionRole">-</p>
+          </article>
+        </div>
+        <form id="updatePasswordForm" class="stack reset-form hidden">
+          <label>
+            <span>Neues Passwort fuer Recovery-Flow</span>
+            <input name="password" type="password" minlength="8" required>
+          </label>
+          <button type="submit" class="primary">Neues Passwort speichern</button>
+        </form>
+      </section>
+
+      <section class="panel wide hidden" id="adminPanel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Admin</p>
+            <h2>Einladungen und Trainer</h2>
+          </div>
+        </div>
+
+        <form id="inviteForm" class="stack inline-form trainer-form">
+          <label>
+            <span>Code</span>
+            <input name="code" type="text" placeholder="z. B. SPRING-TEAM-01">
+          </label>
+          <label>
+            <span>Rolle</span>
+            <select name="role">
+              <option value="trainer">Trainer</option>
+              <option value="admin">Admin</option>
+            </select>
+          </label>
+          <button type="submit" class="primary">Einladung erzeugen</button>
+        </form>
+
+        <div id="inviteList" class="stats-grid"></div>
+      </section>
+
+      <section class="panel hidden" id="coursePanel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Kurse</p>
+            <h2>Neuen Kurs anlegen</h2>
+          </div>
+        </div>
+        <form id="courseForm" class="stack">
+          <label>
+            <span>Kursname</span>
+            <input name="name" type="text" placeholder="z. B. Bootcamp Stadtpark" required>
+          </label>
+          <label>
+            <span>Ort</span>
+            <input name="location" type="text" placeholder="z. B. Stadtpark Nord">
+          </label>
+          <label>
+            <span>Wochentag</span>
+            <select name="weekday">
+              <option value="Montag">Montag</option>
+              <option value="Dienstag">Dienstag</option>
+              <option value="Mittwoch">Mittwoch</option>
+              <option value="Donnerstag">Donnerstag</option>
+              <option value="Freitag">Freitag</option>
+              <option value="Samstag">Samstag</option>
+              <option value="Sonntag">Sonntag</option>
+            </select>
+          </label>
+          <label>
+            <span>Uhrzeit</span>
+            <input name="time" type="time">
+          </label>
+          <label>
+            <span>Trainer</span>
+            <select name="trainerId" id="trainerSelect"></select>
+          </label>
+          <button type="submit" class="primary">Kurs speichern</button>
+        </form>
+      </section>
+
+      <section class="panel hidden" id="courseListPanel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Kursliste</p>
+            <h2>Kurs auswaehlen</h2>
+          </div>
+        </div>
+        <div id="courseList" class="course-list"></div>
+      </section>
+
+      <section class="panel wide hidden" id="attendancePanel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Anwesenheit</p>
+            <h2 id="participantSectionTitle">Bitte zuerst einen Kurs auswaehlen</h2>
+          </div>
+        </div>
+
+        <div id="courseActions" class="hidden">
+          <form id="participantForm" class="stack inline-form">
+            <label>
+              <span>Name</span>
+              <input name="fullName" type="text" placeholder="Vor- und Nachname" required>
+            </label>
+            <label>
+              <span>Telefon</span>
+              <input name="phone" type="tel" placeholder="Optional">
+            </label>
+            <button type="submit" class="primary">Teilnehmer hinzufuegen</button>
+          </form>
+
+          <div class="attendance-toolbar">
+            <label>
+              <span>Termin</span>
+              <input id="attendanceDate" type="date">
+            </label>
+            <div class="toolbar-actions">
+              <button id="markAllPresentBtn" class="ghost" type="button">Alle anwesend</button>
+              <button id="markAllAbsentBtn" class="ghost" type="button">Alle abwesend</button>
+              <button id="exportBtn" class="primary" type="button">CSV exportieren</button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Teilnehmer</th>
+                  <th>Kontakt</th>
+                  <th>Anwesend</th>
+                  <th>Quote</th>
+                </tr>
+              </thead>
+              <tbody id="participantTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel hidden" id="statsPanel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Uebersicht</p>
+            <h2>Team Kennzahlen</h2>
+          </div>
+        </div>
+        <div id="statsCards" class="stats-grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <template id="emptyStateTemplate">
+    <div class="empty-state">
+      <p>Noch keine Daten vorhanden.</p>
+    </div>
+  </template>
+
+  <script src="config.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
