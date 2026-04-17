@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Beatfield Attendance</title>
+  <meta name="theme-color" content="#67c12f">
+  <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -19,6 +21,7 @@
         <a href="#adminPanel">Admin</a>
         <a href="#coursePanel">Kurse</a>
         <a href="#courseListPanel">Kursliste</a>
+        <a href="#planningPanel">Planung</a>
         <a href="#attendancePanel">Anwesenheit</a>
         <a href="#monthlyPanel">Monat</a>
         <a href="#statsPanel">Statistik</a>
@@ -40,6 +43,7 @@
         <p class="hero-stat-label">Status</p>
         <p class="hero-stat" id="statusHeadline">Setup erforderlich</p>
         <p class="hero-hint" id="statusText">Bitte zuerst Supabase konfigurieren.</p>
+        <p class="hero-hint" id="offlineStatus">Online</p>
         <p class="hero-motto">TRAIN. BEAT. REPEAT.</p>
       </div>
     </header>
@@ -225,6 +229,22 @@
           </div>
         </div>
         <div id="courseList" class="course-list"></div>
+      </section>
+
+      <section class="panel hidden" id="planningPanel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Planung</p>
+            <h2>Terminplanung fuer Kurse</h2>
+          </div>
+        </div>
+        <div id="planningContent" class="stack">
+          <div class="planning-actions">
+            <button id="planNextBtn" type="button" class="primary">Naechste 4 Termine anlegen</button>
+            <button id="planMonthBtn" type="button" class="ghost">Monatsplan anlegen</button>
+          </div>
+          <div id="planningPreview" class="stats-grid"></div>
+        </div>
       </section>
 
       <section class="panel wide hidden" id="attendancePanel">

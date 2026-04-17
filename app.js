@@ -2,6 +2,8 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
 const config = window.APP_CONFIG || {};
 const hasConfig = Boolean(config.supabaseUrl && config.supabaseAnonKey && config.siteUrl);
+const OFFLINE_CACHE_KEY = "beatfield-offline-cache-v1";
+const OFFLINE_QUEUE_KEY = "beatfield-offline-queue-v1";
 
 const state = {
   supabase: null,
@@ -15,6 +17,8 @@ const state = {
   records: [],
   selectedCourseId: null,
   participantSearch: "",
+  isOffline: !navigator.onLine,
+  pendingActions: loadOfflineQueue(),
 };
 
 const setupNotice = document.querySelector("#setupNotice");
@@ -23,6 +27,7 @@ const sessionPanel = document.querySelector("#sessionPanel");
 const adminPanel = document.querySelector("#adminPanel");
 const coursePanel = document.querySelector("#coursePanel");
 const courseListPanel = document.querySelector("#courseListPanel");
+const planningPanel = document.querySelector("#planningPanel");
 const attendancePanel = document.querySelector("#attendancePanel");
 const monthlyPanel = document.querySelector("#monthlyPanel");
 const statsPanel = document.querySelector("#statsPanel");
@@ -49,6 +54,9 @@ const participantSearch = document.querySelector("#participantSearch");
 const trainerSelect = document.querySelector("#trainerSelect");
 const inviteList = document.querySelector("#inviteList");
 const courseList = document.querySelector("#courseList");
+const planningPreview = document.querySelector("#planningPreview");
+const planNextBtn = document.querySelector("#planNextBtn");
+const planMonthBtn = document.querySelector("#planMonthBtn");
 const participantTableBody = document.querySelector("#participantTableBody");
 const participantCards = document.querySelector("#participantCards");
 const participantSectionTitle = document.querySelector("#participantSectionTitle");
@@ -64,6 +72,7 @@ const mobileReportsBtn = document.querySelector("#mobileReportsBtn");
 const mobileSessionSummary = document.querySelector("#mobileSessionSummary");
 const statusHeadline = document.querySelector("#statusHeadline");
 const statusText = document.querySelector("#statusText");
+const offlineStatus = document.querySelector("#offlineStatus");
 const backendStatus = document.querySelector("#backendStatus");
 const userStatus = document.querySelector("#userStatus");
 const sessionName = document.querySelector("#sessionName");
@@ -100,6 +109,8 @@ exportBtn.addEventListener("click", exportSelectedCourseCsv);
 exportMonthlyBtn.addEventListener("click", exportMonthlyReportCsv);
 exportLeaderboardBtn.addEventListener("click", exportLeaderboardCsv);
 exportTrainerReportBtn.addEventListener("click", exportTrainerReportCsv);
+planNextBtn.addEventListener("click", () => createPlannedSessions("next"));
+planMonthBtn.addEventListener("click", () => createPlannedSessions("month"));
 copyInviteLinkBtn.addEventListener("click", handleCopyInviteLink);
 navToggleBtn.addEventListener("click", toggleMobileNav);
 mobileTodayBtn.addEventListener("click", () => scrollToSection("#attendancePanel"));
@@ -111,10 +122,14 @@ navLinks.forEach((link) => {
   });
 });
 window.addEventListener("scroll", updateActiveNavLink, { passive: true });
+window.addEventListener("online", handleConnectivityChange);
+window.addEventListener("offline", handleConnectivityChange);
 
 initialize();
 
 async function initialize() {
+  registerServiceWorker();
+
   if (!hasConfig) {
     setupNotice.classList.remove("hidden");
     statusHeadline.textContent = "Setup erforderlich";
@@ -140,10 +155,12 @@ async function initialize() {
   state.supabase.auth.onAuthStateChange(async (_event, session) => {
     state.session = session;
     await loadProtectedData();
+    await flushOfflineQueue();
     render();
   });
 
   await loadProtectedData();
+  await flushOfflineQueue();
   render();
   updateActiveNavLink();
 }
@@ -154,9 +171,16 @@ async function loadProtectedData() {
     return;
   }
 
+  if (state.isOffline) {
+    hydrateFromOfflineCache();
+    notify("Offline-Modus aktiv. Letzte geladene Daten werden verwendet.");
+    return;
+  }
+
   await fetchProfile();
   await fetchVisibleCourses();
   await fetchSupportData();
+  persistOfflineCache();
 }
 
 async function fetchProfile() {
@@ -486,6 +510,7 @@ function render() {
   adminPanel.classList.toggle("hidden", !loggedIn || !isAdmin());
   coursePanel.classList.toggle("hidden", !loggedIn || !isAdmin());
   courseListPanel.classList.toggle("hidden", !appUnlocked);
+  planningPanel.classList.toggle("hidden", !appUnlocked);
   attendancePanel.classList.toggle("hidden", !appUnlocked);
   monthlyPanel.classList.toggle("hidden", !appUnlocked);
   statsPanel.classList.toggle("hidden", !appUnlocked);
@@ -508,7 +533,16 @@ function render() {
     : connected
       ? "Supabase ist verbunden. Bitte einloggen oder Konto anlegen."
       : "Bitte config.js und Supabase-Schema einrichten.";
-  backendStatus.textContent = connected ? "Supabase verbunden" : "Nicht verbunden";
+  backendStatus.textContent = connected
+    ? state.isOffline
+      ? "Offline mit lokalem Cache"
+      : "Supabase verbunden"
+    : "Nicht verbunden";
+  offlineStatus.textContent = state.isOffline
+    ? `Offline aktiv - ${state.pendingActions.length} offene Aenderungen`
+    : state.pendingActions.length
+      ? `${state.pendingActions.length} Aenderungen werden synchronisiert`
+      : "Online";
   userStatus.textContent = loggedIn ? state.profile.full_name : "Niemand angemeldet";
   sessionName.textContent = state.profile?.full_name || "-";
   sessionRole.textContent = state.profile?.role || "-";
@@ -516,6 +550,7 @@ function render() {
   renderTrainerSelect();
   renderInvites();
   renderCourseList();
+  renderPlanning();
   renderParticipants();
   renderMonthlyOverview();
   renderStats();
@@ -523,6 +558,47 @@ function render() {
   renderReportPreview();
   renderMobileSessionSummary();
   updateActiveNavLink();
+}
+
+function renderPlanning() {
+  planningPreview.innerHTML = "";
+
+  const course = getSelectedCourse();
+  if (!course) {
+    planningPreview.appendChild(emptyStateTemplate.content.cloneNode(true));
+    planNextBtn.disabled = true;
+    planMonthBtn.disabled = true;
+    return;
+  }
+
+  const canPlan = canEditCourse(course);
+  planNextBtn.disabled = !canPlan;
+  planMonthBtn.disabled = !canPlan;
+
+  const nextDates = getUpcomingCourseDates(course, 6);
+  if (!nextDates.length) {
+    const card = document.createElement("article");
+    card.className = "stat-card";
+    card.innerHTML = `
+      <h3>${escapeHtml(course.name)}</h3>
+      <p class="stat-meta">Bitte Wochentag im Kurs pflegen, damit Termine geplant werden koennen.</p>
+    `;
+    planningPreview.appendChild(card);
+    return;
+  }
+
+  nextDates.forEach((date) => {
+    const exists = Boolean(getSessionForCourseAndDate(course.id, date));
+    const card = document.createElement("article");
+    card.className = "stat-card";
+    card.innerHTML = `
+      <h3>${escapeHtml(formatDateLabel(date))}</h3>
+      <p class="stat-meta">${escapeHtml(course.name)}</p>
+      <p class="stat-meta">${course.time ? `${escapeHtml(course.time)} Uhr` : "Uhrzeit offen"}</p>
+      <p class="stat-meta">${exists ? "Bereits geplant" : "Noch nicht angelegt"}</p>
+    `;
+    planningPreview.appendChild(card);
+  });
 }
 
 function renderTrainerSelect() {
@@ -901,31 +977,30 @@ async function toggleAttendance(courseId, participantId) {
     return;
   }
 
-  let sessionId;
-  try {
-    sessionId = await ensureSession(courseId, attendanceDate.value);
-  } catch (error) {
-    notify(error.message, true);
+  const sessionDate = attendanceDate.value || getToday();
+  const session = getSessionForCourseAndDate(courseId, sessionDate);
+  const currentRecord = getRecordsForSession(session?.id).find((entry) => entry.participant_id === participantId);
+  const nextPresent = !currentRecord?.present;
+
+  if (state.isOffline) {
+    applyLocalAttendanceChange(courseId, participantId, sessionDate, nextPresent);
+    queueOfflineAction({
+      type: "set-attendance",
+      payload: { courseId, participantId, sessionDate, present: nextPresent },
+    });
+    persistOfflineCache();
+    render();
+    notify("Anwesenheit offline gespeichert und vorgemerkt.");
     return;
   }
-  const currentRecord = getRecordsForSession(sessionId).find((entry) => entry.participant_id === participantId);
 
-  const { error } = await state.supabase
-    .from("attendance_records")
-    .upsert({
-      session_id: sessionId,
-      participant_id: participantId,
-      present: !currentRecord?.present,
-    }, {
-      onConflict: "session_id,participant_id",
-    });
-
-  if (error) {
-    notify(error.message, true);
+  const success = await saveAttendanceValue(courseId, participantId, sessionDate, nextPresent);
+  if (!success) {
     return;
   }
 
   await fetchSupportData();
+  persistOfflineCache();
   render();
 }
 
@@ -935,13 +1010,30 @@ async function setAttendanceForAll(value) {
     return;
   }
 
+  const sessionDate = attendanceDate.value || getToday();
+
+  if (state.isOffline) {
+    getParticipantsForCourse(course.id).forEach((participant) => {
+      applyLocalAttendanceChange(course.id, participant.id, sessionDate, value);
+    });
+    queueOfflineAction({
+      type: "set-attendance-all",
+      payload: { courseId: course.id, sessionDate, value },
+    });
+    persistOfflineCache();
+    render();
+    notify("Sammelaenderung offline gespeichert.");
+    return;
+  }
+
   let sessionId;
   try {
-    sessionId = await ensureSession(course.id, attendanceDate.value);
+    sessionId = await ensureSession(course.id, sessionDate);
   } catch (error) {
     notify(error.message, true);
     return;
   }
+
   const payload = getParticipantsForCourse(course.id).map((participant) => ({
     session_id: sessionId,
     participant_id: participant.id,
@@ -964,12 +1056,13 @@ async function setAttendanceForAll(value) {
   }
 
   await fetchSupportData();
+  persistOfflineCache();
   render();
 }
 
 async function ensureSession(courseId, sessionDate) {
   const existing = getSessionForCourseAndDate(courseId, sessionDate);
-  if (existing) {
+  if (existing && !String(existing.id).startsWith("offline:")) {
     return existing.id;
   }
 
@@ -989,6 +1082,66 @@ async function ensureSession(courseId, sessionDate) {
 
   state.sessions.push(data);
   return data.id;
+}
+
+async function createPlannedSessions(mode) {
+  const course = getSelectedCourse();
+  if (!course || !canEditCourse(course)) {
+    return;
+  }
+
+  const dates = mode === "month"
+    ? getMonthCourseDates(course, getSelectedMonth())
+    : getUpcomingCourseDates(course, 4);
+
+  if (!dates.length) {
+    notify("Fuer diesen Kurs konnten keine Termine berechnet werden.", true);
+    return;
+  }
+
+  const payload = dates
+    .filter((date) => !getSessionForCourseAndDate(course.id, date))
+    .map((date) => ({
+      course_id: course.id,
+      session_date: date,
+      created_by: state.session.user.id,
+    }));
+
+  if (!payload.length) {
+    notify("Alle berechneten Termine sind bereits angelegt.");
+    return;
+  }
+
+  if (state.isOffline) {
+    payload.forEach((entry) => {
+      ensureLocalSession(entry.course_id, entry.session_date);
+    });
+    queueOfflineAction({
+      type: "create-sessions",
+      payload: {
+        courseId: course.id,
+        dates: payload.map((entry) => entry.session_date),
+      },
+    });
+    persistOfflineCache();
+    render();
+    notify(`${payload.length} Termine offline vorgemerkt.`);
+    return;
+  }
+
+  const { error } = await state.supabase
+    .from("attendance_sessions")
+    .insert(payload);
+
+  if (error) {
+    notify(error.message, true);
+    return;
+  }
+
+  await fetchSupportData();
+  persistOfflineCache();
+  render();
+  notify(`${payload.length} Termine wurden angelegt.`);
 }
 
 function exportSelectedCourseCsv() {
@@ -1179,6 +1332,76 @@ function getLowAttendanceParticipants() {
     .filter((participant) => calculateAttendanceRate(course.id, participant.id) < 60));
 }
 
+function getUpcomingCourseDates(course, count) {
+  const targetWeekday = getWeekdayNumber(course.weekday);
+  if (targetWeekday === null) {
+    return [];
+  }
+
+  const results = [];
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+
+  while (results.length < count) {
+    if (cursor.getDay() === targetWeekday) {
+      results.push(formatDateValue(cursor));
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return results;
+}
+
+function getMonthCourseDates(course, monthValue) {
+  const targetWeekday = getWeekdayNumber(course.weekday);
+  if (targetWeekday === null) {
+    return [];
+  }
+
+  const [year, month] = monthValue.split("-").map(Number);
+  const cursor = new Date(year, month - 1, 1);
+  const results = [];
+
+  while (cursor.getMonth() === month - 1) {
+    if (cursor.getDay() === targetWeekday) {
+      results.push(formatDateValue(cursor));
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return results;
+}
+
+function getWeekdayNumber(label) {
+  const map = {
+    Sonntag: 0,
+    Montag: 1,
+    Dienstag: 2,
+    Mittwoch: 3,
+    Donnerstag: 4,
+    Freitag: 5,
+    Samstag: 6,
+  };
+  return Object.prototype.hasOwnProperty.call(map, label) ? map[label] : null;
+}
+
+function formatDateValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateLabel(dateValue) {
+  const date = new Date(`${dateValue}T00:00:00`);
+  return date.toLocaleDateString("de-DE", {
+    weekday: "long",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
 function getTopCourseByAttendance() {
   const ranked = state.courses
     .map((course) => ({
@@ -1286,6 +1509,15 @@ function closeMobileNav() {
   navToggleBtn.setAttribute("aria-expanded", "false");
 }
 
+async function handleConnectivityChange() {
+  state.isOffline = !navigator.onLine;
+  if (!state.isOffline && state.session) {
+    await flushOfflineQueue();
+    await loadProtectedData();
+  }
+  render();
+}
+
 function scrollToSection(selector) {
   const element = document.querySelector(selector);
   if (!element || element.classList.contains("hidden")) {
@@ -1314,6 +1546,215 @@ function updateActiveNavLink() {
   const activeLink = candidates[0]?.link || null;
   navLinks.forEach((link) => {
     link.classList.toggle("is-active", link === activeLink);
+  });
+}
+
+async function saveAttendanceValue(courseId, participantId, sessionDate, present) {
+  let sessionId;
+  try {
+    sessionId = await ensureSession(courseId, sessionDate);
+  } catch (error) {
+    notify(error.message, true);
+    return false;
+  }
+
+  const { error } = await state.supabase
+    .from("attendance_records")
+    .upsert({
+      session_id: sessionId,
+      participant_id: participantId,
+      present,
+    }, {
+      onConflict: "session_id,participant_id",
+    });
+
+  if (error) {
+    notify(error.message, true);
+    return false;
+  }
+
+  return true;
+}
+
+function applyLocalAttendanceChange(courseId, participantId, sessionDate, present) {
+  const session = ensureLocalSession(courseId, sessionDate);
+  const existing = state.records.find((record) => {
+    return record.session_id === session.id && record.participant_id === participantId;
+  });
+
+  if (existing) {
+    existing.present = present;
+  } else {
+    state.records.push({
+      session_id: session.id,
+      participant_id: participantId,
+      present,
+    });
+  }
+}
+
+function ensureLocalSession(courseId, sessionDate) {
+  const existing = getSessionForCourseAndDate(courseId, sessionDate);
+  if (existing) {
+    return existing;
+  }
+
+  const offlineSession = {
+    id: `offline:${courseId}:${sessionDate}`,
+    course_id: courseId,
+    session_date: sessionDate,
+  };
+  state.sessions.push(offlineSession);
+  return offlineSession;
+}
+
+function queueOfflineAction(action) {
+  state.pendingActions.push({
+    id: `offline-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    ...action,
+  });
+  persistOfflineQueue();
+}
+
+async function flushOfflineQueue() {
+  if (state.isOffline || !state.session || !state.pendingActions.length) {
+    return;
+  }
+
+  const remaining = [];
+
+  for (const action of state.pendingActions) {
+    try {
+      await executeOfflineAction(action);
+    } catch (error) {
+      remaining.push(action);
+      console.error("Offline action failed", error);
+    }
+  }
+
+  state.pendingActions = remaining;
+  persistOfflineQueue();
+}
+
+async function executeOfflineAction(action) {
+  if (action.type === "set-attendance") {
+    const success = await saveAttendanceValue(
+      action.payload.courseId,
+      action.payload.participantId,
+      action.payload.sessionDate,
+      action.payload.present,
+    );
+    if (!success) {
+      throw new Error("Attendance sync failed");
+    }
+    return;
+  }
+
+  if (action.type === "set-attendance-all") {
+    let sessionId;
+    try {
+      sessionId = await ensureSession(action.payload.courseId, action.payload.sessionDate);
+    } catch (error) {
+      throw error;
+    }
+
+    const payload = getParticipantsForCourse(action.payload.courseId).map((participant) => ({
+      session_id: sessionId,
+      participant_id: participant.id,
+      present: action.payload.value,
+    }));
+
+    const { error } = await state.supabase
+      .from("attendance_records")
+      .upsert(payload, {
+        onConflict: "session_id,participant_id",
+      });
+
+    if (error) {
+      throw error;
+    }
+    return;
+  }
+
+  if (action.type === "create-sessions") {
+    const payload = action.payload.dates.map((date) => ({
+      course_id: action.payload.courseId,
+      session_date: date,
+      created_by: state.session.user.id,
+    }));
+
+    const { error } = await state.supabase
+      .from("attendance_sessions")
+      .insert(payload);
+
+    if (error && !String(error.message).toLowerCase().includes("duplicate")) {
+      throw error;
+    }
+  }
+}
+
+function persistOfflineCache() {
+  const payload = {
+    profile: state.profile,
+    courses: state.courses,
+    trainers: state.trainers,
+    invites: state.invites,
+    participants: state.participants,
+    sessions: state.sessions,
+    records: state.records,
+    selectedCourseId: state.selectedCourseId,
+  };
+  localStorage.setItem(OFFLINE_CACHE_KEY, JSON.stringify(payload));
+}
+
+function hydrateFromOfflineCache() {
+  const raw = localStorage.getItem(OFFLINE_CACHE_KEY);
+  if (!raw) {
+    return;
+  }
+
+  try {
+    const cached = JSON.parse(raw);
+    state.profile = cached.profile || state.profile;
+    state.courses = Array.isArray(cached.courses) ? cached.courses : [];
+    state.trainers = Array.isArray(cached.trainers) ? cached.trainers : [];
+    state.invites = Array.isArray(cached.invites) ? cached.invites : [];
+    state.participants = Array.isArray(cached.participants) ? cached.participants : [];
+    state.sessions = Array.isArray(cached.sessions) ? cached.sessions : [];
+    state.records = Array.isArray(cached.records) ? cached.records : [];
+    state.selectedCourseId = cached.selectedCourseId || state.selectedCourseId;
+  } catch (error) {
+    console.error("Offline cache konnte nicht geladen werden", error);
+  }
+}
+
+function loadOfflineQueue() {
+  const raw = localStorage.getItem(OFFLINE_QUEUE_KEY);
+  if (!raw) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistOfflineQueue() {
+  localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(state.pendingActions));
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) {
+    return;
+  }
+
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js").catch((error) => {
+      console.error("Service worker registration failed", error);
+    });
   });
 }
 

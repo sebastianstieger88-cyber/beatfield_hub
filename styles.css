@@ -341,6 +341,12 @@ button.danger {
   gap: 14px;
 }
 
+.planning-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .mobile-quickbar {
   display: none;
   grid-template-columns: repeat(3, 1fr);
@@ -564,6 +570,10 @@ th {
   }
 
   .mobile-quickbar {
+    display: grid;
+  }
+
+  .planning-actions {
     display: grid;
   }
 
