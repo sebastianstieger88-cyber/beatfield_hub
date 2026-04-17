@@ -14,6 +14,7 @@ const state = {
   sessions: [],
   records: [],
   selectedCourseId: null,
+  participantSearch: "",
 };
 
 const setupNotice = document.querySelector("#setupNotice");
@@ -23,7 +24,9 @@ const adminPanel = document.querySelector("#adminPanel");
 const coursePanel = document.querySelector("#coursePanel");
 const courseListPanel = document.querySelector("#courseListPanel");
 const attendancePanel = document.querySelector("#attendancePanel");
+const monthlyPanel = document.querySelector("#monthlyPanel");
 const statsPanel = document.querySelector("#statsPanel");
+const reportsPanel = document.querySelector("#reportsPanel");
 const loginForm = document.querySelector("#loginForm");
 const signupForm = document.querySelector("#signupForm");
 const resetForm = document.querySelector("#resetForm");
@@ -32,14 +35,23 @@ const logoutBtn = document.querySelector("#logoutBtn");
 const inviteForm = document.querySelector("#inviteForm");
 const courseForm = document.querySelector("#courseForm");
 const participantForm = document.querySelector("#participantForm");
+const inviteOutput = document.querySelector("#inviteOutput");
+const inviteOutputCode = document.querySelector("#inviteOutputCode");
+const inviteOutputLink = document.querySelector("#inviteOutputLink");
+const copyInviteLinkBtn = document.querySelector("#copyInviteLinkBtn");
 const attendanceDate = document.querySelector("#attendanceDate");
+const monthPicker = document.querySelector("#monthPicker");
+const participantSearch = document.querySelector("#participantSearch");
 const trainerSelect = document.querySelector("#trainerSelect");
 const inviteList = document.querySelector("#inviteList");
 const courseList = document.querySelector("#courseList");
 const participantTableBody = document.querySelector("#participantTableBody");
+const participantCards = document.querySelector("#participantCards");
 const participantSectionTitle = document.querySelector("#participantSectionTitle");
 const courseActions = document.querySelector("#courseActions");
+const monthlyCards = document.querySelector("#monthlyCards");
 const statsCards = document.querySelector("#statsCards");
+const reportPreview = document.querySelector("#reportPreview");
 const statusHeadline = document.querySelector("#statusHeadline");
 const statusText = document.querySelector("#statusText");
 const backendStatus = document.querySelector("#backendStatus");
@@ -49,9 +61,13 @@ const sessionRole = document.querySelector("#sessionRole");
 const markAllPresentBtn = document.querySelector("#markAllPresentBtn");
 const markAllAbsentBtn = document.querySelector("#markAllAbsentBtn");
 const exportBtn = document.querySelector("#exportBtn");
+const exportMonthlyBtn = document.querySelector("#exportMonthlyBtn");
+const exportLeaderboardBtn = document.querySelector("#exportLeaderboardBtn");
+const exportTrainerReportBtn = document.querySelector("#exportTrainerReportBtn");
 const emptyStateTemplate = document.querySelector("#emptyStateTemplate");
 
 attendanceDate.value = getToday();
+monthPicker.value = getCurrentMonth();
 
 loginForm.addEventListener("submit", handleLogin);
 signupForm.addEventListener("submit", handleSignup);
@@ -62,9 +78,19 @@ inviteForm.addEventListener("submit", handleInviteCreate);
 courseForm.addEventListener("submit", handleCourseCreate);
 participantForm.addEventListener("submit", handleParticipantCreate);
 attendanceDate.addEventListener("change", render);
+monthPicker.addEventListener("change", render);
+participantSearch.addEventListener("input", () => {
+  state.participantSearch = participantSearch.value.trim().toLowerCase();
+  renderParticipants();
+  renderReportPreview();
+});
 markAllPresentBtn.addEventListener("click", () => setAttendanceForAll(true));
 markAllAbsentBtn.addEventListener("click", () => setAttendanceForAll(false));
 exportBtn.addEventListener("click", exportSelectedCourseCsv);
+exportMonthlyBtn.addEventListener("click", exportMonthlyReportCsv);
+exportLeaderboardBtn.addEventListener("click", exportLeaderboardCsv);
+exportTrainerReportBtn.addEventListener("click", exportTrainerReportCsv);
+copyInviteLinkBtn.addEventListener("click", handleCopyInviteLink);
 
 initialize();
 
@@ -77,6 +103,8 @@ async function initialize() {
     render();
     return;
   }
+
+  applyInviteCodeFromUrl();
 
   state.supabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
     auth: {
@@ -359,6 +387,7 @@ async function handleInviteCreate(event) {
 
   inviteForm.reset();
   await fetchSupportData();
+  showInviteOutput(code);
   render();
   notify(`Einladungscode ${code} wurde erstellt.`);
 }
@@ -437,7 +466,9 @@ function render() {
   coursePanel.classList.toggle("hidden", !loggedIn || !isAdmin());
   courseListPanel.classList.toggle("hidden", !appUnlocked);
   attendancePanel.classList.toggle("hidden", !appUnlocked);
+  monthlyPanel.classList.toggle("hidden", !appUnlocked);
   statsPanel.classList.toggle("hidden", !appUnlocked);
+  reportsPanel.classList.toggle("hidden", !appUnlocked);
 
   statusHeadline.textContent = loggedIn
     ? state.profile.role === "pending"
@@ -464,7 +495,9 @@ function render() {
   renderInvites();
   renderCourseList();
   renderParticipants();
+  renderMonthlyOverview();
   renderStats();
+  renderReportPreview();
 }
 
 function renderTrainerSelect() {
@@ -480,6 +513,7 @@ function renderTrainerSelect() {
 
 function renderInvites() {
   inviteList.innerHTML = "";
+  inviteOutput.classList.toggle("hidden", !isAdmin() || !copyInviteLinkBtn.dataset.inviteLink);
 
   if (!isAdmin()) {
     return;
@@ -500,6 +534,30 @@ function renderInvites() {
     `;
     inviteList.appendChild(card);
   });
+}
+
+function showInviteOutput(code) {
+  const link = buildInviteLink(code);
+  inviteOutput.classList.remove("hidden");
+  inviteOutputCode.textContent = code;
+  inviteOutputLink.textContent = link;
+  inviteOutputLink.href = link;
+  copyInviteLinkBtn.dataset.inviteLink = link;
+}
+
+async function handleCopyInviteLink() {
+  const link = copyInviteLinkBtn.dataset.inviteLink;
+  if (!link) {
+    notify("Es gibt noch keinen Einladunglink zum Kopieren.", true);
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(link);
+    notify("Einladungslink wurde kopiert.");
+  } catch (error) {
+    notify("Link konnte nicht automatisch kopiert werden.", true);
+  }
 }
 
 function renderCourseList() {
@@ -532,6 +590,7 @@ function renderCourseList() {
 function renderParticipants() {
   const course = getSelectedCourse();
   participantTableBody.innerHTML = "";
+  participantCards.innerHTML = "";
 
   if (!course) {
     participantSectionTitle.textContent = "Bitte zuerst einen Kurs auswaehlen";
@@ -545,11 +604,12 @@ function renderParticipants() {
   markAllPresentBtn.disabled = !canEditCourse(course);
   markAllAbsentBtn.disabled = !canEditCourse(course);
 
-  const participants = getParticipantsForCourse(course.id);
+  const participants = getFilteredParticipants(course.id);
   if (!participants.length) {
     const row = document.createElement("tr");
-    row.innerHTML = `<td colspan="4"><div class="empty-state"><p>Dieser Kurs hat noch keine Teilnehmer.</p></div></td>`;
+    row.innerHTML = `<td colspan="4"><div class="empty-state"><p>Keine Teilnehmer fuer die aktuelle Suche gefunden.</p></div></td>`;
     participantTableBody.appendChild(row);
+    participantCards.appendChild(emptyStateTemplate.content.cloneNode(true));
     return;
   }
 
@@ -557,14 +617,15 @@ function renderParticipants() {
   const records = getRecordsForSession(session?.id);
 
   participants.forEach((participant) => {
-    const row = document.createElement("tr");
     const record = records.find((entry) => entry.participant_id === participant.id);
     const isPresent = Boolean(record?.present);
+    const rate = calculateAttendanceRate(course.id, participant.id);
+    const row = document.createElement("tr");
     row.innerHTML = `
       <td>${escapeHtml(participant.full_name)}</td>
       <td>${participant.phone ? escapeHtml(participant.phone) : '<span class="muted">-</span>'}</td>
       <td><button type="button" class="attendance-toggle${isPresent ? " is-present" : ""}" aria-label="Anwesenheit umschalten"></button></td>
-      <td><span class="badge">${calculateAttendanceRate(course.id, participant.id)}%</span></td>
+      <td><span class="badge">${rate}%</span></td>
     `;
 
     const toggleButton = row.querySelector(".attendance-toggle");
@@ -573,6 +634,28 @@ function renderParticipants() {
       await toggleAttendance(course.id, participant.id);
     });
     participantTableBody.appendChild(row);
+
+    const card = document.createElement("article");
+    card.className = "participant-card";
+    card.innerHTML = `
+      <div class="participant-card-head">
+        <div>
+          <h3>${escapeHtml(participant.full_name)}</h3>
+          <p class="stat-meta">${participant.phone ? escapeHtml(participant.phone) : "Keine Telefonnummer"}</p>
+        </div>
+        <span class="badge">${rate}%</span>
+      </div>
+      <div class="participant-card-actions">
+        <button type="button" class="attendance-toggle${isPresent ? " is-present" : ""}" aria-label="Anwesenheit umschalten"></button>
+      </div>
+    `;
+
+    const mobileToggle = card.querySelector(".attendance-toggle");
+    mobileToggle.disabled = !canEditCourse(course);
+    mobileToggle.addEventListener("click", async () => {
+      await toggleAttendance(course.id, participant.id);
+    });
+    participantCards.appendChild(card);
   });
 }
 
@@ -605,6 +688,80 @@ function renderStats() {
       <p class="stat-meta">durchschnittliche Anwesenheit</p>
     `;
     statsCards.appendChild(card);
+  });
+}
+
+function renderMonthlyOverview() {
+  monthlyCards.innerHTML = "";
+
+  if (!state.courses.length) {
+    monthlyCards.appendChild(emptyStateTemplate.content.cloneNode(true));
+    return;
+  }
+
+  const monthSessions = getSessionsForMonth(getSelectedMonth());
+  const monthCourseIds = new Set(monthSessions.map((session) => session.course_id));
+  const monthParticipants = state.participants.filter((participant) => monthCourseIds.has(participant.course_id));
+  const monthRecords = state.records.filter((record) => monthSessions.some((session) => session.id === record.session_id));
+  const average = monthParticipants.length && monthSessions.length
+    ? Math.round((monthRecords.filter((record) => record.present).length / (monthParticipants.length * monthSessions.length)) * 100)
+    : 0;
+
+  const items = [
+    { title: "Termine im Monat", value: monthSessions.length, meta: getSelectedMonthLabel() },
+    { title: "Aktive Kurse", value: monthCourseIds.size, meta: "mit dokumentierten Sessions" },
+    { title: "Durchschnitt", value: `${average}%`, meta: "Anwesenheit im Monat" },
+    { title: "Top Teilnehmer", value: getTopParticipantName(), meta: "beste Quote im Sichtbereich" },
+  ];
+
+  items.forEach((item) => {
+    const card = document.createElement("article");
+    card.className = "stat-card";
+    card.innerHTML = `
+      <h3>${escapeHtml(item.title)}</h3>
+      <p class="hero-stat">${escapeHtml(item.value)}</p>
+      <p class="stat-meta">${escapeHtml(item.meta)}</p>
+    `;
+    monthlyCards.appendChild(card);
+  });
+}
+
+function renderReportPreview() {
+  reportPreview.innerHTML = "";
+
+  if (!state.courses.length) {
+    reportPreview.appendChild(emptyStateTemplate.content.cloneNode(true));
+    return;
+  }
+
+  const selectedCourse = getSelectedCourse();
+  const items = [
+    {
+      title: "Report-Fokus",
+      value: selectedCourse ? selectedCourse.name : "Alle Kurse",
+      meta: `Monat: ${getSelectedMonthLabel()}`,
+    },
+    {
+      title: "Suchfilter",
+      value: state.participantSearch || "Kein Filter",
+      meta: "fuer Teilnehmerlisten und Ranking",
+    },
+    {
+      title: "Aufmerksamkeiten",
+      value: getLowAttendanceParticipants().length,
+      meta: "Teilnehmer unter 60% Quote",
+    },
+  ];
+
+  items.forEach((item) => {
+    const card = document.createElement("article");
+    card.className = "stat-card";
+    card.innerHTML = `
+      <h3>${escapeHtml(item.title)}</h3>
+      <p class="hero-stat">${escapeHtml(item.value)}</p>
+      <p class="stat-meta">${escapeHtml(item.meta)}</p>
+    `;
+    reportPreview.appendChild(card);
   });
 }
 
@@ -707,6 +864,7 @@ async function ensureSession(courseId, sessionDate) {
 function exportSelectedCourseCsv() {
   const course = getSelectedCourse();
   if (!course) {
+    notify("Bitte zuerst einen Kurs auswaehlen.", true);
     return;
   }
 
@@ -729,12 +887,86 @@ function exportSelectedCourseCsv() {
     ]);
   });
 
+  downloadCsv(`${slugify(course.name)}-anwesenheit.csv`, rows);
+}
+
+function exportMonthlyReportCsv() {
+  const monthSessions = getSessionsForMonth(getSelectedMonth());
+  const rows = [["Monat", "Kurs", "Trainer", "Termin", "Teilnehmer", "Anwesend", "Quote"]];
+
+  monthSessions.forEach((session) => {
+    const course = state.courses.find((entry) => entry.id === session.course_id);
+    getParticipantsForCourse(session.course_id).forEach((participant) => {
+      const record = getRecordsForSession(session.id).find((entry) => entry.participant_id === participant.id);
+      rows.push([
+        getSelectedMonthLabel(),
+        course?.name || "-",
+        getTrainerName(course?.trainer_id),
+        session.session_date,
+        participant.full_name,
+        record?.present ? "Ja" : "Nein",
+        `${calculateAttendanceRate(session.course_id, participant.id)}%`,
+      ]);
+    });
+  });
+
+  downloadCsv(`beatfield-monatsreport-${getSelectedMonth()}.csv`, rows);
+  notify("Monatsreport exportiert.");
+}
+
+function exportLeaderboardCsv() {
+  const rows = [["Kurs", "Teilnehmer", "Telefon", "Anwesenheitsquote", "Dokumentierte Termine"]];
+
+  state.courses.forEach((course) => {
+    getFilteredParticipants(course.id)
+      .sort((left, right) => calculateAttendanceRate(course.id, right.id) - calculateAttendanceRate(course.id, left.id))
+      .forEach((participant) => {
+        rows.push([
+          course.name,
+          participant.full_name,
+          participant.phone,
+          `${calculateAttendanceRate(course.id, participant.id)}%`,
+          getSessionsForCourse(course.id).length,
+        ]);
+      });
+  });
+
+  downloadCsv(`beatfield-ranking-${getSelectedMonth()}.csv`, rows);
+  notify("Anwesenheitsranking exportiert.");
+}
+
+function exportTrainerReportCsv() {
+  const rows = [["Trainer", "Kurse", "Termine", "Teilnehmer", "Durchschnitt"]];
+
+  state.trainers.forEach((trainer) => {
+    const trainerCourses = state.courses.filter((course) => course.trainer_id === trainer.user_id);
+    const trainerSessions = trainerCourses.flatMap((course) => getSessionsForCourse(course.id));
+    const trainerParticipants = trainerCourses.flatMap((course) => getParticipantsForCourse(course.id));
+    const trainerRecords = state.records.filter((record) => trainerSessions.some((session) => session.id === record.session_id));
+    const average = trainerParticipants.length && trainerSessions.length
+      ? Math.round((trainerRecords.filter((record) => record.present).length / (trainerParticipants.length * trainerSessions.length)) * 100)
+      : 0;
+
+    rows.push([
+      trainer.full_name,
+      trainerCourses.length,
+      trainerSessions.length,
+      trainerParticipants.length,
+      `${average}%`,
+    ]);
+  });
+
+  downloadCsv(`beatfield-trainerreport-${getSelectedMonth()}.csv`, rows);
+  notify("Trainerreport exportiert.");
+}
+
+function downloadCsv(filename, rows) {
   const csvContent = rows.map((row) => row.map(escapeCsvValue).join(";")).join("\n");
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${slugify(course.name)}-anwesenheit.csv`;
+  link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
 }
@@ -761,8 +993,24 @@ function getParticipantsForCourse(courseId) {
   return state.participants.filter((participant) => participant.course_id === courseId);
 }
 
+function getFilteredParticipants(courseId) {
+  const participants = getParticipantsForCourse(courseId);
+  if (!state.participantSearch) {
+    return participants;
+  }
+
+  return participants.filter((participant) => {
+    return participant.full_name.toLowerCase().includes(state.participantSearch)
+      || String(participant.phone || "").toLowerCase().includes(state.participantSearch);
+  });
+}
+
 function getSessionsForCourse(courseId) {
   return state.sessions.filter((session) => session.course_id === courseId);
+}
+
+function getSessionsForMonth(monthValue) {
+  return state.sessions.filter((session) => String(session.session_date).startsWith(monthValue));
 }
 
 function getSessionForCourseAndDate(courseId, sessionDate) {
@@ -775,6 +1023,30 @@ function getRecordsForSession(sessionId) {
 
 function getTrainerName(trainerId) {
   return state.trainers.find((trainer) => trainer.user_id === trainerId)?.full_name || "Nicht zugewiesen";
+}
+
+function getSelectedMonth() {
+  return monthPicker.value || getCurrentMonth();
+}
+
+function getSelectedMonthLabel() {
+  const [year, month] = getSelectedMonth().split("-");
+  const date = new Date(Number(year), Number(month) - 1, 1);
+  return date.toLocaleDateString("de-DE", { month: "long", year: "numeric" });
+}
+
+function getTopParticipantName() {
+  const ranked = state.courses.flatMap((course) => getParticipantsForCourse(course.id).map((participant) => ({
+    name: participant.full_name,
+    rate: calculateAttendanceRate(course.id, participant.id),
+  }))).sort((left, right) => right.rate - left.rate);
+
+  return ranked[0] ? `${ranked[0].name} (${ranked[0].rate}%)` : "Noch keine Daten";
+}
+
+function getLowAttendanceParticipants() {
+  return state.courses.flatMap((course) => getParticipantsForCourse(course.id)
+    .filter((participant) => calculateAttendanceRate(course.id, participant.id) < 60));
 }
 
 function isAdmin() {
@@ -794,6 +1066,7 @@ function resetProtectedState() {
   state.sessions = [];
   state.records = [];
   state.selectedCourseId = null;
+  state.participantSearch = "";
 }
 
 function notify(message, isError = false) {
@@ -811,12 +1084,37 @@ function isRecoveryMode() {
   return fragment.includes("type=recovery") || query.includes("type=recovery");
 }
 
+function buildInviteLink(code) {
+  const url = new URL(config.siteUrl);
+  url.searchParams.set("invite", code);
+  return url.toString();
+}
+
+function applyInviteCodeFromUrl() {
+  const inviteCode = new URLSearchParams(window.location.search).get("invite");
+  if (!inviteCode) {
+    return;
+  }
+
+  const inviteInput = signupForm.querySelector('input[name="inviteCode"]');
+  if (inviteInput) {
+    inviteInput.value = inviteCode;
+  }
+}
+
 function getToday() {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const day = String(now.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function getCurrentMonth() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
 }
 
 function slugify(value) {

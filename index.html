@@ -9,7 +9,8 @@
 <body>
   <div class="app-shell">
     <header class="hero">
-      <div>
+      <div class="hero-brand">
+        <img class="brand-logo" src="beatfield-logo.png" alt="BEATFIELD Logo">
         <p class="eyebrow">Beatfield Attendance</p>
         <h1>Produktionsversion fuer euer Team</h1>
         <p class="hero-copy">
@@ -20,6 +21,7 @@
         <p class="hero-stat-label">Status</p>
         <p class="hero-stat" id="statusHeadline">Setup erforderlich</p>
         <p class="hero-hint" id="statusText">Bitte zuerst Supabase konfigurieren.</p>
+        <p class="hero-motto">TRAIN. BEAT. REPEAT.</p>
       </div>
     </header>
 
@@ -146,6 +148,13 @@
           <button type="submit" class="primary">Einladung erzeugen</button>
         </form>
 
+        <div id="inviteOutput" class="stat-card hidden">
+          <h3>Letzte Einladung</h3>
+          <p class="stat-meta">Code: <span id="inviteOutputCode">-</span></p>
+          <p class="stat-meta link-line">Link: <a id="inviteOutputLink" href="#" target="_blank" rel="noreferrer">-</a></p>
+          <button id="copyInviteLinkBtn" type="button" class="ghost">Link kopieren</button>
+        </div>
+
         <div id="inviteList" class="stats-grid"></div>
       </section>
 
@@ -220,6 +229,13 @@
             <button type="submit" class="primary">Teilnehmer hinzufuegen</button>
           </form>
 
+          <div class="search-row">
+            <label>
+              <span>Teilnehmer suchen</span>
+              <input id="participantSearch" type="search" placeholder="Name oder Telefonnummer">
+            </label>
+          </div>
+
           <div class="attendance-toolbar">
             <label>
               <span>Termin</span>
@@ -245,6 +261,24 @@
               <tbody id="participantTableBody"></tbody>
             </table>
           </div>
+
+          <div id="participantCards" class="participant-cards"></div>
+        </div>
+      </section>
+
+      <section class="panel hidden" id="monthlyPanel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Monat</p>
+            <h2>Monatsuebersicht</h2>
+          </div>
+        </div>
+        <div class="stack">
+          <label>
+            <span>Monat auswaehlen</span>
+            <input id="monthPicker" type="month">
+          </label>
+          <div id="monthlyCards" class="stats-grid"></div>
         </div>
       </section>
 
@@ -256,6 +290,21 @@
           </div>
         </div>
         <div id="statsCards" class="stats-grid"></div>
+      </section>
+
+      <section class="panel wide hidden" id="reportsPanel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Reports</p>
+            <h2>Exporte und Auswertungen</h2>
+          </div>
+        </div>
+        <div class="report-actions">
+          <button id="exportMonthlyBtn" type="button" class="primary">Monatsreport exportieren</button>
+          <button id="exportLeaderboardBtn" type="button" class="ghost">Anwesenheitsranking exportieren</button>
+          <button id="exportTrainerReportBtn" type="button" class="ghost">Trainerreport exportieren</button>
+        </div>
+        <div id="reportPreview" class="stats-grid"></div>
       </section>
     </main>
   </div>

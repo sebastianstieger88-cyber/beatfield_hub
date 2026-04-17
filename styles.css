@@ -270,6 +270,38 @@ button.danger {
   overflow-wrap: anywhere;
 }
 
+.search-row,
+.report-actions {
+  display: grid;
+  gap: 14px;
+}
+
+.participant-cards {
+  display: none;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.participant-card {
+  border: 1px solid rgba(103, 193, 47, 0.12);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(26, 26, 26, 0.96) 0%, rgba(14, 14, 14, 0.96) 100%);
+  padding: 16px;
+}
+
+.participant-card-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.participant-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
 .course-card,
 .stat-card {
   border: 1px solid rgba(103, 193, 47, 0.1);
@@ -417,6 +449,14 @@ th {
 
   .toolbar-actions button {
     flex: 1;
+  }
+
+  .participant-cards {
+    display: grid;
+  }
+
+  .table-wrap {
+    display: none;
   }
 
   h1 {
