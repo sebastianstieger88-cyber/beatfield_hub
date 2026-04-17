@@ -321,10 +321,10 @@ async function fetchSupportData() {
     notify(trainerResult.error.message, true);
   }
   if (trainerDirectoryResult.error) {
-    notify(trainerDirectoryResult.error.message, true);
+    notify(getFriendlySupabaseMessage(trainerDirectoryResult.error, "Trainerverzeichnis konnte nicht geladen werden."), true);
   }
   if (inviteResult.error) {
-    notify(inviteResult.error.message, true);
+    notify(getFriendlySupabaseMessage(inviteResult.error, "Einladungen konnten nicht geladen werden."), true);
   }
   if (participantResult.error) {
     notify(participantResult.error.message, true);
@@ -533,7 +533,7 @@ async function handleTrainerDirectoryCreate(event) {
     .single();
 
   if (trainerInsertResult.error) {
-    notify(trainerInsertResult.error.message, true);
+    notify(getFriendlySupabaseMessage(trainerInsertResult.error, "Trainer konnte nicht angelegt werden."), true);
     return;
   }
 
@@ -553,7 +553,7 @@ async function handleTrainerDirectoryCreate(event) {
       });
 
     if (inviteResult.error) {
-      notify(`Trainer wurde eingetragen, aber der Zugangscode konnte nicht erstellt werden: ${inviteResult.error.message}`, true);
+      notify(`Trainer wurde eingetragen, aber der Zugangscode konnte nicht erstellt werden: ${getFriendlySupabaseMessage(inviteResult.error, inviteResult.error.message)}`, true);
       await fetchSupportData();
       render();
       return;
@@ -588,7 +588,7 @@ async function handleTrainerInviteRegenerate(entry) {
     });
 
   if (inviteResult.error) {
-    notify(inviteResult.error.message, true);
+    notify(getFriendlySupabaseMessage(inviteResult.error, "Trainerzugang konnte nicht vorbereitet werden."), true);
     return;
   }
 
@@ -621,7 +621,7 @@ async function handleCourseCreate(event) {
     .single();
 
   if (error) {
-    notify(error.message, true);
+    notify(getFriendlySupabaseMessage(error, "Kurs konnte nicht gespeichert werden."), true);
     return;
   }
 
@@ -880,21 +880,34 @@ function renderTrainerSelect() {
   emptyOption.textContent = "Nicht zugewiesen";
   trainerSelect.appendChild(emptyOption);
 
-  state.trainers.forEach((trainer) => {
-    const option = document.createElement("option");
-    option.value = `auth:${trainer.user_id}`;
-    option.textContent = `${trainer.full_name} (${trainer.role})`;
-    trainerSelect.appendChild(option);
-  });
+  if (state.trainers.length) {
+    const authGroup = document.createElement("optgroup");
+    authGroup.label = "Mit Login";
 
-  state.trainerDirectory
-    .filter((entry) => !entry.linked_user_id)
-    .forEach((entry) => {
+    state.trainers.forEach((trainer) => {
+      const option = document.createElement("option");
+      option.value = `auth:${trainer.user_id}`;
+      option.textContent = `${trainer.full_name} (${trainer.role})`;
+      authGroup.appendChild(option);
+    });
+
+    trainerSelect.appendChild(authGroup);
+  }
+
+  const manualEntries = state.trainerDirectory.filter((entry) => !entry.linked_user_id);
+  if (manualEntries.length) {
+    const manualGroup = document.createElement("optgroup");
+    manualGroup.label = "Manuell eingetragen";
+
+    manualEntries.forEach((entry) => {
       const option = document.createElement("option");
       option.value = `directory:${entry.id}`;
-      option.textContent = `${entry.full_name} (manuell)`;
-      trainerSelect.appendChild(option);
+      option.textContent = entry.full_name;
+      manualGroup.appendChild(option);
     });
+
+    trainerSelect.appendChild(manualGroup);
+  }
 }
 
 function renderTrainerDirectory() {
@@ -2329,6 +2342,25 @@ function registerServiceWorker() {
 function notify(message, isError = false) {
   statusHeadline.textContent = isError ? "Aktion fehlgeschlagen" : "Status aktualisiert";
   statusText.textContent = message;
+}
+
+function getFriendlySupabaseMessage(error, fallback) {
+  const message = String(error?.message || fallback || "").trim();
+  const normalized = message.toLowerCase();
+
+  if (
+    normalized.includes("trainer_directory")
+    || normalized.includes("trainer_directory_id")
+    || normalized.includes("invited_email")
+  ) {
+    return "Die App braucht das neueste Supabase-Schema. Bitte `supabase-schema.sql` noch einmal komplett im SQL Editor ausfuehren.";
+  }
+
+  if (normalized.includes("relation") && normalized.includes("does not exist")) {
+    return "In Supabase fehlt noch mindestens eine Tabelle. Bitte `supabase-schema.sql` noch einmal komplett ausfuehren.";
+  }
+
+  return message || fallback || "Aktion fehlgeschlagen.";
 }
 
 function generateInviteCode() {
