@@ -22,6 +22,7 @@ const state = {
   selectedCourseId: null,
   selectedSeasonId: null,
   seasonFilter: "all",
+  activeSection: null,
   editingBookingId: null,
   moveParticipantContext: null,
   participantSearch: "",
@@ -45,6 +46,7 @@ const monthlyPanel = document.querySelector("#monthlyPanel");
 const statsPanel = document.querySelector("#statsPanel");
 const businessPanel = document.querySelector("#businessPanel");
 const reportsPanel = document.querySelector("#reportsPanel");
+const mainGrid = document.querySelector(".grid");
 const appNav = document.querySelector(".app-nav");
 const navToggleBtn = document.querySelector("#navToggleBtn");
 const navLinks = Array.from(document.querySelectorAll(".nav-links a"));
@@ -126,6 +128,23 @@ const exportMonthlyBtn = document.querySelector("#exportMonthlyBtn");
 const exportLeaderboardBtn = document.querySelector("#exportLeaderboardBtn");
 const exportTrainerReportBtn = document.querySelector("#exportTrainerReportBtn");
 const emptyStateTemplate = document.querySelector("#emptyStateTemplate");
+const contentPanels = [
+  authPanel,
+  sessionPanel,
+  adminPanel,
+  coursePanel,
+  seasonPanel,
+  bookingPanel,
+  todayPanel,
+  trialsPanel,
+  courseListPanel,
+  planningPanel,
+  attendancePanel,
+  monthlyPanel,
+  statsPanel,
+  businessPanel,
+  reportsPanel,
+].filter(Boolean);
 
 if (attendanceDate) {
   attendanceDate.value = getToday();
@@ -189,7 +208,9 @@ mobileTodayBtn?.addEventListener("click", () => scrollToSection("#attendancePane
 mobileMonthBtn?.addEventListener("click", () => scrollToSection("#monthlyPanel"));
 mobileReportsBtn?.addEventListener("click", () => scrollToSection("#reportsPanel"));
 navLinks.forEach((link) => {
-  link.addEventListener("click", () => {
+  link.addEventListener("click", (event) => {
+    event.preventDefault();
+    setActiveSection(link.getAttribute("href"));
     closeNavGroups();
     closeMobileNav();
   });
@@ -207,7 +228,6 @@ navGroups.forEach((group) => {
     });
   });
 });
-window.addEventListener("scroll", updateActiveNavLink, { passive: true });
 window.addEventListener("online", handleConnectivityChange);
 window.addEventListener("offline", handleConnectivityChange);
 
@@ -1364,23 +1384,16 @@ function render() {
   const loggedIn = Boolean(state.session && state.profile);
   const appUnlocked = loggedIn && (state.profile.role === "admin" || state.profile.role === "trainer");
   const recoveryMode = isRecoveryMode();
+  const availableSections = getAvailableSections({ connected, loggedIn, appUnlocked });
+  ensureActiveSection(availableSections, { connected, loggedIn, appUnlocked });
 
-  authPanel.classList.toggle("hidden", loggedIn);
-  sessionPanel.classList.toggle("hidden", !loggedIn);
-  updatePasswordForm.classList.toggle("hidden", !loggedIn || !recoveryMode);
-  adminPanel.classList.toggle("hidden", !loggedIn || !isAdmin());
-  trialsPanel.classList.toggle("hidden", !appUnlocked);
-  seasonPanel?.classList.toggle("hidden", !loggedIn || !isAdmin());
-  bookingPanel?.classList.toggle("hidden", !loggedIn || !isAdmin());
-  todayPanel.classList.toggle("hidden", !appUnlocked);
-  coursePanel.classList.toggle("hidden", !loggedIn || !isAdmin());
-  courseListPanel.classList.toggle("hidden", !appUnlocked);
-  planningPanel.classList.toggle("hidden", !appUnlocked);
-  attendancePanel.classList.toggle("hidden", !appUnlocked);
-  monthlyPanel.classList.toggle("hidden", !appUnlocked);
-  statsPanel.classList.toggle("hidden", !appUnlocked);
-  businessPanel.classList.toggle("hidden", !appUnlocked);
-  reportsPanel.classList.toggle("hidden", !appUnlocked);
+  contentPanels.forEach((panel) => {
+    const panelId = `#${panel.id}`;
+    const shouldShow = availableSections.includes(panelId) && state.activeSection === panelId;
+    panel.classList.toggle("hidden", !shouldShow);
+  });
+
+  updatePasswordForm.classList.toggle("hidden", !loggedIn || !recoveryMode || state.activeSection !== "#sessionPanel");
 
   statusHeadline.textContent = loggedIn
     ? state.profile.role === "pending"
@@ -1443,7 +1456,14 @@ function applyRoleLanding() {
 
   if (state.profile.role === "trainer") {
     setTimeout(() => {
-      scrollToSection("#todayPanel");
+      setActiveSection("#todayPanel");
+    }, 0);
+    return;
+  }
+
+  if (state.profile.role === "admin") {
+    setTimeout(() => {
+      setActiveSection("#seasonPanel");
     }, 0);
   }
 }
@@ -3039,34 +3059,79 @@ async function handleConnectivityChange() {
 }
 
 function scrollToSection(selector) {
-  const element = document.querySelector(selector);
-  if (!element || element.classList.contains("hidden")) {
-    return;
-  }
-
-  element.scrollIntoView({ behavior: "smooth", block: "start" });
+  setActiveSection(selector);
   closeMobileNav();
 }
 
 function updateActiveNavLink() {
-  const candidates = navLinks
-    .map((link) => {
-      const target = document.querySelector(link.getAttribute("href"));
-      if (!target || target.classList.contains("hidden")) {
-        return null;
-      }
-
-      const rect = target.getBoundingClientRect();
-      const offset = Math.abs(rect.top - 140);
-      return { link, offset };
-    })
-    .filter(Boolean)
-    .sort((left, right) => left.offset - right.offset);
-
-  const activeLink = candidates[0]?.link || null;
   navLinks.forEach((link) => {
-    link.classList.toggle("is-active", link === activeLink);
+    link.classList.toggle("is-active", link.getAttribute("href") === state.activeSection);
   });
+}
+
+function setActiveSection(sectionId) {
+  if (!sectionId) {
+    return;
+  }
+
+  state.activeSection = sectionId;
+  render();
+  mainGrid?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function getAvailableSections({ connected, loggedIn, appUnlocked }) {
+  const sections = [];
+
+  if (!connected || !loggedIn) {
+    sections.push("#authPanel");
+  }
+
+  if (loggedIn) {
+    sections.push("#sessionPanel");
+  }
+
+  if (loggedIn && isAdmin()) {
+    sections.push("#adminPanel", "#coursePanel", "#seasonPanel", "#bookingPanel");
+  }
+
+  if (appUnlocked) {
+    sections.push(
+      "#todayPanel",
+      "#trialsPanel",
+      "#courseListPanel",
+      "#planningPanel",
+      "#attendancePanel",
+      "#monthlyPanel",
+      "#statsPanel",
+      "#businessPanel",
+      "#reportsPanel",
+    );
+  }
+
+  return sections;
+}
+
+function ensureActiveSection(availableSections, { connected, loggedIn, appUnlocked }) {
+  if (state.activeSection && availableSections.includes(state.activeSection)) {
+    return;
+  }
+
+  if (!connected || !loggedIn) {
+    state.activeSection = "#authPanel";
+    return;
+  }
+
+  if (isAdmin()) {
+    state.activeSection = availableSections.includes("#seasonPanel") ? "#seasonPanel" : availableSections[0] || null;
+    return;
+  }
+
+  if (appUnlocked) {
+    state.activeSection = availableSections.includes("#todayPanel") ? "#todayPanel" : availableSections[0] || null;
+    return;
+  }
+
+  state.activeSection = availableSections[0] || null;
 }
 
 async function saveAttendanceValue(courseId, participantId, sessionDate, present) {
