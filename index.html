@@ -298,6 +298,12 @@
           </label>
           <button type="submit" class="primary">Season anlegen</button>
         </form>
+        <div class="report-actions">
+          <button id="seasonFilterAllBtn" type="button" class="ghost">Alle</button>
+          <button id="seasonFilterPlannedBtn" type="button" class="ghost">Geplant</button>
+          <button id="seasonFilterActiveBtn" type="button" class="ghost">Aktiv</button>
+          <button id="seasonFilterClosedBtn" type="button" class="ghost">Abgeschlossen</button>
+        </div>
         <div id="seasonList" class="stats-grid"></div>
       </section>
 
@@ -309,6 +315,7 @@
           </div>
         </div>
         <form id="seasonBookingForm" class="stack">
+          <input type="hidden" name="bookingId">
           <div class="booking-grid">
             <label>
               <span>Season</span>
@@ -346,7 +353,10 @@
               <span>Samstag</span>
             </label>
           </fieldset>
-          <button type="submit" class="primary">Buchung speichern</button>
+          <div class="form-actions">
+            <button id="saveBookingBtn" type="submit" class="primary">Buchung speichern</button>
+            <button id="cancelBookingEditBtn" type="button" class="ghost hidden">Bearbeitung abbrechen</button>
+          </div>
         </form>
         <div id="bookingList" class="stats-grid"></div>
       </section>
@@ -480,6 +490,7 @@
                   <th>Kontakt</th>
                   <th>Anwesend</th>
                   <th>Quote</th>
+                  <th>Aktion</th>
                 </tr>
               </thead>
               <tbody id="participantTableBody"></tbody>
@@ -542,6 +553,29 @@
         <div id="reportPreview" class="stats-grid"></div>
       </section>
     </main>
+  </div>
+
+  <div id="moveParticipantModal" class="overlay hidden">
+    <div class="modal-card">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Umbuchung</p>
+          <h2>Teilnehmer umbuchen</h2>
+        </div>
+        <button id="closeMoveParticipantModalBtn" type="button" class="ghost">Schliessen</button>
+      </div>
+      <form id="moveParticipantForm" class="stack">
+        <p id="moveParticipantText" class="stat-meta">Bitte Zielkurs waehlen.</p>
+        <label>
+          <span>Zielkurs</span>
+          <select id="moveParticipantTargetCourse" name="targetCourseId"></select>
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="primary">Umbuchung speichern</button>
+          <button id="cancelMoveParticipantBtn" type="button" class="ghost">Abbrechen</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <template id="emptyStateTemplate">
