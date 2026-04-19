@@ -341,6 +341,10 @@ label span,
   box-shadow: 0 28px 48px rgba(0, 0, 0, 0.4);
 }
 
+#participantProfileModal .modal-card {
+  width: min(760px, 100%);
+}
+
 .season-form {
   grid-template-columns: 1.4fr 1fr 0.9fr auto;
 }
@@ -436,6 +440,11 @@ button.ghost {
   color: var(--accent);
 }
 
+button.ghost.is-active {
+  background: rgba(245, 185, 66, 0.16);
+  color: #ffd37a;
+}
+
 button.danger {
   background: rgba(255, 107, 87, 0.14);
   color: var(--danger);
@@ -449,6 +458,125 @@ button.danger {
 
 .link-line {
   overflow-wrap: anywhere;
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  color: var(--accent);
+  transform: none;
+}
+
+.list-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(103, 193, 47, 0.1);
+}
+
+.list-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.list-row strong {
+  color: var(--text);
+}
+
+.mini-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.mini-actions button {
+  padding: 10px 14px;
+}
+
+.table-actions {
+  justify-content: flex-start;
+}
+
+.beatout-meta {
+  margin-top: 4px;
+  color: #ffd37a;
+}
+
+.dashboard-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboard-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dashboard-card-ok::before {
+  background: var(--accent);
+}
+
+.dashboard-card-warn::before {
+  background: #f5b942;
+}
+
+.dashboard-card-critical::before {
+  background: var(--danger);
+}
+
+.recovery-row {
+  border-radius: 16px;
+  padding: 14px 16px;
+  border-bottom: 0;
+}
+
+.recovery-row-critical {
+  background: rgba(255, 107, 87, 0.12);
+  border: 1px solid rgba(255, 107, 87, 0.2);
+}
+
+.recovery-row-warn {
+  background: rgba(245, 185, 66, 0.12);
+  border: 1px solid rgba(245, 185, 66, 0.2);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.status-pill-critical {
+  background: rgba(255, 107, 87, 0.16);
+  color: #ff9a8d;
+}
+
+.status-pill-warn {
+  background: rgba(245, 185, 66, 0.16);
+  color: #ffd37a;
 }
 
 .search-row,
@@ -782,6 +910,15 @@ th {
 
   .trial-form {
     grid-template-columns: 1fr;
+  }
+
+  .list-row {
+    flex-direction: column;
+  }
+
+  .mini-actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .mobile-quickbar button {

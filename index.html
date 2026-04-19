@@ -56,10 +56,10 @@
       <div class="hero-brand">
         <img class="brand-logo" src="beatfield-logo.png" alt="BEATFIELD Logo">
         <p class="eyebrow">Beatfield Attendance</p>
-        <div class="version-badge">Version 2</div>
-        <h1>Produktionsversion fuer euer Team</h1>
+        <div class="version-badge">Version 4.2</div>
+        <h1>Season- und Studio-Workflow fuer euer Team</h1>
         <p class="hero-copy">
-          Echte Benutzerkonten mit Supabase Auth, rollenbasierter Zugriff und Hosting-Vorbereitung fuer Vercel.
+          Anwesenheit, Seasons, Buchungen, Verlaengerungen und ein klares Tages-Dashboard in einer kompakten Arbeitsflaeche.
         </p>
       </div>
       <div class="hero-card">
@@ -364,11 +364,12 @@
       <section class="panel hidden" id="todayPanel">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">Version 3</p>
+            <p class="eyebrow">Version 4.2</p>
             <h2>Heute im Blick</h2>
           </div>
         </div>
         <div id="todayCards" class="stats-grid"></div>
+        <div id="todayInsights" class="stats-grid business-insights"></div>
         <div class="today-actions">
           <button id="jumpToTodayBtn" type="button" class="primary">Heute oeffnen</button>
           <button id="focusNextCourseBtn" type="button" class="ghost">Naechsten Kurs fokussieren</button>
@@ -575,6 +576,19 @@
           <button id="cancelMoveParticipantBtn" type="button" class="ghost">Abbrechen</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <div id="participantProfileModal" class="overlay hidden">
+    <div class="modal-card">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Teilnehmerprofil</p>
+          <h2 id="participantProfileTitle">Teilnehmer</h2>
+        </div>
+        <button id="closeParticipantProfileModalBtn" type="button" class="ghost">Schliessen</button>
+      </div>
+      <div id="participantProfileBody" class="stack"></div>
     </div>
   </div>
 

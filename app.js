@@ -19,12 +19,14 @@ const state = {
   trialRequests: [],
   sessions: [],
   records: [],
+  beatOutEntries: [],
   selectedCourseId: null,
   selectedSeasonId: null,
   seasonFilter: "all",
   activeSection: null,
   editingBookingId: null,
   moveParticipantContext: null,
+  selectedParticipantId: null,
   participantSearch: "",
   isOffline: !navigator.onLine,
   pendingActions: loadOfflineQueue(),
@@ -98,6 +100,7 @@ const planningPreview = document.querySelector("#planningPreview");
 const planNextBtn = document.querySelector("#planNextBtn");
 const planMonthBtn = document.querySelector("#planMonthBtn");
 const todayCards = document.querySelector("#todayCards");
+const todayInsights = document.querySelector("#todayInsights");
 const jumpToTodayBtn = document.querySelector("#jumpToTodayBtn");
 const focusNextCourseBtn = document.querySelector("#focusNextCourseBtn");
 const participantTableBody = document.querySelector("#participantTableBody");
@@ -128,6 +131,10 @@ const exportMonthlyBtn = document.querySelector("#exportMonthlyBtn");
 const exportLeaderboardBtn = document.querySelector("#exportLeaderboardBtn");
 const exportTrainerReportBtn = document.querySelector("#exportTrainerReportBtn");
 const emptyStateTemplate = document.querySelector("#emptyStateTemplate");
+const participantProfileModal = document.querySelector("#participantProfileModal");
+const participantProfileTitle = document.querySelector("#participantProfileTitle");
+const participantProfileBody = document.querySelector("#participantProfileBody");
+const closeParticipantProfileModalBtn = document.querySelector("#closeParticipantProfileModalBtn");
 const contentPanels = [
   authPanel,
   sessionPanel,
@@ -171,6 +178,12 @@ trialForm?.addEventListener("submit", handleTrialCreate);
 moveParticipantForm?.addEventListener("submit", handleMoveParticipantSubmit);
 closeMoveParticipantModalBtn?.addEventListener("click", closeMoveParticipantModal);
 cancelMoveParticipantBtn?.addEventListener("click", closeMoveParticipantModal);
+closeParticipantProfileModalBtn?.addEventListener("click", closeParticipantProfileModal);
+participantProfileModal?.addEventListener("click", (event) => {
+  if (event.target === participantProfileModal) {
+    closeParticipantProfileModal();
+  }
+});
 seasonFilterAllBtn?.addEventListener("click", () => setSeasonFilter("all"));
 seasonFilterPlannedBtn?.addEventListener("click", () => setSeasonFilter("geplant"));
 seasonFilterActiveBtn?.addEventListener("click", () => setSeasonFilter("aktiv"));
@@ -438,6 +451,7 @@ async function fetchSupportData() {
   const sessionIds = state.sessions.map((session) => session.id);
   if (!sessionIds.length) {
     state.records = [];
+    state.beatOutEntries = [];
     return;
   }
 
@@ -453,6 +467,19 @@ async function fetchSupportData() {
   }
 
   state.records = recordResult.data || [];
+
+  const beatOutResult = await state.supabase
+    .from("beat_out_entries")
+    .select("id, session_id, participant_id, season_booking_id, created_at")
+    .in("session_id", sessionIds);
+
+  if (beatOutResult.error) {
+    notify(getFriendlySupabaseMessage(beatOutResult.error, "BEAT-OUTs konnten nicht geladen werden."), true);
+    state.beatOutEntries = [];
+    return;
+  }
+
+  state.beatOutEntries = beatOutResult.data || [];
 }
 
 async function handleLogin(event) {
@@ -907,7 +934,7 @@ async function handleCourseDelete() {
 
 async function handleSeasonDuplicate(sourceSeason, carryOverBookings = false) {
   if (!isAdmin() || !sourceSeason) {
-    return;
+    return null;
   }
 
   const nextStartDate = getNextSeasonStartDate(sourceSeason.end_date);
@@ -927,7 +954,7 @@ async function handleSeasonDuplicate(sourceSeason, carryOverBookings = false) {
 
   if (seasonResult.error) {
     notify(getFriendlySupabaseMessage(seasonResult.error, "Season konnte nicht dupliziert werden."), true);
-    return;
+    return null;
   }
 
   const newSeasonId = seasonResult.data.id;
@@ -989,6 +1016,8 @@ async function handleSeasonDuplicate(sourceSeason, carryOverBookings = false) {
   notify(carryOverBookings
     ? `Season "${duplicateName}" wurde inklusive Teilnehmern angelegt.`
     : `Season "${duplicateName}" wurde dupliziert.`);
+
+  return newSeasonId;
 }
 
 async function handleSeasonStatusUpdate(season, status) {
@@ -1024,6 +1053,100 @@ async function handleSeasonStatusUpdate(season, status) {
 
 async function handleSeasonArchive(season) {
   await handleSeasonStatusUpdate(season, "abgeschlossen");
+}
+
+async function ensureFollowUpSeason(sourceSeason) {
+  const existing = getNextSeasonForRenewal(sourceSeason);
+  if (existing) {
+    return existing;
+  }
+
+  const newSeasonId = await handleSeasonDuplicate(sourceSeason, false);
+  if (!newSeasonId) {
+    return null;
+  }
+
+  await fetchSupportData();
+  return state.seasons.find((entry) => entry.id === newSeasonId) || null;
+}
+
+async function cloneBookingIntoSeason(booking, targetSeason) {
+  if (!booking || !targetSeason) {
+    return { ok: false, message: "Ziel-Season fehlt." };
+  }
+
+  const duplicate = state.seasonBookings.find((entry) => {
+    return entry.season_id === targetSeason.id
+      && entry.full_name === booking.full_name
+      && entry.package_type === booking.package_type
+      && JSON.stringify(entry.selected_days || []) === JSON.stringify(booking.selected_days || []);
+  });
+
+  if (duplicate) {
+    return { ok: false, message: `${booking.full_name} ist in ${targetSeason.name} bereits vorhanden.` };
+  }
+
+  const bookingInsertResult = await state.supabase
+    .from("season_bookings")
+    .insert({
+      season_id: targetSeason.id,
+      full_name: booking.full_name,
+      phone: booking.phone || null,
+      package_type: booking.package_type,
+      selected_days: booking.selected_days,
+    })
+    .select("id")
+    .single();
+
+  if (bookingInsertResult.error) {
+    return {
+      ok: false,
+      message: getFriendlySupabaseMessage(bookingInsertResult.error, `${booking.full_name} konnte nicht in die Folge-Season uebernommen werden.`),
+    };
+  }
+
+  const relevantCourses = resolveRelevantCoursesForDays(booking.selected_days);
+  if (!relevantCourses.ok) {
+    return { ok: false, message: relevantCourses.message };
+  }
+
+  const participantSyncResult = await syncSeasonBookingParticipants({
+    bookingId: bookingInsertResult.data.id,
+    seasonId: targetSeason.id,
+    fullName: booking.full_name,
+    phone: booking.phone || "",
+    selectedDays: booking.selected_days,
+    relevantCourses: relevantCourses.data,
+  });
+
+  if (!participantSyncResult.ok) {
+    return { ok: false, message: participantSyncResult.message };
+  }
+
+  return { ok: true };
+}
+
+async function handleCarryOverBookingToNextSeason(booking, sourceSeason) {
+  if (!isAdmin() || !booking || !sourceSeason) {
+    return;
+  }
+
+  const targetSeason = await ensureFollowUpSeason(sourceSeason);
+  if (!targetSeason) {
+    return;
+  }
+
+  const result = await cloneBookingIntoSeason(booking, targetSeason);
+  if (!result.ok) {
+    notify(result.message, true);
+    return;
+  }
+
+  state.selectedSeasonId = targetSeason.id;
+  await fetchSupportData();
+  persistOfflineCache();
+  render();
+  notify(`${booking.full_name} wurde in ${targetSeason.name} uebernommen.`);
 }
 
 async function handleBookingDelete(booking) {
@@ -1424,7 +1547,7 @@ function render() {
   userStatus.textContent = loggedIn ? state.profile.full_name : "Niemand angemeldet";
   sessionName.textContent = state.profile?.full_name || "-";
   sessionRole.textContent = state.profile?.role || "-";
-  sessionMode.textContent = state.profile?.role === "trainer" ? "Heute zuerst" : state.profile?.role === "admin" ? "Gesamtuebersicht" : "-";
+  sessionMode.textContent = state.profile?.role === "trainer" ? "Heute zuerst" : state.profile?.role === "admin" ? "Dashboard zuerst" : "-";
   if (deleteCourseBtn) {
     deleteCourseBtn.disabled = !isAdmin() || !state.selectedCourseId;
   }
@@ -1446,6 +1569,7 @@ function render() {
   renderBusinessDashboard();
   renderReportPreview();
   renderMobileSessionSummary();
+  renderParticipantProfile();
   updateActiveNavLink();
 }
 
@@ -1463,13 +1587,16 @@ function applyRoleLanding() {
 
   if (state.profile.role === "admin") {
     setTimeout(() => {
-      setActiveSection("#seasonPanel");
+      setActiveSection("#todayPanel");
     }, 0);
   }
 }
 
 function renderTodayDashboard() {
   todayCards.innerHTML = "";
+  if (todayInsights) {
+    todayInsights.innerHTML = "";
+  }
 
   if (!state.courses.length) {
     todayCards.appendChild(emptyStateTemplate.content.cloneNode(true));
@@ -1521,6 +1648,186 @@ function renderTodayDashboard() {
     `;
     todayCards.appendChild(card);
   });
+
+  if (!todayInsights) {
+    return;
+  }
+
+  const activeSeason = getSelectedSeason() || state.seasons.find((season) => season.status === "aktiv") || null;
+  if (!activeSeason) {
+    const card = document.createElement("article");
+    card.className = "stat-card";
+    card.innerHTML = `
+      <h3>Season-Fokus</h3>
+      <p class="stat-meta">Noch keine aktive Season vorhanden.</p>
+    `;
+    todayInsights.appendChild(card);
+    return;
+  }
+
+  const activeBookings = state.seasonBookings.filter((booking) => booking.season_id === activeSeason.id);
+  const renewalCandidates = getRenewalCandidates(activeSeason.id);
+  const rewardSummary = activeBookings.reduce((sum, booking) => sum + getFreeSeasonRewardStatus(booking).achievedRewards, 0);
+  const packageSummary = [
+    { label: "1x TRAIN", count: activeBookings.filter((booking) => booking.package_type === "1x TRAIN").length },
+    { label: "2x BEAT", count: activeBookings.filter((booking) => booking.package_type === "2x BEAT").length },
+    { label: "3x REPEAT", count: activeBookings.filter((booking) => booking.package_type === "3x REPEAT").length },
+  ];
+
+  const nextSeason = getNextSeasonForRenewal(activeSeason);
+  const insightCards = [
+    {
+      title: "Aktive Season",
+      value: activeSeason.name,
+      meta: `${activeSeason.start_date} bis ${activeSeason.end_date}`,
+      tone: "ok",
+    },
+    {
+      title: "Verlaengerung",
+      value: nextSeason ? nextSeason.name : "Noch keine Folge-Season",
+      meta: nextSeason ? "Verlaengerung moeglich" : "am besten jetzt duplizieren",
+      tone: nextSeason ? "ok" : "warn",
+    },
+    {
+      title: "Paketmix",
+      value: packageSummary.map((entry) => `${entry.label}: ${entry.count}`).join(" | "),
+      meta: `${activeBookings.length} aktive Buchungen`,
+      tone: "neutral",
+    },
+    {
+      title: "Rueckhol-Kandidaten",
+      value: renewalCandidates.length,
+      meta: "unter 60% Teilnahme in aktiver Season",
+      tone: renewalCandidates.length ? "critical" : "ok",
+    },
+    {
+      title: "Gratis-Seasons",
+      value: rewardSummary,
+      meta: "erreichte Bonus-Stufen aus BEAT-OUTs",
+      tone: rewardSummary ? "warn" : "neutral",
+    },
+  ];
+
+  insightCards.forEach((item) => {
+    const card = document.createElement("article");
+    card.className = `stat-card dashboard-card dashboard-card-${item.tone || "neutral"}`;
+    card.innerHTML = `
+      <h3>${escapeHtml(item.title)}</h3>
+      <p class="hero-stat">${escapeHtml(item.value)}</p>
+      <p class="stat-meta">${escapeHtml(item.meta)}</p>
+    `;
+    todayInsights.appendChild(card);
+  });
+
+  const renewalCard = document.createElement("article");
+  renewalCard.className = `stat-card dashboard-card ${nextSeason ? "dashboard-card-ok" : "dashboard-card-warn"}`;
+  renewalCard.innerHTML = `
+    <h3>Naechste Verlaengerungen</h3>
+    <p class="stat-meta">${escapeHtml(activeSeason.name)} laeuft bis ${escapeHtml(formatDateLabel(activeSeason.end_date))}</p>
+  `;
+  const renewalActions = document.createElement("div");
+  renewalActions.className = "stat-card-actions mini-actions";
+  const prepareNextSeasonBtn = document.createElement("button");
+  prepareNextSeasonBtn.type = "button";
+  prepareNextSeasonBtn.className = "ghost";
+  prepareNextSeasonBtn.textContent = nextSeason ? "Folge-Season oeffnen" : "Folge-Season vorbereiten";
+  prepareNextSeasonBtn.addEventListener("click", async () => {
+    if (nextSeason) {
+      state.selectedSeasonId = nextSeason.id;
+      setActiveSection("#seasonPanel");
+      return;
+    }
+
+    const createdSeasonId = await handleSeasonDuplicate(activeSeason, false);
+    if (!createdSeasonId) {
+      return;
+    }
+
+    state.selectedSeasonId = createdSeasonId;
+    setActiveSection("#seasonPanel");
+  });
+  renewalActions.appendChild(prepareNextSeasonBtn);
+  renewalCard.appendChild(renewalActions);
+  const renewalList = document.createElement("div");
+  renewalList.className = "stack";
+  if (activeBookings.length) {
+    activeBookings.slice(0, 5).forEach((booking) => {
+      const row = document.createElement("div");
+      row.className = "list-row";
+      row.innerHTML = `
+        <div>
+          <strong>${escapeHtml(booking.full_name)}</strong>
+          <div class="stat-meta">${escapeHtml(booking.package_type)} | ${escapeHtml(formatSelectedDays(booking.selected_days))}</div>
+        </div>
+      `;
+      const rowActions = document.createElement("div");
+      rowActions.className = "mini-actions";
+      const carryBtn = document.createElement("button");
+      carryBtn.type = "button";
+      carryBtn.className = "ghost";
+      carryBtn.textContent = "In Folge-Season";
+      carryBtn.addEventListener("click", async () => {
+        await handleCarryOverBookingToNextSeason(booking, activeSeason);
+      });
+      rowActions.appendChild(carryBtn);
+      row.appendChild(rowActions);
+      renewalList.appendChild(row);
+    });
+  } else {
+    renewalList.innerHTML = '<p class="stat-meta">Noch keine Buchungen in dieser Season.</p>';
+  }
+  renewalCard.appendChild(renewalList);
+  todayInsights.appendChild(renewalCard);
+
+  const recoveryCard = document.createElement("article");
+  recoveryCard.className = `stat-card dashboard-card ${renewalCandidates.length ? "dashboard-card-critical" : "dashboard-card-ok"}`;
+  recoveryCard.innerHTML = `
+    <h3>Rueckhol-Workflow</h3>
+    <p class="stat-meta">Personen mit Luft nach oben fuer die naechste Season.</p>
+  `;
+  const recoveryList = document.createElement("div");
+  recoveryList.className = "stack";
+  if (renewalCandidates.length) {
+    renewalCandidates.slice(0, 5).forEach((candidate) => {
+      const row = document.createElement("div");
+      const severity = getRecoverySeverity(candidate.rate);
+      row.className = `list-row recovery-row recovery-row-${severity}`;
+      row.innerHTML = `
+        <div>
+          <strong>${escapeHtml(candidate.full_name)}</strong>
+          <div class="stat-meta">${escapeHtml(candidate.package_type)} | ${candidate.rate}% Teilnahme</div>
+        </div>
+      `;
+      const severityBadge = document.createElement("span");
+      severityBadge.className = `status-pill status-pill-${severity}`;
+      severityBadge.textContent = severity === "critical" ? "kritisch" : "beobachten";
+      const rowActions = document.createElement("div");
+      rowActions.className = "mini-actions";
+      rowActions.appendChild(severityBadge);
+      const profileBtn = document.createElement("button");
+      profileBtn.type = "button";
+      profileBtn.className = "ghost";
+      profileBtn.textContent = "Profil";
+      profileBtn.addEventListener("click", () => {
+        openParticipantProfile(candidate.participantId, candidate.id);
+      });
+      rowActions.appendChild(profileBtn);
+      const carryBtn = document.createElement("button");
+      carryBtn.type = "button";
+      carryBtn.className = "primary";
+      carryBtn.textContent = "Verlaengern";
+      carryBtn.addEventListener("click", async () => {
+        await handleCarryOverBookingToNextSeason(candidate, activeSeason);
+      });
+      rowActions.appendChild(carryBtn);
+      row.appendChild(rowActions);
+      recoveryList.appendChild(row);
+    });
+  } else {
+    recoveryList.innerHTML = '<p class="stat-meta">Aktuell keine Rueckhol-Kandidaten unter 60%.</p>';
+  }
+  recoveryCard.appendChild(recoveryList);
+  todayInsights.appendChild(recoveryCard);
 }
 
 function renderPlanning() {
@@ -1709,6 +2016,8 @@ function renderSeasonBookings() {
 
   visibleBookings.forEach((booking) => {
     const season = state.seasons.find((entry) => entry.id === booking.season_id);
+    const beatOutUsage = getBeatOutUsageForBooking(booking.id);
+    const rewardStatus = getFreeSeasonRewardStatus(booking);
     const card = document.createElement("article");
     card.className = "stat-card";
     card.innerHTML = `
@@ -1716,6 +2025,8 @@ function renderSeasonBookings() {
       <p class="stat-meta">${season ? escapeHtml(season.name) : "Ohne Season"}</p>
       <p class="stat-meta">Paket: ${escapeHtml(booking.package_type)}</p>
       <p class="stat-meta">Tage: ${escapeHtml(formatSelectedDays(booking.selected_days))}</p>
+      <p class="stat-meta">BEAT-OUTS: ${beatOutUsage.used}/${beatOutUsage.limit}</p>
+      <p class="stat-meta">Gratis-Season: ${rewardStatus.achievedRewards} erreicht</p>
       <p class="stat-meta">${booking.phone ? escapeHtml(booking.phone) : "Keine Telefonnummer"}</p>
     `;
     const actions = document.createElement("div");
@@ -1728,6 +2039,16 @@ function renderSeasonBookings() {
       openBookingEdit(booking);
     });
     actions.appendChild(editBtn);
+
+    const profileBtn = document.createElement("button");
+    profileBtn.type = "button";
+    profileBtn.className = "ghost";
+    profileBtn.textContent = "Profil";
+    profileBtn.addEventListener("click", () => {
+      const linkedParticipants = state.participants.filter((participant) => participant.season_booking_id === booking.id);
+      openParticipantProfile(linkedParticipants[0]?.id || null, booking.id);
+    });
+    actions.appendChild(profileBtn);
 
     const deleteBtn = document.createElement("button");
     deleteBtn.type = "button";
@@ -2114,14 +2435,24 @@ function renderParticipants() {
   participants.forEach((participant) => {
     const record = records.find((entry) => entry.participant_id === participant.id);
     const isPresent = Boolean(record?.present);
+    const beatOutEntry = getBeatOutEntryForParticipantSession(participant.id, session?.id);
+    const bookingUsage = getBeatOutUsageForBooking(participant.season_booking_id);
     const rate = calculateAttendanceRate(course.id, participant.id);
     const row = document.createElement("tr");
     row.innerHTML = `
-      <td>${escapeHtml(participant.full_name)}</td>
-      <td>${participant.phone ? escapeHtml(participant.phone) : '<span class="muted">-</span>'}</td>
+      <td><button type="button" class="link-button participant-profile-btn">${escapeHtml(participant.full_name)}</button></td>
+      <td>
+        ${participant.phone ? escapeHtml(participant.phone) : '<span class="muted">-</span>'}
+        ${participant.season_booking_id ? `<div class="stat-meta beatout-meta">BEAT-OUT ${bookingUsage.used}/${bookingUsage.limit}</div>` : ""}
+      </td>
       <td><button type="button" class="attendance-toggle${isPresent ? " is-present" : ""}" aria-label="Anwesenheit umschalten"></button></td>
       <td><span class="badge">${rate}%</span></td>
-      <td><button type="button" class="ghost participant-move-btn">Umbuchen</button></td>
+      <td>
+        <div class="mini-actions table-actions">
+          <button type="button" class="ghost participant-beatout-btn${beatOutEntry ? " is-active" : ""}">${beatOutEntry ? "BEAT-OUT aktiv" : "BEAT-OUT"}</button>
+          <button type="button" class="ghost participant-move-btn">Umbuchen</button>
+        </div>
+      </td>
     `;
 
     const toggleButton = row.querySelector(".attendance-toggle");
@@ -2134,6 +2465,14 @@ function renderParticipants() {
     moveButton.addEventListener("click", async () => {
       await handleParticipantMove(participant, course);
     });
+    const beatOutButton = row.querySelector(".participant-beatout-btn");
+    beatOutButton.disabled = !canEditCourse(course) || !participant.season_booking_id;
+    beatOutButton.addEventListener("click", async () => {
+      await toggleBeatOut(course.id, participant.id);
+    });
+    row.querySelector(".participant-profile-btn").addEventListener("click", () => {
+      openParticipantProfile(participant.id, participant.season_booking_id);
+    });
     participantTableBody.appendChild(row);
 
     const card = document.createElement("article");
@@ -2141,13 +2480,15 @@ function renderParticipants() {
     card.innerHTML = `
       <div class="participant-card-head">
         <div>
-          <h3>${escapeHtml(participant.full_name)}</h3>
+          <h3><button type="button" class="link-button participant-profile-btn">${escapeHtml(participant.full_name)}</button></h3>
           <p class="stat-meta">${participant.phone ? escapeHtml(participant.phone) : "Keine Telefonnummer"}</p>
+          ${participant.season_booking_id ? `<p class="stat-meta beatout-meta">BEAT-OUT ${bookingUsage.used}/${bookingUsage.limit}</p>` : ""}
         </div>
         <span class="badge">${rate}%</span>
       </div>
       <div class="participant-card-actions">
         <button type="button" class="attendance-toggle${isPresent ? " is-present" : ""}" aria-label="Anwesenheit umschalten"></button>
+        <button type="button" class="ghost participant-beatout-btn${beatOutEntry ? " is-active" : ""}">${beatOutEntry ? "BEAT-OUT aktiv" : "BEAT-OUT"}</button>
         <button type="button" class="ghost participant-move-btn">Umbuchen</button>
       </div>
     `;
@@ -2162,8 +2503,101 @@ function renderParticipants() {
     mobileMoveButton.addEventListener("click", async () => {
       await handleParticipantMove(participant, course);
     });
+    const mobileBeatOutButton = card.querySelector(".participant-beatout-btn");
+    mobileBeatOutButton.disabled = !canEditCourse(course) || !participant.season_booking_id;
+    mobileBeatOutButton.addEventListener("click", async () => {
+      await toggleBeatOut(course.id, participant.id);
+    });
+    card.querySelector(".participant-profile-btn").addEventListener("click", () => {
+      openParticipantProfile(participant.id, participant.season_booking_id);
+    });
     participantCards.appendChild(card);
   });
+}
+
+function openParticipantProfile(participantId, bookingId = null) {
+  state.selectedParticipantId = participantId || null;
+  renderParticipantProfile(bookingId);
+}
+
+function closeParticipantProfileModal() {
+  state.selectedParticipantId = null;
+  participantProfileModal?.classList.add("hidden");
+}
+
+function renderParticipantProfile(fallbackBookingId = null) {
+  if (!participantProfileModal || !participantProfileBody || !participantProfileTitle) {
+    return;
+  }
+
+  if (!state.selectedParticipantId && !fallbackBookingId) {
+    participantProfileModal.classList.add("hidden");
+    return;
+  }
+
+  const participant = state.participants.find((entry) => entry.id === state.selectedParticipantId) || null;
+  const booking = state.seasonBookings.find((entry) => entry.id === (participant?.season_booking_id || fallbackBookingId)) || null;
+
+  if (!participant && !booking) {
+    participantProfileModal.classList.add("hidden");
+    return;
+  }
+
+  const title = participant?.full_name || booking?.full_name || "Teilnehmerprofil";
+  const course = participant ? state.courses.find((entry) => entry.id === participant.course_id) || null : null;
+  const season = state.seasons.find((entry) => entry.id === (participant?.season_id || booking?.season_id)) || null;
+  const packageType = booking?.package_type || "Keine Buchung";
+  const days = booking ? formatSelectedDays(booking.selected_days) : "Nicht hinterlegt";
+  const rate = participant ? getParticipantSeasonAttendanceRate(participant, season?.id) : 0;
+  const beatOutUsage = booking ? getBeatOutUsageForBooking(booking.id) : { used: 0, limit: 0, remaining: 0 };
+  const rewardStatus = getFreeSeasonRewardStatus(booking || participant || {});
+  const history = participant ? getParticipantRecentHistory(participant.id, 6) : [];
+
+  participantProfileTitle.textContent = title;
+  participantProfileBody.innerHTML = `
+    <div class="stats-grid">
+      <article class="stat-card">
+        <h3>Aktueller Kurs</h3>
+        <p class="hero-stat">${escapeHtml(course?.name || "Noch keinem Kurs zugeordnet")}</p>
+        <p class="stat-meta">${escapeHtml(course?.weekday || "Ohne festen Wochentag")}</p>
+      </article>
+      <article class="stat-card">
+        <h3>Season & Paket</h3>
+        <p class="hero-stat">${escapeHtml(season?.name || "Keine aktive Season")}</p>
+        <p class="stat-meta">${escapeHtml(packageType)} | ${escapeHtml(days)}</p>
+      </article>
+      <article class="stat-card">
+        <h3>Anwesenheitsquote</h3>
+        <p class="hero-stat">${participant ? `${rate}%` : "-"}</p>
+        <p class="stat-meta">${participant?.phone ? escapeHtml(participant.phone) : booking?.phone ? escapeHtml(booking.phone) : "Keine Telefonnummer"}</p>
+      </article>
+      <article class="stat-card">
+        <h3>BEAT-OUTS</h3>
+        <p class="hero-stat">${booking ? `${beatOutUsage.used}/${beatOutUsage.limit}` : "-"}</p>
+        <p class="stat-meta">${booking ? `${beatOutUsage.remaining} verbleibend in dieser Season` : "Nur bei Season-Buchung verfuegbar"}</p>
+      </article>
+      <article class="stat-card">
+        <h3>Gratis-Season Status</h3>
+        <p class="hero-stat">${rewardStatus.achievedRewards}</p>
+        <p class="stat-meta">${rewardStatus.nextMilestone ? `Naechste Schwelle bei ${rewardStatus.nextMilestone} BEAT-OUTs` : "12 BEAT-OUTs erreicht"}</p>
+      </article>
+    </div>
+    <article class="stat-card">
+      <h3>Verlauf</h3>
+      <div class="stack">
+        ${history.length
+          ? history.map((entry) => `
+            <div class="list-row">
+              <strong>${escapeHtml(formatDateLabel(entry.date))}</strong>
+              <span class="stat-meta">${escapeHtml(entry.courseName)} | ${entry.present ? "anwesend" : entry.beatOut ? "BEAT-OUT" : "abwesend"}</span>
+            </div>
+          `).join("")
+          : '<p class="stat-meta">Noch keine dokumentierte Historie vorhanden.</p>'}
+      </div>
+    </article>
+  `;
+
+  participantProfileModal.classList.remove("hidden");
 }
 
 function renderMobileSessionSummary() {
@@ -2409,9 +2843,86 @@ async function toggleAttendance(courseId, participantId) {
     return;
   }
 
+  if (nextPresent) {
+    await clearBeatOutForParticipantSession(participantId, sessionDate, courseId);
+  }
+
   await fetchSupportData();
   persistOfflineCache();
   render();
+}
+
+async function toggleBeatOut(courseId, participantId) {
+  const course = state.courses.find((entry) => entry.id === courseId);
+  const participant = state.participants.find((entry) => entry.id === participantId);
+  if (!course || !participant || !canEditCourse(course)) {
+    return;
+  }
+
+  if (state.isOffline) {
+    notify("BEAT-OUTs koennen aktuell nur online eingetragen werden.", true);
+    return;
+  }
+
+  const booking = state.seasonBookings.find((entry) => entry.id === participant.season_booking_id) || null;
+  if (!booking) {
+    notify("BEAT-OUT ist nur fuer Season-Buchungen verfuegbar.", true);
+    return;
+  }
+
+  const sessionDate = attendanceDate.value || getToday();
+  let sessionId;
+  try {
+    sessionId = await ensureSession(courseId, sessionDate);
+  } catch (error) {
+    notify(error.message, true);
+    return;
+  }
+
+  const existingEntry = getBeatOutEntryForParticipantSession(participantId, sessionId);
+  if (existingEntry) {
+    const { error } = await state.supabase
+      .from("beat_out_entries")
+      .delete()
+      .eq("id", existingEntry.id);
+
+    if (error) {
+      notify(getFriendlySupabaseMessage(error, "BEAT-OUT konnte nicht entfernt werden."), true);
+      return;
+    }
+
+    await saveAttendanceValue(courseId, participantId, sessionDate, false);
+    await fetchSupportData();
+    persistOfflineCache();
+    render();
+    notify(`BEAT-OUT fuer ${participant.full_name} wurde entfernt.`);
+    return;
+  }
+
+  const usage = getBeatOutUsageForBooking(booking.id);
+  if (usage.used >= usage.limit) {
+    notify(`${booking.full_name} hat in dieser Season bereits alle ${usage.limit} BEAT-OUTs verbraucht.`, true);
+    return;
+  }
+
+  const insertResult = await state.supabase
+    .from("beat_out_entries")
+    .insert({
+      session_id: sessionId,
+      participant_id: participantId,
+      season_booking_id: booking.id,
+    });
+
+  if (insertResult.error) {
+    notify(getFriendlySupabaseMessage(insertResult.error, "BEAT-OUT konnte nicht gespeichert werden."), true);
+    return;
+  }
+
+  await saveAttendanceValue(courseId, participantId, sessionDate, false);
+  await fetchSupportData();
+  persistOfflineCache();
+  render();
+  notify(`BEAT-OUT fuer ${participant.full_name} wurde eingetragen.`);
 }
 
 async function setAttendanceForAll(value) {
@@ -2463,6 +2974,21 @@ async function setAttendanceForAll(value) {
   if (error) {
     notify(error.message, true);
     return;
+  }
+
+  if (value) {
+    const participantIds = getParticipantsForCourse(course.id).map((participant) => participant.id);
+    if (participantIds.length) {
+      const beatOutDeleteResult = await state.supabase
+        .from("beat_out_entries")
+        .delete()
+        .eq("session_id", sessionId)
+        .in("participant_id", participantIds);
+
+      if (beatOutDeleteResult.error) {
+        notify(getFriendlySupabaseMessage(beatOutDeleteResult.error, "BEAT-OUTs konnten nicht bereinigt werden."), true);
+      }
+    }
   }
 
   await fetchSupportData();
@@ -2570,7 +3096,11 @@ function exportSelectedCourseCsv() {
   participants.forEach((participant) => {
     const marks = sessions.map((session) => {
       const record = getRecordsForSession(session.id).find((entry) => entry.participant_id === participant.id);
-      return record?.present ? "Anwesend" : "Abwesend";
+      const beatOutEntry = getBeatOutEntryForParticipantSession(participant.id, session.id);
+      if (record?.present) {
+        return "Anwesend";
+      }
+      return beatOutEntry ? "BEAT-OUT" : "Abwesend";
     });
     rows.push([
       participant.full_name,
@@ -2591,13 +3121,14 @@ function exportMonthlyReportCsv() {
     const course = state.courses.find((entry) => entry.id === session.course_id);
     getParticipantsForCourse(session.course_id).forEach((participant) => {
       const record = getRecordsForSession(session.id).find((entry) => entry.participant_id === participant.id);
+      const beatOutEntry = getBeatOutEntryForParticipantSession(participant.id, session.id);
       rows.push([
         getSelectedMonthLabel(),
         course?.name || "-",
         getCourseTrainerName(course),
         session.session_date,
         participant.full_name,
-        record?.present ? "Ja" : "Nein",
+        record?.present ? "Ja" : beatOutEntry ? "BEAT-OUT" : "Nein",
         `${calculateAttendanceRate(session.course_id, participant.id)}%`,
       ]);
     });
@@ -2680,6 +3211,40 @@ function calculateAttendanceRate(courseId, participantId) {
   return Math.round((present / sessions.length) * 100);
 }
 
+function getParticipantAttendanceRate(participant) {
+  if (!participant?.course_id || !participant?.id) {
+    return 0;
+  }
+
+  return calculateAttendanceRate(participant.course_id, participant.id);
+}
+
+function getParticipantSeasonAttendanceRate(participant, seasonId) {
+  if (!participant?.course_id || !participant?.id || !seasonId) {
+    return getParticipantAttendanceRate(participant);
+  }
+
+  const season = state.seasons.find((entry) => entry.id === seasonId);
+  if (!season) {
+    return getParticipantAttendanceRate(participant);
+  }
+
+  const sessions = getSessionsForCourse(participant.course_id).filter((session) => {
+    return session.session_date >= season.start_date && session.session_date <= season.end_date;
+  });
+
+  if (!sessions.length) {
+    return 0;
+  }
+
+  const sessionIds = new Set(sessions.map((session) => session.id));
+  const present = state.records.filter((record) => {
+    return sessionIds.has(record.session_id) && record.participant_id === participant.id && record.present;
+  }).length;
+
+  return Math.round((present / sessions.length) * 100);
+}
+
 function getSelectedCourse() {
   return state.courses.find((course) => course.id === state.selectedCourseId) || null;
 }
@@ -2731,6 +3296,70 @@ function getRecordsForSession(sessionId) {
   return state.records.filter((record) => record.session_id === sessionId);
 }
 
+function getBeatOutEntriesForSession(sessionId) {
+  return state.beatOutEntries.filter((entry) => entry.session_id === sessionId);
+}
+
+function getBeatOutEntryForParticipantSession(participantId, sessionId) {
+  if (!participantId || !sessionId) {
+    return null;
+  }
+
+  return state.beatOutEntries.find((entry) => entry.participant_id === participantId && entry.session_id === sessionId) || null;
+}
+
+function getBeatOutLimitForPackage(packageType) {
+  if (packageType === "1x TRAIN") {
+    return 1;
+  }
+  if (packageType === "2x BEAT") {
+    return 2;
+  }
+  if (packageType === "3x REPEAT") {
+    return 3;
+  }
+  return 0;
+}
+
+function getBeatOutUsageForBooking(bookingId) {
+  const booking = state.seasonBookings.find((entry) => entry.id === bookingId) || null;
+  const used = state.beatOutEntries.filter((entry) => entry.season_booking_id === bookingId).length;
+  const limit = getBeatOutLimitForPackage(booking?.package_type);
+  return {
+    used,
+    limit,
+    remaining: Math.max(limit - used, 0),
+  };
+}
+
+function getPersonKey({ full_name: fullName, phone } = {}) {
+  const normalizedPhone = String(phone || "").replace(/\s+/g, "");
+  if (normalizedPhone) {
+    return `phone:${normalizedPhone.toLowerCase()}`;
+  }
+  return `name:${String(fullName || "").trim().toLowerCase()}`;
+}
+
+function getLifetimeBeatOutCount(bookingOrParticipant) {
+  const key = getPersonKey(bookingOrParticipant);
+  const bookingIds = state.seasonBookings
+    .filter((entry) => getPersonKey(entry) === key)
+    .map((entry) => entry.id);
+
+  return state.beatOutEntries.filter((entry) => bookingIds.includes(entry.season_booking_id)).length;
+}
+
+function getFreeSeasonRewardStatus(bookingOrParticipant) {
+  const total = getLifetimeBeatOutCount(bookingOrParticipant);
+  const achievedRewards = Math.min(Math.floor(total / 4), 3);
+  const nextMilestone = [4, 8, 12].find((value) => value > total) || null;
+  return {
+    total,
+    achievedRewards,
+    nextMilestone,
+  };
+}
+
 function getVisibleSeasonBookings() {
   if (!state.selectedSeasonId) {
     return state.seasonBookings;
@@ -2745,6 +3374,61 @@ function getVisibleSeasons() {
   }
 
   return state.seasons.filter((season) => season.status === state.seasonFilter);
+}
+
+function getNextSeasonForRenewal(season) {
+  if (!season) {
+    return null;
+  }
+
+  const seasonEnd = new Date(`${season.end_date}T00:00:00`).getTime();
+  return state.seasons
+    .filter((entry) => entry.id !== season.id)
+    .map((entry) => ({
+      ...entry,
+      startTime: new Date(`${entry.start_date}T00:00:00`).getTime(),
+    }))
+    .filter((entry) => entry.startTime >= seasonEnd)
+    .sort((left, right) => left.startTime - right.startTime)[0] || null;
+}
+
+function getRenewalCandidates(seasonId) {
+  const bookings = state.seasonBookings.filter((entry) => entry.season_id === seasonId);
+  return bookings
+    .map((booking) => {
+      const participant = state.participants.find((entry) => entry.season_booking_id === booking.id) || null;
+      const rate = participant ? getParticipantSeasonAttendanceRate(participant, seasonId) : 0;
+      return {
+        ...booking,
+        participantId: participant?.id || null,
+        rate,
+      };
+    })
+    .filter((entry) => entry.rate < 60)
+    .sort((left, right) => left.rate - right.rate);
+}
+
+function getRecoverySeverity(rate) {
+  return rate <= 30 ? "critical" : "warn";
+}
+
+function getParticipantRecentHistory(participantId, limit = 6) {
+  return state.records
+    .filter((record) => record.participant_id === participantId)
+    .map((record) => {
+      const session = state.sessions.find((entry) => entry.id === record.session_id);
+      const course = session ? state.courses.find((entry) => entry.id === session.course_id) : null;
+      const beatOutEntry = getBeatOutEntryForParticipantSession(participantId, record.session_id);
+      return {
+        date: session?.session_date || "",
+        courseName: course?.name || "Unbekannter Kurs",
+        present: Boolean(record.present),
+        beatOut: Boolean(beatOutEntry),
+      };
+    })
+    .filter((entry) => entry.date)
+    .sort((left, right) => right.date.localeCompare(left.date))
+    .slice(0, limit);
 }
 
 function getTrainerName(trainerId) {
@@ -3028,9 +3712,12 @@ function resetProtectedState() {
   state.trialRequests = [];
   state.sessions = [];
   state.records = [];
+  state.beatOutEntries = [];
   state.selectedCourseId = null;
   state.selectedSeasonId = null;
+  state.selectedParticipantId = null;
   state.participantSearch = "";
+  closeParticipantProfileModal();
 }
 
 function toggleMobileNav() {
@@ -3159,6 +3846,31 @@ async function saveAttendanceValue(courseId, participantId, sessionDate, present
   }
 
   return true;
+}
+
+async function clearBeatOutForParticipantSession(participantId, sessionDate, courseId) {
+  if (!participantId || !sessionDate || !courseId || state.isOffline) {
+    return;
+  }
+
+  const session = getSessionForCourseAndDate(courseId, sessionDate);
+  if (!session) {
+    return;
+  }
+
+  const existingEntry = getBeatOutEntryForParticipantSession(participantId, session.id);
+  if (!existingEntry) {
+    return;
+  }
+
+  const { error } = await state.supabase
+    .from("beat_out_entries")
+    .delete()
+    .eq("id", existingEntry.id);
+
+  if (error) {
+    notify(getFriendlySupabaseMessage(error, "BEAT-OUT konnte nicht entfernt werden."), true);
+  }
 }
 
 function applyLocalAttendanceChange(courseId, participantId, sessionDate, present) {
@@ -3291,6 +4003,7 @@ function persistOfflineCache() {
     trialRequests: state.trialRequests,
     sessions: state.sessions,
     records: state.records,
+    beatOutEntries: state.beatOutEntries,
     selectedCourseId: state.selectedCourseId,
     selectedSeasonId: state.selectedSeasonId,
   };
@@ -3316,6 +4029,7 @@ function hydrateFromOfflineCache() {
     state.trialRequests = Array.isArray(cached.trialRequests) ? cached.trialRequests : [];
     state.sessions = Array.isArray(cached.sessions) ? cached.sessions : [];
     state.records = Array.isArray(cached.records) ? cached.records : [];
+    state.beatOutEntries = Array.isArray(cached.beatOutEntries) ? cached.beatOutEntries : [];
     state.selectedCourseId = cached.selectedCourseId || state.selectedCourseId;
     state.selectedSeasonId = cached.selectedSeasonId || state.selectedSeasonId;
   } catch (error) {
@@ -3387,6 +4101,8 @@ function getFriendlySupabaseMessage(error, fallback) {
     || normalized.includes("season_id")
     || normalized.includes("seasons")
     || normalized.includes("selected_days")
+    || normalized.includes("beat_out")
+    || normalized.includes("beat out")
   ) {
     return "Die App braucht das neueste Supabase-Schema. Bitte `supabase-schema.sql` noch einmal komplett im SQL Editor ausfuehren.";
   }
