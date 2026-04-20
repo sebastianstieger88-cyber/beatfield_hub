@@ -334,7 +334,6 @@ async function fetchVisibleCourses() {
   const { data, error } = await query;
   if (error) {
     notify(error.message, true);
-    state.courses = [];
     return;
   }
 
@@ -438,14 +437,30 @@ async function fetchSupportData() {
     notify(trialResult.error.message, true);
   }
 
-  state.seasons = seasonResult.data || [];
-  state.seasonBookings = seasonBookingResult.data || [];
-  state.trainers = trainerResult.data || [];
-  state.trainerDirectory = trainerDirectoryResult.data || [];
-  state.invites = inviteResult.data || [];
-  state.participants = participantResult.data || [];
-  state.sessions = sessionResult.data || [];
-  state.trialRequests = trialResult.data || [];
+  if (!seasonResult.error) {
+    state.seasons = seasonResult.data || [];
+  }
+  if (!seasonBookingResult.error) {
+    state.seasonBookings = seasonBookingResult.data || [];
+  }
+  if (!trainerResult.error) {
+    state.trainers = trainerResult.data || [];
+  }
+  if (!trainerDirectoryResult.error) {
+    state.trainerDirectory = trainerDirectoryResult.data || [];
+  }
+  if (!inviteResult.error) {
+    state.invites = inviteResult.data || [];
+  }
+  if (!participantResult.error) {
+    state.participants = participantResult.data || [];
+  }
+  if (!sessionResult.error) {
+    state.sessions = sessionResult.data || [];
+  }
+  if (!trialResult.error) {
+    state.trialRequests = trialResult.data || [];
+  }
 
   if (!state.selectedSeasonId || !state.seasons.some((season) => season.id === state.selectedSeasonId)) {
     state.selectedSeasonId = getDefaultSeasonId();
@@ -465,7 +480,6 @@ async function fetchSupportData() {
 
   if (recordResult.error) {
     notify(recordResult.error.message, true);
-    state.records = [];
     return;
   }
 
@@ -479,10 +493,9 @@ async function fetchSupportData() {
   if (beatOutResult.error) {
     notify(getFriendlySupabaseMessage(beatOutResult.error, "BEAT-OUTs konnten nicht geladen werden."), true);
     state.beatOutEntries = [];
-    return;
+  } else {
+    state.beatOutEntries = beatOutResult.data || [];
   }
-
-  state.beatOutEntries = beatOutResult.data || [];
 }
 
 async function handleLogin(event) {
