@@ -35,6 +35,11 @@ const state = {
     trainerDirectory: 0,
     invites: 0,
   },
+  acceptEmptyFetch: {
+    courses: false,
+    trainerDirectory: false,
+    invites: false,
+  },
 };
 
 const setupNotice = document.querySelector("#setupNotice");
@@ -362,11 +367,12 @@ async function fetchVisibleCourses() {
     weekday: normalizeWeekdayLabel(course.weekday),
   }));
 
-  if (shouldPreserveOptimisticList("courses", state.courses, mappedCourses)) {
+  if (shouldPreserveFetchedList("courses", state.courses, mappedCourses)) {
     return;
   }
 
   state.courses = mappedCourses;
+  state.acceptEmptyFetch.courses = false;
 
   if (!state.selectedCourseId || !state.courses.some((course) => course.id === state.selectedCourseId)) {
     state.selectedCourseId = state.courses[0]?.id || null;
@@ -474,14 +480,16 @@ async function fetchSupportData() {
   }
   if (!trainerDirectoryResult.error) {
     const nextTrainerDirectory = trainerDirectoryResult.data || [];
-    if (!shouldPreserveOptimisticList("trainerDirectory", state.trainerDirectory, nextTrainerDirectory)) {
+    if (!shouldPreserveFetchedList("trainerDirectory", state.trainerDirectory, nextTrainerDirectory)) {
       state.trainerDirectory = nextTrainerDirectory;
+      state.acceptEmptyFetch.trainerDirectory = false;
     }
   }
   if (!inviteResult.error) {
     const nextInvites = inviteResult.data || [];
-    if (!shouldPreserveOptimisticList("invites", state.invites, nextInvites)) {
+    if (!shouldPreserveFetchedList("invites", state.invites, nextInvites)) {
       state.invites = nextInvites;
+      state.acceptEmptyFetch.invites = false;
     }
   }
   if (!participantResult.error) {
@@ -666,6 +674,7 @@ async function handleInviteCreate(event) {
     ...state.invites.filter((invite) => invite.id !== inviteInsertResult.data.id),
   ].sort((left, right) => String(right.created_at || "").localeCompare(String(left.created_at || "")));
   markOptimisticVisibility("invites");
+  state.acceptEmptyFetch.invites = false;
 
   inviteForm.reset();
   showInviteOutput(code);
@@ -727,6 +736,7 @@ async function handleTrainerDirectoryCreate(event) {
     ...state.trainerDirectory.filter((entry) => entry.id !== trainerDirectoryId),
   ].sort((left, right) => String(left.full_name || "").localeCompare(String(right.full_name || "")));
   markOptimisticVisibility("trainerDirectory");
+  state.acceptEmptyFetch.trainerDirectory = false;
 
   let inviteCode = null;
   if (prepareLogin) {
@@ -762,6 +772,7 @@ async function handleTrainerDirectoryCreate(event) {
       ...state.invites.filter((invite) => invite.code !== inviteCode),
     ].sort((left, right) => String(right.created_at || "").localeCompare(String(left.created_at || "")));
     markOptimisticVisibility("invites");
+    state.acceptEmptyFetch.invites = false;
   }
 
   trainerDirectoryForm.reset();
@@ -854,6 +865,7 @@ async function handleCourseCreate(event) {
     return String(left.time || "").localeCompare(String(right.time || ""));
   });
   markOptimisticVisibility("courses");
+  state.acceptEmptyFetch.courses = false;
   state.selectedCourseId = data.id;
   courseForm.reset();
   renderCourseList();
@@ -1050,6 +1062,7 @@ async function handleCourseDelete() {
   }
 
   clearOptimisticVisibility("courses");
+  state.acceptEmptyFetch.courses = true;
   await fetchVisibleCourses();
   await fetchSupportData();
   persistOfflineCache();
@@ -1341,6 +1354,8 @@ async function handleTrainerDirectoryDelete(entry) {
 
   clearOptimisticVisibility("trainerDirectory");
   clearOptimisticVisibility("invites");
+  state.acceptEmptyFetch.trainerDirectory = true;
+  state.acceptEmptyFetch.invites = true;
   await fetchVisibleCourses();
   await fetchSupportData();
   persistOfflineCache();
@@ -4225,7 +4240,17 @@ function clearOptimisticVisibility(key) {
   state.optimisticVisibilityUntil[key] = 0;
 }
 
-function shouldPreserveOptimisticList(key, currentList, fetchedList) {
+function shouldPreserveFetchedList(key, currentList, fetchedList) {
+  if (
+    !state.acceptEmptyFetch[key]
+    && Array.isArray(currentList)
+    && currentList.length > 0
+    && Array.isArray(fetchedList)
+    && fetchedList.length === 0
+  ) {
+    return true;
+  }
+
   const preserveUntil = state.optimisticVisibilityUntil[key] || 0;
   if (Date.now() > preserveUntil) {
     return false;
