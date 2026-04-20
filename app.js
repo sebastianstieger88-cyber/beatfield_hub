@@ -30,6 +30,11 @@ const state = {
   participantSearch: "",
   isOffline: !navigator.onLine,
   pendingActions: loadOfflineQueue(),
+  optimisticVisibilityUntil: {
+    courses: 0,
+    trainerDirectory: 0,
+    invites: 0,
+  },
 };
 
 const setupNotice = document.querySelector("#setupNotice");
@@ -337,10 +342,16 @@ async function fetchVisibleCourses() {
     return;
   }
 
-  state.courses = (data || []).map((course) => ({
+  const mappedCourses = (data || []).map((course) => ({
     ...course,
     weekday: normalizeWeekdayLabel(course.weekday),
   }));
+
+  if (shouldPreserveOptimisticList("courses", state.courses, mappedCourses)) {
+    return;
+  }
+
+  state.courses = mappedCourses;
 
   if (!state.selectedCourseId || !state.courses.some((course) => course.id === state.selectedCourseId)) {
     state.selectedCourseId = state.courses[0]?.id || null;
@@ -447,10 +458,16 @@ async function fetchSupportData() {
     state.trainers = trainerResult.data || [];
   }
   if (!trainerDirectoryResult.error) {
-    state.trainerDirectory = trainerDirectoryResult.data || [];
+    const nextTrainerDirectory = trainerDirectoryResult.data || [];
+    if (!shouldPreserveOptimisticList("trainerDirectory", state.trainerDirectory, nextTrainerDirectory)) {
+      state.trainerDirectory = nextTrainerDirectory;
+    }
   }
   if (!inviteResult.error) {
-    state.invites = inviteResult.data || [];
+    const nextInvites = inviteResult.data || [];
+    if (!shouldPreserveOptimisticList("invites", state.invites, nextInvites)) {
+      state.invites = nextInvites;
+    }
   }
   if (!participantResult.error) {
     state.participants = participantResult.data || [];
@@ -614,24 +631,41 @@ async function handleInviteCreate(event) {
   const code = String(formData.get("code")).trim() || generateInviteCode();
   const role = String(formData.get("role"));
 
-  const { error } = await state.supabase
+  const inviteInsertResult = await state.supabase
     .from("invite_codes")
     .insert({
       code,
       role,
       created_by: state.session.user.id,
-    });
+    })
+    .select("id, code, role, active, used_at, created_at, invited_email, trainer_directory_id")
+    .single();
 
-  if (error) {
-    notify(error.message, true);
+  if (inviteInsertResult.error) {
+    notify(inviteInsertResult.error.message, true);
     return;
   }
 
+  state.invites = [
+    inviteInsertResult.data,
+    ...state.invites.filter((invite) => invite.id !== inviteInsertResult.data.id),
+  ].sort((left, right) => String(right.created_at || "").localeCompare(String(left.created_at || "")));
+  markOptimisticVisibility("invites");
+
   inviteForm.reset();
-  await fetchSupportData();
   showInviteOutput(code);
+  renderInvites();
+  persistOfflineCache();
   render();
   notify(`Einladungscode ${code} wurde erstellt.`);
+
+  try {
+    await fetchSupportData();
+    persistOfflineCache();
+    render();
+  } catch (error) {
+    console.error("Invite refresh failed", error);
+  }
 }
 
 async function handleTrainerDirectoryCreate(event) {
@@ -677,6 +711,7 @@ async function handleTrainerDirectoryCreate(event) {
     trainerInsertResult.data,
     ...state.trainerDirectory.filter((entry) => entry.id !== trainerDirectoryId),
   ].sort((left, right) => String(left.full_name || "").localeCompare(String(right.full_name || "")));
+  markOptimisticVisibility("trainerDirectory");
 
   let inviteCode = null;
   if (prepareLogin) {
@@ -697,6 +732,21 @@ async function handleTrainerDirectoryCreate(event) {
       render();
       return;
     }
+
+    state.invites = [
+      {
+        id: `local-invite:${inviteCode}`,
+        code: inviteCode,
+        role: "trainer",
+        active: true,
+        used_at: null,
+        created_at: new Date().toISOString(),
+        invited_email: email,
+        trainer_directory_id: trainerDirectoryId,
+      },
+      ...state.invites.filter((invite) => invite.code !== inviteCode),
+    ].sort((left, right) => String(right.created_at || "").localeCompare(String(left.created_at || "")));
+    markOptimisticVisibility("invites");
   }
 
   trainerDirectoryForm.reset();
@@ -788,6 +838,7 @@ async function handleCourseCreate(event) {
     }
     return String(left.time || "").localeCompare(String(right.time || ""));
   });
+  markOptimisticVisibility("courses");
   state.selectedCourseId = data.id;
   courseForm.reset();
   renderCourseList();
@@ -983,6 +1034,7 @@ async function handleCourseDelete() {
     return;
   }
 
+  clearOptimisticVisibility("courses");
   await fetchVisibleCourses();
   await fetchSupportData();
   persistOfflineCache();
@@ -1272,6 +1324,8 @@ async function handleTrainerDirectoryDelete(entry) {
     return;
   }
 
+  clearOptimisticVisibility("trainerDirectory");
+  clearOptimisticVisibility("invites");
   await fetchVisibleCourses();
   await fetchSupportData();
   persistOfflineCache();
@@ -4146,6 +4200,26 @@ function registerServiceWorker() {
 function notify(message, isError = false) {
   statusHeadline.textContent = isError ? "Aktion fehlgeschlagen" : "Status aktualisiert";
   statusText.textContent = message;
+}
+
+function markOptimisticVisibility(key) {
+  state.optimisticVisibilityUntil[key] = Date.now() + 15000;
+}
+
+function clearOptimisticVisibility(key) {
+  state.optimisticVisibilityUntil[key] = 0;
+}
+
+function shouldPreserveOptimisticList(key, currentList, fetchedList) {
+  const preserveUntil = state.optimisticVisibilityUntil[key] || 0;
+  if (Date.now() > preserveUntil) {
+    return false;
+  }
+
+  return Array.isArray(currentList)
+    && currentList.length > 0
+    && Array.isArray(fetchedList)
+    && fetchedList.length === 0;
 }
 
 function getFriendlySupabaseMessage(error, fallback) {
