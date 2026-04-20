@@ -1531,9 +1531,20 @@ async function handleParticipantCreate(event) {
       return;
     }
 
+    if (state.selectedSeasonId) {
+      state.activeSection = "#bookingPanel";
+      render();
+      notify("Bei aktiver Season bitte Teilnehmer ueber Buchungen anlegen.", true);
+      return;
+    }
+
     const formData = new FormData(participantForm);
     const fullName = String(formData.get("fullName")).trim();
     const phone = String(formData.get("phone")).trim();
+    if (!fullName) {
+      notify("Bitte einen Teilnehmernamen eingeben.", true);
+      return;
+    }
     const insertResult = await state.supabase
       .from("participants")
       .insert({
@@ -1564,6 +1575,153 @@ async function handleParticipantCreate(event) {
   } catch (error) {
     console.error("Participant create failed", error);
     notify(`Teilnehmer konnte nicht gespeichert werden: ${error?.message || "Unerwarteter Fehler"}`, true);
+  }
+}
+
+async function handleParticipantDelete(participant, course) {
+  try {
+    if (!participant || !course || !canEditCourse(course)) {
+      return;
+    }
+
+    if (state.isOffline) {
+      notify("Teilnehmer koennen nur online geloescht werden.", true);
+      return;
+    }
+
+    const booking = getParticipantSeasonBooking(participant);
+    if (booking) {
+      const weekdayToRemove = normalizeWeekdayLabel(course.weekday);
+      const remainingDays = (booking.selected_days || []).filter((day) => normalizeWeekdayLabel(day) !== weekdayToRemove);
+
+      if (!remainingDays.length) {
+        const confirmedDeleteBooking = window.confirm(
+          `${participant.full_name} ist ueber eine Season-Buchung in diesem Kurs. Soll die gesamte Buchung geloescht werden?`,
+        );
+        if (!confirmedDeleteBooking) {
+          return;
+        }
+        await handleBookingDelete(booking);
+        return;
+      }
+
+      const nextPackageType = getPackageTypeForDayCount(remainingDays.length);
+      if (!nextPackageType) {
+        notify("Die Season-Buchung konnte nicht auf ein gueltiges Paket umgestellt werden.", true);
+        return;
+      }
+
+      const confirmedUpdateBooking = window.confirm(
+        `${participant.full_name} aus ${course.name} entfernen und die Buchung auf ${nextPackageType} umstellen?`,
+      );
+      if (!confirmedUpdateBooking) {
+        return;
+      }
+
+      const updateResult = await state.supabase
+        .from("season_bookings")
+        .update({
+          package_type: nextPackageType,
+          selected_days: remainingDays,
+        })
+        .eq("id", booking.id);
+
+      if (updateResult.error) {
+        notify(getFriendlySupabaseMessage(updateResult.error, "Season-Buchung konnte nicht angepasst werden."), true);
+        return;
+      }
+
+      state.seasonBookings = state.seasonBookings.map((entry) => {
+        if (entry.id !== booking.id) {
+          return entry;
+        }
+        return {
+          ...entry,
+          package_type: nextPackageType,
+          selected_days: remainingDays,
+        };
+      });
+      markOptimisticVisibility("seasonBookings", 60000);
+      state.acceptEmptyFetch.seasonBookings = false;
+
+      const relevantCourses = resolveRelevantCoursesForDays(remainingDays);
+      if (!relevantCourses.ok) {
+        notify(relevantCourses.message, true);
+        return;
+      }
+
+      const syncResult = await syncSeasonBookingParticipants({
+        bookingId: booking.id,
+        seasonId: booking.season_id,
+        fullName: booking.full_name,
+        phone: booking.phone,
+        selectedDays: remainingDays,
+        relevantCourses: relevantCourses.data,
+      });
+
+      if (!syncResult.ok) {
+        notify(syncResult.message, true);
+        return;
+      }
+
+      persistOfflineCache();
+      render();
+      notify(`${participant.full_name} wurde aus ${course.name} entfernt.`);
+      await refreshVisibleData({ context: "Participant booking delete refresh", silent: true });
+      return;
+    }
+
+    const confirmed = window.confirm(`Soll ${participant.full_name} wirklich aus ${course.name} geloescht werden?`);
+    if (!confirmed) {
+      return;
+    }
+
+    const beatOutDeleteResult = await state.supabase
+      .from("beat_out_entries")
+      .delete()
+      .eq("participant_id", participant.id);
+
+    if (beatOutDeleteResult.error) {
+      notify(getFriendlySupabaseMessage(beatOutDeleteResult.error, "BEAT-OUTs des Teilnehmers konnten nicht geloescht werden."), true);
+      return;
+    }
+
+    const recordDeleteResult = await state.supabase
+      .from("attendance_records")
+      .delete()
+      .eq("participant_id", participant.id);
+
+    if (recordDeleteResult.error) {
+      notify(getFriendlySupabaseMessage(recordDeleteResult.error, "Anwesenheiten des Teilnehmers konnten nicht geloescht werden."), true);
+      return;
+    }
+
+    const participantDeleteResult = await state.supabase
+      .from("participants")
+      .delete()
+      .eq("id", participant.id);
+
+    if (participantDeleteResult.error) {
+      notify(getFriendlySupabaseMessage(participantDeleteResult.error, "Teilnehmer konnte nicht geloescht werden."), true);
+      return;
+    }
+
+    state.participants = state.participants.filter((entry) => entry.id !== participant.id);
+    state.records = state.records.filter((entry) => entry.participant_id !== participant.id);
+    state.beatOutEntries = state.beatOutEntries.filter((entry) => entry.participant_id !== participant.id);
+    markOptimisticVisibility("participants", 60000);
+    markOptimisticVisibility("records", 60000);
+    markOptimisticVisibility("beatOutEntries", 60000);
+    state.acceptEmptyFetch.participants = false;
+    state.acceptEmptyFetch.records = false;
+    state.acceptEmptyFetch.beatOutEntries = false;
+    persistOfflineCache();
+    render();
+    notify(`${participant.full_name} wurde geloescht.`);
+    await refreshVisibleData({ context: "Participant delete refresh", silent: true });
+  } catch (error) {
+    console.error("Participant delete failed", error);
+    notify(`Teilnehmer konnte nicht geloescht werden: ${error?.message || "Unerwarteter Fehler"}`, true);
   }
 }
 
@@ -2796,13 +2954,14 @@ function renderParticipants() {
       </td>
       <td><button type="button" class="attendance-toggle${isPresent ? " is-present" : ""}" aria-label="Anwesenheit umschalten"></button></td>
       <td><span class="badge">${rate}%</span></td>
-      <td>
-        <div class="mini-actions table-actions">
-          <button type="button" class="ghost participant-beatout-btn${beatOutEntry ? " is-active" : ""}">${beatOutEntry ? "BEAT-OUT aktiv" : "BEAT-OUT"}</button>
-          <button type="button" class="ghost participant-move-btn">Umbuchen</button>
-        </div>
-      </td>
-    `;
+        <td>
+          <div class="mini-actions table-actions">
+            <button type="button" class="ghost participant-beatout-btn${beatOutEntry ? " is-active" : ""}">${beatOutEntry ? "BEAT-OUT aktiv" : "BEAT-OUT"}</button>
+            <button type="button" class="ghost participant-move-btn">Umbuchen</button>
+            <button type="button" class="danger participant-delete-btn">${booking ? "Entfernen" : "Loeschen"}</button>
+          </div>
+        </td>
+      `;
 
     const toggleButton = row.querySelector(".attendance-toggle");
     toggleButton.disabled = !canEditCourse(course);
@@ -2818,6 +2977,11 @@ function renderParticipants() {
       beatOutButton.disabled = !canEditCourse(course) || !booking;
       beatOutButton.addEventListener("click", async () => {
         await toggleBeatOut(course.id, participant.id);
+      });
+      const deleteButton = row.querySelector(".participant-delete-btn");
+      deleteButton.disabled = !canEditCourse(course);
+      deleteButton.addEventListener("click", async () => {
+        await handleParticipantDelete(participant, course);
       });
       row.querySelector(".participant-profile-btn").addEventListener("click", () => {
         openParticipantProfile(participant.id, booking?.id || participant.season_booking_id);
@@ -2835,12 +2999,13 @@ function renderParticipants() {
         </div>
         <span class="badge">${rate}%</span>
       </div>
-      <div class="participant-card-actions">
-        <button type="button" class="attendance-toggle${isPresent ? " is-present" : ""}" aria-label="Anwesenheit umschalten"></button>
-        <button type="button" class="ghost participant-beatout-btn${beatOutEntry ? " is-active" : ""}">${beatOutEntry ? "BEAT-OUT aktiv" : "BEAT-OUT"}</button>
-        <button type="button" class="ghost participant-move-btn">Umbuchen</button>
-      </div>
-    `;
+        <div class="participant-card-actions">
+          <button type="button" class="attendance-toggle${isPresent ? " is-present" : ""}" aria-label="Anwesenheit umschalten"></button>
+          <button type="button" class="ghost participant-beatout-btn${beatOutEntry ? " is-active" : ""}">${beatOutEntry ? "BEAT-OUT aktiv" : "BEAT-OUT"}</button>
+          <button type="button" class="ghost participant-move-btn">Umbuchen</button>
+          <button type="button" class="danger participant-delete-btn">${booking ? "Entfernen" : "Loeschen"}</button>
+        </div>
+      `;
 
     const mobileToggle = card.querySelector(".attendance-toggle");
     mobileToggle.disabled = !canEditCourse(course);
@@ -2856,6 +3021,11 @@ function renderParticipants() {
       mobileBeatOutButton.disabled = !canEditCourse(course) || !booking;
       mobileBeatOutButton.addEventListener("click", async () => {
         await toggleBeatOut(course.id, participant.id);
+      });
+      const mobileDeleteButton = card.querySelector(".participant-delete-btn");
+      mobileDeleteButton.disabled = !canEditCourse(course);
+      mobileDeleteButton.addEventListener("click", async () => {
+        await handleParticipantDelete(participant, course);
       });
       card.querySelector(".participant-profile-btn").addEventListener("click", () => {
         openParticipantProfile(participant.id, booking?.id || participant.season_booking_id);
@@ -3718,6 +3888,19 @@ function getBeatOutLimitForPackage(packageType) {
     return 3;
   }
   return 0;
+}
+
+function getPackageTypeForDayCount(dayCount) {
+  if (dayCount === 1) {
+    return "1x TRAIN";
+  }
+  if (dayCount === 2) {
+    return "2x BEAT";
+  }
+  if (dayCount === 3) {
+    return "3x REPEAT";
+  }
+  return null;
 }
 
 function getBeatOutUsageForBooking(bookingId) {
