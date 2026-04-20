@@ -1539,24 +1539,84 @@ async function handleParticipantCreate(event) {
       const formData = new FormData(participantForm);
       const fullName = String(formData.get("fullName")).trim();
       const phone = String(formData.get("phone")).trim();
-    if (!fullName) {
-      notify("Bitte einen Teilnehmernamen eingeben.", true);
-      return;
-    }
-    const insertResult = await state.supabase
-      .from("participants")
-      .insert({
-        course_id: course.id,
-        full_name: fullName,
-        phone,
-      })
-      .select("id, course_id, full_name, phone, created_at, season_id, season_booking_id")
-      .single();
+      if (!fullName) {
+        notify("Bitte einen Teilnehmernamen eingeben.", true);
+        return;
+      }
+      const preferredSeasonId = state.attendanceSeasonId || getDefaultSeasonId();
+      const selectedDay = normalizeWeekdayLabel(course.weekday);
 
-    if (insertResult.error) {
-      notify(getFriendlySupabaseMessage(insertResult.error, "Teilnehmer konnte nicht gespeichert werden."), true);
-      return;
-    }
+      if (preferredSeasonId) {
+        const bookingInsertResult = await state.supabase
+          .from("season_bookings")
+          .insert({
+            season_id: preferredSeasonId,
+            full_name: fullName,
+            phone: phone || null,
+            package_type: "1x TRAIN",
+            selected_days: [selectedDay],
+          })
+          .select("id, season_id, full_name, phone, package_type, selected_days, created_at")
+          .single();
+
+        if (bookingInsertResult.error) {
+          notify(getFriendlySupabaseMessage(bookingInsertResult.error, "Teilnehmer konnte nicht als Buchung angelegt werden."), true);
+          return;
+        }
+
+        const optimisticBooking = bookingInsertResult.data;
+        state.seasonBookings = [
+          optimisticBooking,
+          ...state.seasonBookings.filter((entry) => entry.id !== optimisticBooking.id),
+        ].sort((left, right) => String(right.created_at || "").localeCompare(String(left.created_at || "")));
+        markOptimisticVisibility("seasonBookings", 60000);
+        state.acceptEmptyFetch.seasonBookings = false;
+
+        const participantSyncResult = await syncSeasonBookingParticipants({
+          bookingId: optimisticBooking.id,
+          seasonId: preferredSeasonId,
+          fullName,
+          phone,
+          selectedDays: [selectedDay],
+          relevantCourses: [{ weekday: selectedDay, course }],
+        });
+
+        if (!participantSyncResult.ok) {
+          notify(participantSyncResult.message, true);
+          await refreshVisibleData({ context: "Participant booking create refresh", silent: true });
+          return;
+        }
+
+        const hadSeasonFilter = Boolean(state.attendanceSeasonId);
+        if (state.attendanceSeasonId) {
+          state.attendanceSeasonId = null;
+        }
+
+        participantForm.reset();
+        persistOfflineCache();
+        render();
+        notify(hadSeasonFilter
+          ? "Teilnehmer als 1x TRAIN eingebucht. Ansicht wurde auf Alle Seasons umgestellt."
+          : "Teilnehmer als 1x TRAIN eingebucht.");
+
+        await refreshVisibleData({ context: "Participant booking refresh", silent: true });
+        return;
+      }
+
+      const insertResult = await state.supabase
+        .from("participants")
+        .insert({
+          course_id: course.id,
+          full_name: fullName,
+          phone,
+        })
+        .select("id, course_id, full_name, phone, created_at, season_id, season_booking_id")
+        .single();
+
+      if (insertResult.error) {
+        notify(getFriendlySupabaseMessage(insertResult.error, "Teilnehmer konnte nicht gespeichert werden."), true);
+        return;
+      }
 
       state.participants = [
         insertResult.data,
@@ -1576,11 +1636,11 @@ async function handleParticipantCreate(event) {
         : "Teilnehmer hinzugefuegt.");
 
       await refreshVisibleData({ context: "Participant refresh", silent: true });
-  } catch (error) {
-    console.error("Participant create failed", error);
-    notify(`Teilnehmer konnte nicht gespeichert werden: ${error?.message || "Unerwarteter Fehler"}`, true);
+    } catch (error) {
+      console.error("Participant create failed", error);
+      notify(`Teilnehmer konnte nicht gespeichert werden: ${error?.message || "Unerwarteter Fehler"}`, true);
+    }
   }
-}
 
 async function handleParticipantDelete(participant, course) {
   try {
