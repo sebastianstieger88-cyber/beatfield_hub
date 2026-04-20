@@ -812,7 +812,9 @@ async function handleSeasonBookingCreate(event) {
   const fullName = String(formData.get("fullName")).trim();
   const phone = String(formData.get("phone")).trim();
   const packageType = String(formData.get("packageType")).trim();
-  const selectedDays = formData.getAll("selectedDays").map((value) => String(value));
+  const selectedDays = packageType === "3x REPEAT"
+    ? ["Montag", "Mittwoch", "Samstag"]
+    : formData.getAll("selectedDays").map((value) => String(value));
 
   if (!seasonId) {
     notify("Bitte zuerst eine Season auswaehlen.", true);
