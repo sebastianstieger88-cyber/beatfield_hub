@@ -18,6 +18,7 @@ Produktionsnaehere Web-App fuer Outdoor-Fitnesskurse mit Supabase Auth und Verce
 - `app.js`: Frontend-Logik und Supabase-Anbindung
 - `config.js`: Projektkonfiguration
 - `supabase-schema.sql`: Tabellen, Trigger und RLS-Policies
+- `supabase-update-latest.sql`: sichere Nachzuege fuer bestehende Projekte
 - `vercel.json`: einfaches Vercel-Setup
 
 ## Supabase einrichten
@@ -32,6 +33,23 @@ Produktionsnaehere Web-App fuer Outdoor-Fitnesskurse mit Supabase Auth und Verce
    - `supabaseUrl`
    - `supabaseAnonKey`
    - `siteUrl`
+
+## Supabase aktualisieren
+
+Wenn ein bestehendes Projekt neue App-Funktionen bekommt, nicht blind das komplette Schema erneut ausfuehren.
+
+Stattdessen:
+1. In Supabase `SQL Editor > New query`
+2. den Inhalt aus `supabase-update-latest.sql` ausfuehren
+
+Das ist fuer bestehende Projekte die sicherere Update-Datei fuer:
+- Trainerverzeichnis
+- manuelle Trainer-Zuweisung
+- Seasons und Buchungen
+- Teilnehmer-Verknuepfung zu Buchungen
+- BEAT-OUTs
+
+`supabase-schema.sql` bleibt die Datei fuer Neuaufsetzungen.
 
 ## Rollenlogik
 
