@@ -695,100 +695,105 @@ async function handleInviteCreate(event) {
 async function handleTrainerDirectoryCreate(event) {
   event.preventDefault();
 
-  if (!isAdmin()) {
-    return;
-  }
-
-  const formData = new FormData(trainerDirectoryForm);
-  const fullName = String(formData.get("fullName")).trim();
-  const email = String(formData.get("email")).trim().toLowerCase();
-  const phone = String(formData.get("phone")).trim();
-  const prepareLogin = formData.get("prepareLogin") === "on";
-
-  if (prepareLogin && !email) {
-    notify("Bitte eine E-Mail eintragen, wenn direkt ein Trainerzugang vorbereitet werden soll.", true);
-    return;
-  }
-
-  const trainerInsertResult = await state.supabase
-    .from("trainer_directory")
-    .insert({
-      full_name: fullName,
-      email: email || null,
-      phone: phone || null,
-    })
-    .select("id, full_name, email, phone, linked_user_id")
-    .single();
-
-  if (trainerInsertResult.error) {
-    notify(getFriendlySupabaseMessage(trainerInsertResult.error, "Trainer konnte nicht angelegt werden."), true);
-    return;
-  }
-
-  const trainerDirectoryId = trainerInsertResult.data.id;
-  state.trainerDirectory = [
-    trainerInsertResult.data,
-    ...state.trainerDirectory.filter((entry) => entry.id !== trainerDirectoryId),
-  ].sort((left, right) => String(left.full_name || "").localeCompare(String(right.full_name || "")));
-  markOptimisticVisibility("trainerDirectory");
-  state.acceptEmptyFetch.trainerDirectory = false;
-
-  let inviteCode = null;
-  if (prepareLogin) {
-    inviteCode = generateInviteCode();
-    const inviteResult = await state.supabase
-      .from("invite_codes")
-      .insert({
-        code: inviteCode,
-        role: "trainer",
-        created_by: state.session.user.id,
-        invited_email: email,
-        trainer_directory_id: trainerDirectoryId,
-      });
-
-    if (inviteResult.error) {
-      notify(`Trainer wurde eingetragen, aber der Zugangscode konnte nicht erstellt werden: ${getFriendlySupabaseMessage(inviteResult.error, inviteResult.error.message)}`, true);
-      await fetchSupportData();
-      render();
+  try {
+    if (!isAdmin()) {
       return;
     }
 
-    state.invites = [
-      {
-        id: `local-invite:${inviteCode}`,
-        code: inviteCode,
-        role: "trainer",
-        active: true,
-        used_at: null,
-        created_at: new Date().toISOString(),
-        invited_email: email,
-        trainer_directory_id: trainerDirectoryId,
-      },
-      ...state.invites.filter((invite) => invite.code !== inviteCode),
-    ].sort((left, right) => String(right.created_at || "").localeCompare(String(left.created_at || "")));
-    markOptimisticVisibility("invites");
-    state.acceptEmptyFetch.invites = false;
-  }
+    const formData = new FormData(trainerDirectoryForm);
+    const fullName = String(formData.get("fullName")).trim();
+    const email = String(formData.get("email")).trim().toLowerCase();
+    const phone = String(formData.get("phone")).trim();
+    const prepareLogin = formData.get("prepareLogin") === "on";
 
-  trainerDirectoryForm.reset();
-  renderTrainerSelect();
-  renderTrainerDirectory();
-  persistOfflineCache();
-  setActiveSection("#adminPanel");
-  if (inviteCode) {
-    showInviteOutput(inviteCode);
-  }
-  render();
-  notify(inviteCode
-    ? `Trainer eingetragen und Zugang vorbereitet fuer ${email}.`
-    : "Trainer wurde eingetragen.");
+    if (prepareLogin && !email) {
+      notify("Bitte eine E-Mail eintragen, wenn direkt ein Trainerzugang vorbereitet werden soll.", true);
+      return;
+    }
 
-  try {
-    await fetchSupportData();
+    const trainerInsertResult = await state.supabase
+      .from("trainer_directory")
+      .insert({
+        full_name: fullName,
+        email: email || null,
+        phone: phone || null,
+      })
+      .select("id, full_name, email, phone, linked_user_id")
+      .single();
+
+    if (trainerInsertResult.error) {
+      notify(getFriendlySupabaseMessage(trainerInsertResult.error, "Trainer konnte nicht angelegt werden."), true);
+      return;
+    }
+
+    const trainerDirectoryId = trainerInsertResult.data.id;
+    state.trainerDirectory = [
+      trainerInsertResult.data,
+      ...state.trainerDirectory.filter((entry) => entry.id !== trainerDirectoryId),
+    ].sort((left, right) => String(left.full_name || "").localeCompare(String(right.full_name || "")));
+    markOptimisticVisibility("trainerDirectory");
+    state.acceptEmptyFetch.trainerDirectory = false;
+
+    let inviteCode = null;
+    if (prepareLogin) {
+      inviteCode = generateInviteCode();
+      const inviteResult = await state.supabase
+        .from("invite_codes")
+        .insert({
+          code: inviteCode,
+          role: "trainer",
+          created_by: state.session.user.id,
+          invited_email: email,
+          trainer_directory_id: trainerDirectoryId,
+        });
+
+      if (inviteResult.error) {
+        notify(`Trainer wurde eingetragen, aber der Zugangscode konnte nicht erstellt werden: ${getFriendlySupabaseMessage(inviteResult.error, inviteResult.error.message)}`, true);
+        await fetchSupportData();
+        render();
+        return;
+      }
+
+      state.invites = [
+        {
+          id: `local-invite:${inviteCode}`,
+          code: inviteCode,
+          role: "trainer",
+          active: true,
+          used_at: null,
+          created_at: new Date().toISOString(),
+          invited_email: email,
+          trainer_directory_id: trainerDirectoryId,
+        },
+        ...state.invites.filter((invite) => invite.code !== inviteCode),
+      ].sort((left, right) => String(right.created_at || "").localeCompare(String(left.created_at || "")));
+      markOptimisticVisibility("invites");
+      state.acceptEmptyFetch.invites = false;
+    }
+
+    trainerDirectoryForm.reset();
+    renderTrainerSelect();
+    renderTrainerDirectory();
     persistOfflineCache();
+    setActiveSection("#adminPanel");
+    if (inviteCode) {
+      showInviteOutput(inviteCode);
+    }
     render();
+    notify(inviteCode
+      ? `Trainer eingetragen und Zugang vorbereitet fuer ${email}.`
+      : "Trainer wurde eingetragen.");
+
+    try {
+      await fetchSupportData();
+      persistOfflineCache();
+      render();
+    } catch (error) {
+      console.error("Trainer refresh failed", error);
+    }
   } catch (error) {
-    console.error("Trainer refresh failed", error);
+    console.error("Trainer creation failed", error);
+    notify(`Trainer konnte nicht angelegt werden: ${error?.message || "Unerwarteter Fehler"}`, true);
   }
 }
 
@@ -822,62 +827,67 @@ async function handleTrainerInviteRegenerate(entry) {
 async function handleCourseCreate(event) {
   event.preventDefault();
 
-  if (!isAdmin()) {
-    return;
-  }
-
-  const formData = new FormData(courseForm);
-  const trainerSelection = parseTrainerSelection(formData.get("trainerId"));
-  const { data, error } = await state.supabase
-    .from("courses")
-    .insert({
-      name: String(formData.get("name")).trim(),
-      location: String(formData.get("location")).trim(),
-      weekday: normalizeWeekdayLabel(formData.get("weekday")),
-      time: String(formData.get("time")).trim() || null,
-      trainer_id: trainerSelection.trainerId,
-      trainer_directory_id: trainerSelection.directoryId,
-    })
-    .select("id, name, location, weekday, time, trainer_id, trainer_directory_id")
-    .single();
-
-  if (error) {
-    notify(getFriendlySupabaseMessage(error, "Kurs konnte nicht gespeichert werden."), true);
-    return;
-  }
-
-  state.courses = [
-    {
-      ...data,
-      weekday: normalizeWeekdayLabel(data.weekday),
-    },
-    ...state.courses.filter((course) => course.id !== data.id),
-  ].sort((left, right) => {
-    const weekdayCompare = String(left.weekday || "").localeCompare(String(right.weekday || ""));
-    if (weekdayCompare !== 0) {
-      return weekdayCompare;
-    }
-    return String(left.time || "").localeCompare(String(right.time || ""));
-  });
-  markOptimisticVisibility("courses");
-  state.acceptEmptyFetch.courses = false;
-  state.selectedCourseId = data.id;
-  courseForm.reset();
-  renderCourseList();
-  renderPlanning();
-  renderParticipants();
-  persistOfflineCache();
-  setActiveSection("#courseListPanel");
-  render();
-  notify("Kurs gespeichert.");
-
   try {
-    await fetchVisibleCourses();
-    await fetchSupportData();
+    if (!isAdmin()) {
+      return;
+    }
+
+    const formData = new FormData(courseForm);
+    const trainerSelection = parseTrainerSelection(formData.get("trainerId"));
+    const { data, error } = await state.supabase
+      .from("courses")
+      .insert({
+        name: String(formData.get("name")).trim(),
+        location: String(formData.get("location")).trim(),
+        weekday: normalizeWeekdayLabel(formData.get("weekday")),
+        time: String(formData.get("time")).trim() || null,
+        trainer_id: trainerSelection.trainerId,
+        trainer_directory_id: trainerSelection.directoryId,
+      })
+      .select("id, name, location, weekday, time, trainer_id, trainer_directory_id")
+      .single();
+
+    if (error) {
+      notify(getFriendlySupabaseMessage(error, "Kurs konnte nicht gespeichert werden."), true);
+      return;
+    }
+
+    state.courses = [
+      {
+        ...data,
+        weekday: normalizeWeekdayLabel(data.weekday),
+      },
+      ...state.courses.filter((course) => course.id !== data.id),
+    ].sort((left, right) => {
+      const weekdayCompare = String(left.weekday || "").localeCompare(String(right.weekday || ""));
+      if (weekdayCompare !== 0) {
+        return weekdayCompare;
+      }
+      return String(left.time || "").localeCompare(String(right.time || ""));
+    });
+    markOptimisticVisibility("courses");
+    state.acceptEmptyFetch.courses = false;
+    state.selectedCourseId = data.id;
+    courseForm.reset();
+    renderCourseList();
+    renderPlanning();
+    renderParticipants();
     persistOfflineCache();
+    setActiveSection("#courseListPanel");
     render();
+    notify("Kurs gespeichert.");
+
+    try {
+      await fetchVisibleCourses();
+      await fetchSupportData();
+      persistOfflineCache();
+      render();
+    } catch (error) {
+      console.error("Course refresh failed", error);
+    }
   } catch (error) {
-    console.error("Course refresh failed", error);
+    console.error("Course creation failed", error);
+    notify(`Kurs konnte nicht gespeichert werden: ${error?.message || "Unerwarteter Fehler"}`, true);
   }
 }
 
