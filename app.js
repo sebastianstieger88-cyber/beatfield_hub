@@ -22,6 +22,7 @@ const state = {
   beatOutEntries: [],
   selectedCourseId: null,
   selectedSeasonId: null,
+  attendanceSeasonId: null,
   seasonFilter: "all",
   activeSection: null,
   editingBookingId: null,
@@ -216,7 +217,7 @@ seasonFilterClosedBtn?.addEventListener("click", () => setSeasonFilter("abgeschl
 attendanceDate?.addEventListener("change", render);
 monthPicker?.addEventListener("change", render);
 attendanceSeasonSelect?.addEventListener("change", () => {
-  state.selectedSeasonId = normalizeOptionalId(attendanceSeasonSelect.value);
+  state.attendanceSeasonId = normalizeOptionalId(attendanceSeasonSelect.value);
   render();
 });
 bookingPackageSelect?.addEventListener("change", syncBookingDayInputs);
@@ -1531,12 +1532,12 @@ async function handleParticipantCreate(event) {
       return;
     }
 
-    if (state.selectedSeasonId) {
-      state.activeSection = "#bookingPanel";
-      render();
-      notify("Bei aktiver Season bitte Teilnehmer ueber Buchungen anlegen.", true);
-      return;
-    }
+      if (state.attendanceSeasonId) {
+        state.activeSection = "#bookingPanel";
+        render();
+        notify("Bei aktiver Season bitte Teilnehmer ueber Buchungen anlegen.", true);
+        return;
+      }
 
     const formData = new FormData(participantForm);
     const fullName = String(formData.get("fullName")).trim();
@@ -2394,7 +2395,7 @@ function renderSeasonSelects() {
       attendanceSeasonSelect.appendChild(option);
     });
 
-    attendanceSeasonSelect.value = state.selectedSeasonId || "";
+      attendanceSeasonSelect.value = state.attendanceSeasonId || "";
   }
 
   if (bookingSeasonSelect) {
@@ -2406,7 +2407,7 @@ function renderSeasonSelects() {
       bookingSeasonSelect.appendChild(option);
     });
 
-    bookingSeasonSelect.value = state.selectedSeasonId || state.seasons[0]?.id || "";
+      bookingSeasonSelect.value = state.selectedSeasonId || state.seasons[0]?.id || "";
   }
 
   syncBookingDayInputs();
@@ -3821,11 +3822,11 @@ function getSelectedCourse() {
 }
 
 function getSelectedSeason() {
-  return state.seasons.find((season) => season.id === state.selectedSeasonId) || null;
+  return state.seasons.find((season) => season.id === state.attendanceSeasonId) || null;
 }
 
 function getParticipantsForCourse(courseId) {
-  const selectedSeasonId = state.selectedSeasonId;
+  const selectedSeasonId = state.attendanceSeasonId;
   return state.participants.filter((participant) => {
     if (participant.course_id !== courseId) {
       return false;
@@ -4332,11 +4333,12 @@ function resetProtectedState() {
   state.records = [];
   state.beatOutEntries = [];
   state.selectedCourseId = null;
-  state.selectedSeasonId = null;
-  state.selectedParticipantId = null;
-  state.participantSearch = "";
-  closeParticipantProfileModal();
-}
+    state.selectedSeasonId = null;
+    state.attendanceSeasonId = null;
+    state.selectedParticipantId = null;
+    state.participantSearch = "";
+    closeParticipantProfileModal();
+  }
 
 function toggleMobileNav() {
   const isOpen = appNav.classList.toggle("is-open");
@@ -4650,10 +4652,11 @@ function hydrateFromOfflineCache() {
     state.beatOutEntries = Array.isArray(cached.beatOutEntries) ? cached.beatOutEntries : [];
     state.selectedCourseId = cached.selectedCourseId || state.selectedCourseId;
       state.selectedSeasonId = null;
-  } catch (error) {
-    console.error("Offline cache konnte nicht geladen werden", error);
+      state.attendanceSeasonId = null;
+    } catch (error) {
+      console.error("Offline cache konnte nicht geladen werden", error);
+    }
   }
-}
 
 function loadOfflineQueue() {
   const raw = localStorage.getItem(OFFLINE_QUEUE_KEY);
