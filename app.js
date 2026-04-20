@@ -1441,6 +1441,14 @@ async function handleBookingDelete(booking) {
     state.beatOutEntries = state.beatOutEntries.filter((entry) => !linkedParticipantIds.includes(entry.participant_id) && entry.season_booking_id !== booking.id);
   }
   state.seasonBookings = state.seasonBookings.filter((entry) => entry.id !== booking.id);
+  clearOptimisticVisibility("seasonBookings");
+  clearOptimisticVisibility("participants");
+  clearOptimisticVisibility("records");
+  clearOptimisticVisibility("beatOutEntries");
+  state.acceptEmptyFetch.seasonBookings = true;
+  state.acceptEmptyFetch.participants = true;
+  state.acceptEmptyFetch.records = true;
+  state.acceptEmptyFetch.beatOutEntries = true;
   persistOfflineCache();
   render();
 
@@ -1699,11 +1707,11 @@ async function handleParticipantDelete(participant, course) {
         return;
       }
 
-      persistOfflineCache();
-      render();
-      notify(`${participant.full_name} wurde aus ${course.name} entfernt.`);
-      await refreshVisibleData({ context: "Participant booking delete refresh", silent: true });
-      return;
+        persistOfflineCache();
+        render();
+        notify(`${participant.full_name} wurde aus ${course.name} entfernt.`);
+        await refreshVisibleData({ context: "Participant booking delete refresh", silent: true });
+        return;
     }
 
     const confirmed = window.confirm(`Soll ${participant.full_name} wirklich aus ${course.name} geloescht werden?`);
@@ -1741,19 +1749,19 @@ async function handleParticipantDelete(participant, course) {
       return;
     }
 
-    state.participants = state.participants.filter((entry) => entry.id !== participant.id);
-    state.records = state.records.filter((entry) => entry.participant_id !== participant.id);
-    state.beatOutEntries = state.beatOutEntries.filter((entry) => entry.participant_id !== participant.id);
-    markOptimisticVisibility("participants", 60000);
-    markOptimisticVisibility("records", 60000);
-    markOptimisticVisibility("beatOutEntries", 60000);
-    state.acceptEmptyFetch.participants = false;
-    state.acceptEmptyFetch.records = false;
-    state.acceptEmptyFetch.beatOutEntries = false;
-    persistOfflineCache();
-    render();
-    notify(`${participant.full_name} wurde geloescht.`);
-    await refreshVisibleData({ context: "Participant delete refresh", silent: true });
+      state.participants = state.participants.filter((entry) => entry.id !== participant.id);
+      state.records = state.records.filter((entry) => entry.participant_id !== participant.id);
+      state.beatOutEntries = state.beatOutEntries.filter((entry) => entry.participant_id !== participant.id);
+      clearOptimisticVisibility("participants");
+      clearOptimisticVisibility("records");
+      clearOptimisticVisibility("beatOutEntries");
+      state.acceptEmptyFetch.participants = true;
+      state.acceptEmptyFetch.records = true;
+      state.acceptEmptyFetch.beatOutEntries = true;
+      persistOfflineCache();
+      render();
+      notify(`${participant.full_name} wurde geloescht.`);
+      await refreshVisibleData({ context: "Participant delete refresh", silent: true });
   } catch (error) {
     console.error("Participant delete failed", error);
     notify(`Teilnehmer konnte nicht geloescht werden: ${error?.message || "Unerwarteter Fehler"}`, true);
@@ -4677,9 +4685,9 @@ function hydrateFromOfflineCache() {
     state.participants = Array.isArray(cached.participants) ? cached.participants : [];
     state.trialRequests = Array.isArray(cached.trialRequests) ? cached.trialRequests : [];
     state.sessions = Array.isArray(cached.sessions) ? cached.sessions : [];
-    state.records = Array.isArray(cached.records) ? cached.records : [];
-    state.beatOutEntries = Array.isArray(cached.beatOutEntries) ? cached.beatOutEntries : [];
-    state.selectedCourseId = cached.selectedCourseId || state.selectedCourseId;
+      state.records = Array.isArray(cached.records) ? cached.records : [];
+      state.beatOutEntries = Array.isArray(cached.beatOutEntries) ? cached.beatOutEntries : [];
+      state.selectedCourseId = cached.selectedCourseId || state.selectedCourseId;
       state.selectedSeasonId = null;
       state.attendanceSeasonId = null;
     } catch (error) {
