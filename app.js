@@ -324,6 +324,7 @@ async function loadProtectedData() {
   }
 
   hydrateFromOfflineCache();
+  state.attendanceSeasonId = null;
   if (state.courses.length) {
     markOptimisticVisibility("courses", 60000);
   }
@@ -396,6 +397,9 @@ async function fetchVisibleCourses() {
 }
 
 async function fetchSupportData() {
+  state.attendanceSeasonId = state.seasons.some((season) => season.id === state.attendanceSeasonId)
+    ? state.attendanceSeasonId
+    : null;
   const courseIds = state.courses.map((course) => course.id);
   const seasonsQuery = state.supabase
     .from("seasons")
