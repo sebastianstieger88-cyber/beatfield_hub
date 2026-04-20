@@ -80,6 +80,8 @@ const seasonBookingForm = document.querySelector("#seasonBookingForm");
 const saveBookingBtn = document.querySelector("#saveBookingBtn");
 const cancelBookingEditBtn = document.querySelector("#cancelBookingEditBtn");
 const participantForm = document.querySelector("#participantForm");
+const participantFormNotice = document.querySelector("#participantFormNotice");
+const openBookingPanelBtn = document.querySelector("#openBookingPanelBtn");
 const trialForm = document.querySelector("#trialForm");
 const inviteOutput = document.querySelector("#inviteOutput");
 const inviteOutputCode = document.querySelector("#inviteOutputCode");
@@ -188,6 +190,10 @@ seasonBookingForm?.addEventListener("submit", handleSeasonBookingCreate);
 cancelBookingEditBtn?.addEventListener("click", resetBookingForm);
 deleteCourseBtn?.addEventListener("click", handleCourseDelete);
 participantForm?.addEventListener("submit", handleParticipantCreate);
+openBookingPanelBtn?.addEventListener("click", () => {
+  state.activeSection = "#bookingPanel";
+  render();
+});
 trialForm?.addEventListener("submit", handleTrialCreate);
 moveParticipantForm?.addEventListener("submit", handleMoveParticipantSubmit);
 closeMoveParticipantModalBtn?.addEventListener("click", closeMoveParticipantModal);
@@ -2762,6 +2768,7 @@ function renderParticipants() {
     : `${course.name} verwalten`;
   courseActions.classList.remove("hidden");
   participantForm.classList.toggle("hidden", !canEditCourse(course) || Boolean(season));
+  participantFormNotice?.classList.toggle("hidden", !Boolean(season));
   markAllPresentBtn.disabled = !canEditCourse(course);
   markAllAbsentBtn.disabled = !canEditCourse(course);
 
