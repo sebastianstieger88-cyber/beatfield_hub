@@ -1342,6 +1342,21 @@ async function handleBookingDelete(booking) {
     return;
   }
 
+  const linkedParticipants = state.participants.filter((participant) => participant.season_booking_id === booking.id);
+  const linkedParticipantIds = linkedParticipants.map((participant) => participant.id);
+
+  if (linkedParticipantIds.length) {
+    const beatOutDeleteResult = await state.supabase
+      .from("beat_out_entries")
+      .delete()
+      .eq("season_booking_id", booking.id);
+
+    if (beatOutDeleteResult.error) {
+      notify(getFriendlySupabaseMessage(beatOutDeleteResult.error, "BEAT-OUTs der Buchung konnten nicht geloescht werden."), true);
+      return;
+    }
+  }
+
   const participantDeleteResult = await state.supabase
     .from("participants")
     .delete()
@@ -1365,6 +1380,15 @@ async function handleBookingDelete(booking) {
   if (state.editingBookingId === booking.id) {
     resetBookingForm();
   }
+
+  if (linkedParticipantIds.length) {
+    state.participants = state.participants.filter((participant) => !linkedParticipantIds.includes(participant.id));
+    state.records = state.records.filter((record) => !linkedParticipantIds.includes(record.participant_id));
+    state.beatOutEntries = state.beatOutEntries.filter((entry) => !linkedParticipantIds.includes(entry.participant_id) && entry.season_booking_id !== booking.id);
+  }
+  state.seasonBookings = state.seasonBookings.filter((entry) => entry.id !== booking.id);
+  persistOfflineCache();
+  render();
 
   await fetchSupportData();
   persistOfflineCache();
