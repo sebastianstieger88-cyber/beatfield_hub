@@ -39,6 +39,7 @@ const state = {
     courses: false,
     trainerDirectory: false,
     invites: false,
+    seasonBookings: false,
   },
 };
 
@@ -473,7 +474,11 @@ async function fetchSupportData() {
     state.seasons = seasonResult.data || [];
   }
   if (!seasonBookingResult.error) {
-    state.seasonBookings = seasonBookingResult.data || [];
+    const nextSeasonBookings = seasonBookingResult.data || [];
+    if (!shouldPreserveFetchedList("seasonBookings", state.seasonBookings, nextSeasonBookings)) {
+      state.seasonBookings = nextSeasonBookings;
+      state.acceptEmptyFetch.seasonBookings = false;
+    }
   }
   if (!trainerResult.error) {
     state.trainers = trainerResult.data || [];
@@ -973,6 +978,7 @@ async function handleSeasonBookingCreate(event) {
   }
 
   let savedBookingId = bookingId;
+  let optimisticBooking = null;
   if (bookingId) {
     const bookingUpdateResult = await state.supabase
       .from("season_bookings")
@@ -989,6 +995,16 @@ async function handleSeasonBookingCreate(event) {
       notify(getFriendlySupabaseMessage(bookingUpdateResult.error, "Buchung konnte nicht aktualisiert werden."), true);
       return;
     }
+
+    optimisticBooking = {
+      id: bookingId,
+      season_id: seasonId,
+      full_name: fullName,
+      phone: phone || null,
+      package_type: packageType,
+      selected_days: selectedDays,
+      created_at: state.seasonBookings.find((entry) => entry.id === bookingId)?.created_at || new Date().toISOString(),
+    };
   } else {
     const bookingInsertResult = await state.supabase
       .from("season_bookings")
@@ -1008,6 +1024,15 @@ async function handleSeasonBookingCreate(event) {
     }
 
     savedBookingId = bookingInsertResult.data.id;
+    optimisticBooking = {
+      id: savedBookingId,
+      season_id: seasonId,
+      full_name: fullName,
+      phone: phone || null,
+      package_type: packageType,
+      selected_days: selectedDays,
+      created_at: new Date().toISOString(),
+    };
   }
 
   const participantSyncResult = await syncSeasonBookingParticipants({
@@ -1027,7 +1052,16 @@ async function handleSeasonBookingCreate(event) {
   }
 
   state.selectedSeasonId = seasonId;
+  if (optimisticBooking) {
+    state.seasonBookings = [
+      optimisticBooking,
+      ...state.seasonBookings.filter((entry) => entry.id !== savedBookingId),
+    ].sort((left, right) => String(right.created_at || "").localeCompare(String(left.created_at || "")));
+    state.acceptEmptyFetch.seasonBookings = false;
+  }
   resetBookingForm();
+  persistOfflineCache();
+  render();
   await fetchSupportData();
   render();
   notify(bookingId
