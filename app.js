@@ -959,120 +959,125 @@ async function handleSeasonCreate(event) {
 async function handleSeasonBookingCreate(event) {
   event.preventDefault();
 
-  if (!isAdmin()) {
-    return;
-  }
+  try {
+    if (!isAdmin()) {
+      return;
+    }
 
-  const formData = new FormData(seasonBookingForm);
-  const bookingId = normalizeOptionalId(formData.get("bookingId"));
-  const seasonId = normalizeOptionalId(formData.get("seasonId"));
-  const fullName = String(formData.get("fullName")).trim();
-  const phone = String(formData.get("phone")).trim();
-  const packageType = String(formData.get("packageType")).trim();
-  const selectedDays = packageType === "3x REPEAT"
-    ? ["Montag", "Mittwoch", "Samstag"]
-    : formData.getAll("selectedDays").map((value) => String(value));
+    const formData = new FormData(seasonBookingForm);
+    const bookingId = normalizeOptionalId(formData.get("bookingId"));
+    const seasonId = normalizeOptionalId(formData.get("seasonId"));
+    const fullName = String(formData.get("fullName")).trim();
+    const phone = String(formData.get("phone")).trim();
+    const packageType = String(formData.get("packageType")).trim();
+    const selectedDays = packageType === "3x REPEAT"
+      ? ["Montag", "Mittwoch", "Samstag"]
+      : formData.getAll("selectedDays").map((value) => String(value));
 
-  if (!seasonId) {
-    notify("Bitte zuerst eine Season auswaehlen.", true);
-    return;
-  }
+    if (!seasonId) {
+      notify("Bitte zuerst eine Season auswaehlen.", true);
+      return;
+    }
 
-  const expectedCount = getExpectedDayCount(packageType);
-  if (selectedDays.length !== expectedCount) {
-    notify(`Fuer ${packageType} muessen genau ${expectedCount} Trainingstage gewaehlt werden.`, true);
-    return;
-  }
+    const expectedCount = getExpectedDayCount(packageType);
+    if (selectedDays.length !== expectedCount) {
+      notify(`Fuer ${packageType} muessen genau ${expectedCount} Trainingstage gewaehlt werden.`, true);
+      return;
+    }
 
-  const relevantCourses = resolveRelevantCoursesForDays(selectedDays);
-  if (!relevantCourses.ok) {
-    notify(relevantCourses.message, true);
-    return;
-  }
+    const relevantCourses = resolveRelevantCoursesForDays(selectedDays);
+    if (!relevantCourses.ok) {
+      notify(relevantCourses.message, true);
+      return;
+    }
 
-  let savedBookingId = bookingId;
-  let optimisticBooking = null;
-  if (bookingId) {
-    const bookingUpdateResult = await state.supabase
-      .from("season_bookings")
-      .update({
+    let savedBookingId = bookingId;
+    let optimisticBooking = null;
+    if (bookingId) {
+      const bookingUpdateResult = await state.supabase
+        .from("season_bookings")
+        .update({
+          season_id: seasonId,
+          full_name: fullName,
+          phone: phone || null,
+          package_type: packageType,
+          selected_days: selectedDays,
+        })
+        .eq("id", bookingId);
+
+      if (bookingUpdateResult.error) {
+        notify(getFriendlySupabaseMessage(bookingUpdateResult.error, "Buchung konnte nicht aktualisiert werden."), true);
+        return;
+      }
+
+      optimisticBooking = {
+        id: bookingId,
         season_id: seasonId,
         full_name: fullName,
         phone: phone || null,
         package_type: packageType,
         selected_days: selectedDays,
-      })
-      .eq("id", bookingId);
+        created_at: state.seasonBookings.find((entry) => entry.id === bookingId)?.created_at || new Date().toISOString(),
+      };
+    } else {
+      const bookingInsertResult = await state.supabase
+        .from("season_bookings")
+        .insert({
+          season_id: seasonId,
+          full_name: fullName,
+          phone: phone || null,
+          package_type: packageType,
+          selected_days: selectedDays,
+        })
+        .select("id, season_id, full_name, phone, package_type, selected_days, created_at")
+        .single();
 
-    if (bookingUpdateResult.error) {
-      notify(getFriendlySupabaseMessage(bookingUpdateResult.error, "Buchung konnte nicht aktualisiert werden."), true);
+      if (bookingInsertResult.error) {
+        notify(getFriendlySupabaseMessage(bookingInsertResult.error, "Buchung konnte nicht gespeichert werden."), true);
+        return;
+      }
+
+      savedBookingId = bookingInsertResult.data.id;
+      optimisticBooking = bookingInsertResult.data;
+    }
+
+    const participantSyncResult = await syncSeasonBookingParticipants({
+      bookingId: savedBookingId,
+      seasonId,
+      fullName,
+      phone,
+      selectedDays,
+      relevantCourses: relevantCourses.data,
+    });
+
+    if (!participantSyncResult.ok) {
+      notify(participantSyncResult.message, true);
+      await fetchSupportData();
+      render();
       return;
     }
 
-    optimisticBooking = {
-      id: bookingId,
-      season_id: seasonId,
-      full_name: fullName,
-      phone: phone || null,
-      package_type: packageType,
-      selected_days: selectedDays,
-      created_at: state.seasonBookings.find((entry) => entry.id === bookingId)?.created_at || new Date().toISOString(),
-    };
-  } else {
-    const bookingInsertResult = await state.supabase
-      .from("season_bookings")
-      .insert({
-        season_id: seasonId,
-        full_name: fullName,
-        phone: phone || null,
-        package_type: packageType,
-        selected_days: selectedDays,
-      })
-      .select("id, season_id, full_name, phone, package_type, selected_days, created_at")
-      .single();
-
-    if (bookingInsertResult.error) {
-      notify(getFriendlySupabaseMessage(bookingInsertResult.error, "Buchung konnte nicht gespeichert werden."), true);
-      return;
+    state.selectedSeasonId = seasonId;
+    if (optimisticBooking) {
+      state.seasonBookings = [
+        optimisticBooking,
+        ...state.seasonBookings.filter((entry) => entry.id !== savedBookingId),
+      ].sort((left, right) => String(right.created_at || "").localeCompare(String(left.created_at || "")));
+      markOptimisticVisibility("seasonBookings", 60000);
+      state.acceptEmptyFetch.seasonBookings = false;
     }
-
-    savedBookingId = bookingInsertResult.data.id;
-    optimisticBooking = bookingInsertResult.data;
-  }
-
-  const participantSyncResult = await syncSeasonBookingParticipants({
-    bookingId: savedBookingId,
-    seasonId,
-    fullName,
-    phone,
-    selectedDays,
-    relevantCourses: relevantCourses.data,
-  });
-
-  if (!participantSyncResult.ok) {
-    notify(participantSyncResult.message, true);
+    resetBookingForm();
+    persistOfflineCache();
+    render();
     await fetchSupportData();
     render();
-    return;
+    notify(bookingId
+      ? `${fullName} wurde in der Buchung aktualisiert.`
+      : `${fullName} wurde fuer ${packageType} eingebucht.`);
+  } catch (error) {
+    console.error("Season booking save failed", error);
+    notify(`Buchung konnte nicht gespeichert werden: ${error?.message || "Unerwarteter Fehler"}`, true);
   }
-
-  state.selectedSeasonId = seasonId;
-  if (optimisticBooking) {
-    state.seasonBookings = [
-      optimisticBooking,
-      ...state.seasonBookings.filter((entry) => entry.id !== savedBookingId),
-    ].sort((left, right) => String(right.created_at || "").localeCompare(String(left.created_at || "")));
-    markOptimisticVisibility("seasonBookings", 60000);
-    state.acceptEmptyFetch.seasonBookings = false;
-  }
-  resetBookingForm();
-  persistOfflineCache();
-  render();
-  await fetchSupportData();
-  render();
-  notify(bookingId
-    ? `${fullName} wurde in der Buchung aktualisiert.`
-    : `${fullName} wurde fuer ${packageType} eingebucht.`);
 }
 
 async function handleCourseDelete() {
@@ -1397,39 +1402,84 @@ async function handleBookingDelete(booking) {
 }
 
 async function handleTrainerDirectoryDelete(entry) {
-  if (!isAdmin() || !entry || entry.linked_user_id) {
-    return;
+  try {
+    if (!isAdmin() || !entry || entry.linked_user_id) {
+      return;
+    }
+
+    if (state.isOffline) {
+      notify("Trainer koennen nur online geloescht werden.", true);
+      return;
+    }
+
+    const confirmed = window.confirm(`Soll der Trainer "${entry.full_name}" wirklich geloescht werden? Kurszuweisungen dieses manuellen Eintrags werden dabei entfernt.`);
+    if (!confirmed) {
+      return;
+    }
+
+    const courseUnassignResult = await state.supabase
+      .from("courses")
+      .update({ trainer_directory_id: null })
+      .eq("trainer_directory_id", entry.id);
+
+    if (courseUnassignResult.error) {
+      notify(getFriendlySupabaseMessage(courseUnassignResult.error, "Trainer konnte nicht aus den Kursen geloest werden."), true);
+      return;
+    }
+
+    const inviteDeleteResult = await state.supabase
+      .from("invite_codes")
+      .delete()
+      .eq("trainer_directory_id", entry.id);
+
+    if (inviteDeleteResult.error) {
+      notify(getFriendlySupabaseMessage(inviteDeleteResult.error, "Trainer-Einladungen konnten nicht geloescht werden."), true);
+      return;
+    }
+
+    const deleteResult = await state.supabase
+      .from("trainer_directory")
+      .delete()
+      .eq("id", entry.id);
+
+    if (deleteResult.error) {
+      notify(getFriendlySupabaseMessage(deleteResult.error, "Trainer konnte nicht geloescht werden."), true);
+      return;
+    }
+
+    state.courses = state.courses.map((course) => {
+      if (course.trainer_directory_id !== entry.id) {
+        return course;
+      }
+
+      return {
+        ...course,
+        trainer_directory_id: null,
+      };
+    });
+    state.trainerDirectory = state.trainerDirectory.filter((trainer) => trainer.id !== entry.id);
+    state.invites = state.invites.filter((invite) => invite.trainer_directory_id !== entry.id);
+    renderTrainerSelect();
+    renderTrainerDirectory();
+    renderCourseList();
+    persistOfflineCache();
+    render();
+
+    clearOptimisticVisibility("trainerDirectory");
+    clearOptimisticVisibility("invites");
+    clearOptimisticVisibility("courses");
+    state.acceptEmptyFetch.trainerDirectory = true;
+    state.acceptEmptyFetch.invites = true;
+    state.acceptEmptyFetch.courses = true;
+    await fetchVisibleCourses();
+    await fetchSupportData();
+    persistOfflineCache();
+    render();
+    notify(`Trainer "${entry.full_name}" wurde geloescht.`);
+  } catch (error) {
+    console.error("Trainer delete failed", error);
+    notify(`Trainer konnte nicht geloescht werden: ${error?.message || "Unerwarteter Fehler"}`, true);
   }
-
-  if (state.isOffline) {
-    notify("Trainer koennen nur online geloescht werden.", true);
-    return;
-  }
-
-  const confirmed = window.confirm(`Soll der Trainer "${entry.full_name}" wirklich geloescht werden? Kurszuweisungen dieses manuellen Eintrags werden dabei entfernt.`);
-  if (!confirmed) {
-    return;
-  }
-
-  const { error } = await state.supabase
-    .from("trainer_directory")
-    .delete()
-    .eq("id", entry.id);
-
-  if (error) {
-    notify(getFriendlySupabaseMessage(error, "Trainer konnte nicht geloescht werden."), true);
-    return;
-  }
-
-  clearOptimisticVisibility("trainerDirectory");
-  clearOptimisticVisibility("invites");
-  state.acceptEmptyFetch.trainerDirectory = true;
-  state.acceptEmptyFetch.invites = true;
-  await fetchVisibleCourses();
-  await fetchSupportData();
-  persistOfflineCache();
-  render();
-  notify(`Trainer "${entry.full_name}" wurde geloescht.`);
 }
 
 async function handleParticipantCreate(event) {
