@@ -36,6 +36,8 @@ const state = {
     invites: 0,
     seasonBookings: 0,
     participants: 0,
+    records: 0,
+    beatOutEntries: 0,
   },
   acceptEmptyFetch: {
     courses: false,
@@ -43,6 +45,8 @@ const state = {
     invites: false,
     seasonBookings: false,
     participants: false,
+    records: false,
+    beatOutEntries: false,
   },
 };
 
@@ -547,7 +551,14 @@ async function fetchSupportData() {
     return;
   }
 
-  state.records = recordResult.data || [];
+  const nextRecords = recordResult.data || [];
+  if ((state.optimisticVisibilityUntil.records || 0) > Date.now()) {
+    state.records = mergeAttendanceRecords(state.records, nextRecords);
+    state.acceptEmptyFetch.records = false;
+  } else if (!shouldPreserveFetchedList("records", state.records, nextRecords)) {
+    state.records = nextRecords;
+    state.acceptEmptyFetch.records = false;
+  }
 
   const beatOutResult = await state.supabase
     .from("beat_out_entries")
@@ -558,7 +569,14 @@ async function fetchSupportData() {
     notify(getFriendlySupabaseMessage(beatOutResult.error, "BEAT-OUTs konnten nicht geladen werden."), true);
     state.beatOutEntries = [];
   } else {
-    state.beatOutEntries = beatOutResult.data || [];
+    const nextBeatOutEntries = beatOutResult.data || [];
+    if ((state.optimisticVisibilityUntil.beatOutEntries || 0) > Date.now()) {
+      state.beatOutEntries = mergeBeatOutEntries(state.beatOutEntries, nextBeatOutEntries);
+      state.acceptEmptyFetch.beatOutEntries = false;
+    } else if (!shouldPreserveFetchedList("beatOutEntries", state.beatOutEntries, nextBeatOutEntries)) {
+      state.beatOutEntries = nextBeatOutEntries;
+      state.acceptEmptyFetch.beatOutEntries = false;
+    }
   }
 }
 
@@ -3195,13 +3213,24 @@ async function toggleAttendance(courseId, participantId) {
     return;
   }
 
+  applyLocalAttendanceChange(courseId, participantId, sessionDate, nextPresent);
+  markOptimisticVisibility("records", 60000);
+  state.acceptEmptyFetch.records = false;
   if (nextPresent) {
     await clearBeatOutForParticipantSession(participantId, sessionDate, courseId);
   }
 
-  await fetchSupportData();
   persistOfflineCache();
   render();
+  notify(nextPresent ? "Anwesenheit bestaetigt." : "Anwesenheit entfernt.");
+
+  try {
+    await fetchSupportData();
+    persistOfflineCache();
+    render();
+  } catch (error) {
+    console.error("Attendance refresh failed", error);
+  }
 }
 
 async function toggleBeatOut(courseId, participantId) {
@@ -3244,10 +3273,22 @@ async function toggleBeatOut(courseId, participantId) {
     }
 
     await saveAttendanceValue(courseId, participantId, sessionDate, false);
-    await fetchSupportData();
+    state.beatOutEntries = state.beatOutEntries.filter((entry) => entry.id !== existingEntry.id);
+    applyLocalAttendanceChange(courseId, participantId, sessionDate, false);
+    markOptimisticVisibility("records", 60000);
+    markOptimisticVisibility("beatOutEntries", 60000);
+    state.acceptEmptyFetch.records = false;
+    state.acceptEmptyFetch.beatOutEntries = false;
     persistOfflineCache();
     render();
     notify(`BEAT-OUT fuer ${participant.full_name} wurde entfernt.`);
+    try {
+      await fetchSupportData();
+      persistOfflineCache();
+      render();
+    } catch (error) {
+      console.error("Beat-out refresh failed", error);
+    }
     return;
   }
 
@@ -3271,10 +3312,31 @@ async function toggleBeatOut(courseId, participantId) {
   }
 
   await saveAttendanceValue(courseId, participantId, sessionDate, false);
-  await fetchSupportData();
+  state.beatOutEntries = [
+    {
+      id: `local-beatout:${sessionId}:${participantId}`,
+      session_id: sessionId,
+      participant_id: participantId,
+      season_booking_id: booking.id,
+      created_at: new Date().toISOString(),
+    },
+    ...state.beatOutEntries.filter((entry) => !(entry.session_id === sessionId && entry.participant_id === participantId)),
+  ];
+  applyLocalAttendanceChange(courseId, participantId, sessionDate, false);
+  markOptimisticVisibility("records", 60000);
+  markOptimisticVisibility("beatOutEntries", 60000);
+  state.acceptEmptyFetch.records = false;
+  state.acceptEmptyFetch.beatOutEntries = false;
   persistOfflineCache();
   render();
   notify(`BEAT-OUT fuer ${participant.full_name} wurde eingetragen.`);
+  try {
+    await fetchSupportData();
+    persistOfflineCache();
+    render();
+  } catch (error) {
+    console.error("Beat-out refresh failed", error);
+  }
 }
 
 async function setAttendanceForAll(value) {
@@ -4482,6 +4544,42 @@ function mergeOptimisticItems(currentList, fetchedList) {
   (currentList || []).forEach((item) => {
     if (!merged.has(item.id)) {
       merged.set(item.id, item);
+    }
+  });
+
+  return Array.from(merged.values()).sort((left, right) => {
+    return String(right.created_at || "").localeCompare(String(left.created_at || ""));
+  });
+}
+
+function mergeAttendanceRecords(currentList, fetchedList) {
+  const merged = new Map();
+
+  (fetchedList || []).forEach((record) => {
+    merged.set(`${record.session_id}:${record.participant_id}`, record);
+  });
+
+  (currentList || []).forEach((record) => {
+    const key = `${record.session_id}:${record.participant_id}`;
+    if (!merged.has(key)) {
+      merged.set(key, record);
+    }
+  });
+
+  return Array.from(merged.values());
+}
+
+function mergeBeatOutEntries(currentList, fetchedList) {
+  const merged = new Map();
+
+  (fetchedList || []).forEach((entry) => {
+    merged.set(`${entry.session_id}:${entry.participant_id}`, entry);
+  });
+
+  (currentList || []).forEach((entry) => {
+    const key = `${entry.session_id}:${entry.participant_id}`;
+    if (!merged.has(key)) {
+      merged.set(key, entry);
     }
   });
 
