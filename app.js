@@ -1081,43 +1081,84 @@ async function handleSeasonBookingCreate(event) {
 }
 
 async function handleCourseDelete() {
-  if (!isAdmin()) {
-    return;
+  try {
+    if (!isAdmin()) {
+      return;
+    }
+
+    const course = getSelectedCourse();
+    if (!course) {
+      notify("Bitte zuerst einen Kurs auswaehlen.", true);
+      return;
+    }
+
+    if (state.isOffline) {
+      notify("Kurse koennen nur online geloescht werden.", true);
+      return;
+    }
+
+    const confirmed = window.confirm(`Soll der Kurs "${course.name}" wirklich geloescht werden? Teilnehmer, Termine und Anwesenheiten dieses Kurses gehen dabei verloren.`);
+    if (!confirmed) {
+      return;
+    }
+
+    const linkedParticipantIds = state.participants
+      .filter((participant) => participant.course_id === course.id)
+      .map((participant) => participant.id);
+    const linkedSessionIds = state.sessions
+      .filter((session) => session.course_id === course.id)
+      .map((session) => session.id);
+
+    if (linkedSessionIds.length) {
+      const beatOutDeleteResult = await state.supabase
+        .from("beat_out_entries")
+        .delete()
+        .in("session_id", linkedSessionIds);
+
+      if (beatOutDeleteResult.error) {
+        notify(getFriendlySupabaseMessage(beatOutDeleteResult.error, "BEAT-OUTs des Kurses konnten nicht geloescht werden."), true);
+        return;
+      }
+    }
+
+    const deleteResult = await state.supabase
+      .from("courses")
+      .delete()
+      .eq("id", course.id);
+
+    if (deleteResult.error) {
+      notify(getFriendlySupabaseMessage(deleteResult.error, "Kurs konnte nicht geloescht werden."), true);
+      return;
+    }
+
+    state.courses = state.courses.filter((entry) => entry.id !== course.id);
+    state.participants = state.participants.filter((participant) => participant.course_id !== course.id);
+    state.sessions = state.sessions.filter((session) => session.course_id !== course.id);
+    state.records = state.records.filter((record) => !linkedParticipantIds.includes(record.participant_id) && !linkedSessionIds.includes(record.session_id));
+    state.trialRequests = state.trialRequests.filter((trial) => trial.course_id !== course.id);
+    state.beatOutEntries = state.beatOutEntries.filter((entry) => !linkedSessionIds.includes(entry.session_id) && !linkedParticipantIds.includes(entry.participant_id));
+    if (state.selectedCourseId === course.id) {
+      state.selectedCourseId = state.courses[0]?.id || null;
+    }
+    renderCourseList();
+    renderPlanning();
+    renderParticipants();
+    persistOfflineCache();
+    render();
+
+    clearOptimisticVisibility("courses");
+    clearOptimisticVisibility("participants");
+    state.acceptEmptyFetch.courses = true;
+    state.acceptEmptyFetch.participants = true;
+    await fetchVisibleCourses();
+    await fetchSupportData();
+    persistOfflineCache();
+    render();
+    notify(`Kurs "${course.name}" wurde geloescht.`);
+  } catch (error) {
+    console.error("Course delete failed", error);
+    notify(`Kurs konnte nicht geloescht werden: ${error?.message || "Unerwarteter Fehler"}`, true);
   }
-
-  const course = getSelectedCourse();
-  if (!course) {
-    notify("Bitte zuerst einen Kurs auswaehlen.", true);
-    return;
-  }
-
-  if (state.isOffline) {
-    notify("Kurse koennen nur online geloescht werden.", true);
-    return;
-  }
-
-  const confirmed = window.confirm(`Soll der Kurs "${course.name}" wirklich geloescht werden? Teilnehmer, Termine und Anwesenheiten dieses Kurses gehen dabei verloren.`);
-  if (!confirmed) {
-    return;
-  }
-
-  const { error } = await state.supabase
-    .from("courses")
-    .delete()
-    .eq("id", course.id);
-
-  if (error) {
-    notify(getFriendlySupabaseMessage(error, "Kurs konnte nicht geloescht werden."), true);
-    return;
-  }
-
-  clearOptimisticVisibility("courses");
-  state.acceptEmptyFetch.courses = true;
-  await fetchVisibleCourses();
-  await fetchSupportData();
-  persistOfflineCache();
-  render();
-  notify(`Kurs "${course.name}" wurde geloescht.`);
 }
 
 async function handleSeasonDuplicate(sourceSeason, carryOverBookings = false) {
@@ -1485,29 +1526,52 @@ async function handleTrainerDirectoryDelete(entry) {
 async function handleParticipantCreate(event) {
   event.preventDefault();
 
-  const course = getSelectedCourse();
-  if (!course || !canEditCourse(course)) {
-    return;
+  try {
+    const course = getSelectedCourse();
+    if (!course || !canEditCourse(course)) {
+      return;
+    }
+
+    const formData = new FormData(participantForm);
+    const fullName = String(formData.get("fullName")).trim();
+    const phone = String(formData.get("phone")).trim();
+    const insertResult = await state.supabase
+      .from("participants")
+      .insert({
+        course_id: course.id,
+        full_name: fullName,
+        phone,
+      })
+      .select("id, course_id, full_name, phone, created_at, season_id, season_booking_id")
+      .single();
+
+    if (insertResult.error) {
+      notify(getFriendlySupabaseMessage(insertResult.error, "Teilnehmer konnte nicht gespeichert werden."), true);
+      return;
+    }
+
+    state.participants = [
+      insertResult.data,
+      ...state.participants.filter((participant) => participant.id !== insertResult.data.id),
+    ].sort((left, right) => String(left.full_name || "").localeCompare(String(right.full_name || "")));
+    markOptimisticVisibility("participants", 60000);
+    state.acceptEmptyFetch.participants = false;
+    participantForm.reset();
+    persistOfflineCache();
+    render();
+    notify("Teilnehmer hinzugefuegt.");
+
+    try {
+      await fetchSupportData();
+      persistOfflineCache();
+      render();
+    } catch (error) {
+      console.error("Participant refresh failed", error);
+    }
+  } catch (error) {
+    console.error("Participant create failed", error);
+    notify(`Teilnehmer konnte nicht gespeichert werden: ${error?.message || "Unerwarteter Fehler"}`, true);
   }
-
-  const formData = new FormData(participantForm);
-  const { error } = await state.supabase
-    .from("participants")
-    .insert({
-      course_id: course.id,
-      full_name: String(formData.get("fullName")).trim(),
-      phone: String(formData.get("phone")).trim(),
-    });
-
-  if (error) {
-    notify(error.message, true);
-    return;
-  }
-
-  participantForm.reset();
-  await fetchSupportData();
-  render();
-  notify("Teilnehmer hinzugefuegt.");
 }
 
 async function syncSeasonBookingParticipants({ bookingId, seasonId, fullName, phone, selectedDays, relevantCourses }) {
