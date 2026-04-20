@@ -710,11 +710,6 @@ async function handleTrainerDirectoryCreate(event) {
     return;
   }
 
-  if (email && state.trainerDirectory.some((entry) => String(entry.email || "").trim().toLowerCase() === email)) {
-    notify("Zu dieser E-Mail gibt es bereits einen Trainer-Eintrag.", true);
-    return;
-  }
-
   const trainerInsertResult = await state.supabase
     .from("trainer_directory")
     .insert({
