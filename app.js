@@ -531,8 +531,8 @@ async function fetchSupportData() {
     state.trialRequests = trialResult.data || [];
   }
 
-  if (!state.selectedSeasonId || !state.seasons.some((season) => season.id === state.selectedSeasonId)) {
-    state.selectedSeasonId = getDefaultSeasonId();
+  if (state.selectedSeasonId && !state.seasons.some((season) => season.id === state.selectedSeasonId)) {
+    state.selectedSeasonId = null;
   }
 
   const sessionIds = state.sessions.map((session) => session.id);
