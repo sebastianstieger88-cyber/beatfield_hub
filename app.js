@@ -1547,96 +1547,66 @@ async function handleParticipantCreate(event) {
       const preferredSeasonId = state.attendanceSeasonId || getDefaultSeasonId();
       const selectedDay = normalizeWeekdayLabel(course.weekday);
 
-      if (preferredSeasonId) {
-        const bookingInsertResult = await state.supabase
-          .from("season_bookings")
-          .insert({
-            season_id: preferredSeasonId,
-            full_name: fullName,
-            phone: phone || null,
-            package_type: "1x TRAIN",
-            selected_days: [selectedDay],
-          })
-          .select("id, season_id, full_name, phone, package_type, selected_days, created_at")
-          .single();
-
-        if (bookingInsertResult.error) {
-          notify(getFriendlySupabaseMessage(bookingInsertResult.error, "Teilnehmer konnte nicht als Buchung angelegt werden."), true);
-          return;
-        }
-
-        const optimisticBooking = bookingInsertResult.data;
-        state.seasonBookings = [
-          optimisticBooking,
-          ...state.seasonBookings.filter((entry) => entry.id !== optimisticBooking.id),
-        ].sort((left, right) => String(right.created_at || "").localeCompare(String(left.created_at || "")));
-        markOptimisticVisibility("seasonBookings", 60000);
-        state.acceptEmptyFetch.seasonBookings = false;
-
-        const participantSyncResult = await syncSeasonBookingParticipants({
-          bookingId: optimisticBooking.id,
-          seasonId: preferredSeasonId,
-          fullName,
-          phone,
-          selectedDays: [selectedDay],
-          relevantCourses: [{ weekday: selectedDay, course }],
-        });
-
-        if (!participantSyncResult.ok) {
-          notify(participantSyncResult.message, true);
-          await refreshVisibleData({ context: "Participant booking create refresh", silent: true });
-          return;
-        }
-
-        const hadSeasonFilter = Boolean(state.attendanceSeasonId);
-        if (state.attendanceSeasonId) {
-          state.attendanceSeasonId = null;
-        }
-
-        participantForm.reset();
-        persistOfflineCache();
+      if (!preferredSeasonId) {
+        notify("Bitte zuerst eine Season anlegen, damit Teilnehmer sauber als TRAIN, BEAT oder REPEAT gebucht werden koennen.", true);
+        state.activeSection = "#seasonPanel";
         render();
-        notify(hadSeasonFilter
-          ? "Teilnehmer als 1x TRAIN eingebucht. Ansicht wurde auf Alle Seasons umgestellt."
-          : "Teilnehmer als 1x TRAIN eingebucht.");
-
-        await refreshVisibleData({ context: "Participant booking refresh", silent: true });
         return;
       }
 
-      const insertResult = await state.supabase
-        .from("participants")
+      const bookingInsertResult = await state.supabase
+        .from("season_bookings")
         .insert({
-          course_id: course.id,
           full_name: fullName,
-          phone,
+          phone: phone || null,
+          season_id: preferredSeasonId,
+          package_type: "1x TRAIN",
+          selected_days: [selectedDay],
         })
-        .select("id, course_id, full_name, phone, created_at, season_id, season_booking_id")
+        .select("id, season_id, full_name, phone, package_type, selected_days, created_at")
         .single();
 
-      if (insertResult.error) {
-        notify(getFriendlySupabaseMessage(insertResult.error, "Teilnehmer konnte nicht gespeichert werden."), true);
+      if (bookingInsertResult.error) {
+        notify(getFriendlySupabaseMessage(bookingInsertResult.error, "Teilnehmer konnte nicht als Buchung angelegt werden."), true);
         return;
       }
 
-      state.participants = [
-        insertResult.data,
-        ...state.participants.filter((participant) => participant.id !== insertResult.data.id),
-      ].sort((left, right) => String(left.full_name || "").localeCompare(String(right.full_name || "")));
-      markOptimisticVisibility("participants", 60000);
-      state.acceptEmptyFetch.participants = false;
+      const optimisticBooking = bookingInsertResult.data;
+      state.seasonBookings = [
+        optimisticBooking,
+        ...state.seasonBookings.filter((entry) => entry.id !== optimisticBooking.id),
+      ].sort((left, right) => String(right.created_at || "").localeCompare(String(left.created_at || "")));
+      markOptimisticVisibility("seasonBookings", 60000);
+      state.acceptEmptyFetch.seasonBookings = false;
+
+      const participantSyncResult = await syncSeasonBookingParticipants({
+        bookingId: optimisticBooking.id,
+        seasonId: preferredSeasonId,
+        fullName,
+        phone,
+        selectedDays: [selectedDay],
+        relevantCourses: [{ weekday: selectedDay, course }],
+      });
+
+      if (!participantSyncResult.ok) {
+        notify(participantSyncResult.message, true);
+        await refreshVisibleData({ context: "Participant booking create refresh", silent: true });
+        return;
+      }
+
       const hadSeasonFilter = Boolean(state.attendanceSeasonId);
       if (state.attendanceSeasonId) {
         state.attendanceSeasonId = null;
       }
+      state.selectedSeasonId = null;
       participantForm.reset();
       persistOfflineCache();
       render();
       notify(hadSeasonFilter
-        ? "Teilnehmer hinzugefuegt. Ansicht wurde auf Alle Seasons umgestellt."
-        : "Teilnehmer hinzugefuegt.");
+        ? "Teilnehmer als 1x TRAIN eingebucht. Ansicht wurde auf Alle Seasons umgestellt."
+        : "Teilnehmer als 1x TRAIN eingebucht.");
 
-      await refreshVisibleData({ context: "Participant refresh", silent: true });
+      await refreshVisibleData({ context: "Participant booking refresh", silent: true });
     } catch (error) {
       console.error("Participant create failed", error);
       notify(`Teilnehmer konnte nicht gespeichert werden: ${error?.message || "Unerwarteter Fehler"}`, true);
