@@ -34,6 +34,7 @@ const state = {
     courses: 0,
     trainerDirectory: 0,
     invites: 0,
+    seasonBookings: 0,
   },
   acceptEmptyFetch: {
     courses: false,
@@ -478,6 +479,8 @@ async function fetchSupportData() {
     if (!shouldPreserveFetchedList("seasonBookings", state.seasonBookings, nextSeasonBookings)) {
       state.seasonBookings = nextSeasonBookings;
       state.acceptEmptyFetch.seasonBookings = false;
+    } else if ((state.optimisticVisibilityUntil.seasonBookings || 0) > Date.now()) {
+      state.seasonBookings = mergeOptimisticItems(state.seasonBookings, nextSeasonBookings);
     }
   }
   if (!trainerResult.error) {
@@ -1057,6 +1060,7 @@ async function handleSeasonBookingCreate(event) {
       optimisticBooking,
       ...state.seasonBookings.filter((entry) => entry.id !== savedBookingId),
     ].sort((left, right) => String(right.created_at || "").localeCompare(String(left.created_at || "")));
+    markOptimisticVisibility("seasonBookings", 60000);
     state.acceptEmptyFetch.seasonBookings = false;
   }
   resetBookingForm();
@@ -4299,6 +4303,24 @@ function shouldPreserveFetchedList(key, currentList, fetchedList) {
     && currentList.length > 0
     && Array.isArray(fetchedList)
     && fetchedList.length === 0;
+}
+
+function mergeOptimisticItems(currentList, fetchedList) {
+  const merged = new Map();
+
+  (fetchedList || []).forEach((item) => {
+    merged.set(item.id, item);
+  });
+
+  (currentList || []).forEach((item) => {
+    if (!merged.has(item.id)) {
+      merged.set(item.id, item);
+    }
+  });
+
+  return Array.from(merged.values()).sort((left, right) => {
+    return String(right.created_at || "").localeCompare(String(left.created_at || ""));
+  });
 }
 
 function getFriendlySupabaseMessage(error, fallback) {
