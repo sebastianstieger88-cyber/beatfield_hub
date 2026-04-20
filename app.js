@@ -702,7 +702,8 @@ async function handleTrainerDirectoryCreate(event) {
   trainerDirectoryForm.reset();
   renderTrainerSelect();
   renderTrainerDirectory();
-  await fetchSupportData();
+  persistOfflineCache();
+  setActiveSection("#adminPanel");
   if (inviteCode) {
     showInviteOutput(inviteCode);
   }
@@ -710,6 +711,14 @@ async function handleTrainerDirectoryCreate(event) {
   notify(inviteCode
     ? `Trainer eingetragen und Zugang vorbereitet fuer ${email}.`
     : "Trainer wurde eingetragen.");
+
+  try {
+    await fetchSupportData();
+    persistOfflineCache();
+    render();
+  } catch (error) {
+    console.error("Trainer refresh failed", error);
+  }
 }
 
 async function handleTrainerInviteRegenerate(entry) {
@@ -784,10 +793,19 @@ async function handleCourseCreate(event) {
   renderCourseList();
   renderPlanning();
   renderParticipants();
-  await fetchVisibleCourses();
-  await fetchSupportData();
+  persistOfflineCache();
+  setActiveSection("#courseListPanel");
   render();
   notify("Kurs gespeichert.");
+
+  try {
+    await fetchVisibleCourses();
+    await fetchSupportData();
+    persistOfflineCache();
+    render();
+  } catch (error) {
+    console.error("Course refresh failed", error);
+  }
 }
 
 async function handleSeasonCreate(event) {
