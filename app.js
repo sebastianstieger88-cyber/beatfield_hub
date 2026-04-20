@@ -324,6 +324,7 @@ async function loadProtectedData() {
   }
 
   hydrateFromOfflineCache();
+  state.selectedSeasonId = null;
   state.attendanceSeasonId = null;
   if (state.courses.length) {
     markOptimisticVisibility("courses", 60000);
@@ -4038,11 +4039,7 @@ function getFreeSeasonRewardStatus(bookingOrParticipant) {
 }
 
 function getVisibleSeasonBookings() {
-  if (!state.selectedSeasonId) {
-    return state.seasonBookings;
-  }
-
-  return state.seasonBookings.filter((booking) => booking.season_id === state.selectedSeasonId);
+  return state.seasonBookings;
 }
 
 function getVisibleSeasons() {
@@ -4685,11 +4682,10 @@ function persistOfflineCache() {
     participants: state.participants,
     trialRequests: state.trialRequests,
     sessions: state.sessions,
-    records: state.records,
-    beatOutEntries: state.beatOutEntries,
-    selectedCourseId: state.selectedCourseId,
-    selectedSeasonId: state.selectedSeasonId,
-  };
+      records: state.records,
+      beatOutEntries: state.beatOutEntries,
+      selectedCourseId: state.selectedCourseId,
+    };
   localStorage.setItem(OFFLINE_CACHE_KEY, JSON.stringify(payload));
 }
 
