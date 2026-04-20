@@ -276,8 +276,13 @@ async function initialize() {
   const sessionResult = await state.supabase.auth.getSession();
   state.session = sessionResult.data.session;
 
-  state.supabase.auth.onAuthStateChange(async (_event, session) => {
+  state.supabase.auth.onAuthStateChange(async (event, session) => {
     state.session = session;
+    if (event === "TOKEN_REFRESHED") {
+      render();
+      updateActiveNavLink();
+      return;
+    }
     await loadProtectedData();
     await flushOfflineQueue();
     render();
@@ -297,8 +302,18 @@ async function loadProtectedData() {
     return;
   }
 
+  hydrateFromOfflineCache();
+  if (state.courses.length) {
+    markOptimisticVisibility("courses", 60000);
+  }
+  if (state.trainerDirectory.length) {
+    markOptimisticVisibility("trainerDirectory", 60000);
+  }
+  if (state.invites.length) {
+    markOptimisticVisibility("invites", 60000);
+  }
+
   if (state.isOffline) {
-    hydrateFromOfflineCache();
     notify("Offline-Modus aktiv. Letzte geladene Daten werden verwendet.");
     return;
   }
@@ -4202,8 +4217,8 @@ function notify(message, isError = false) {
   statusText.textContent = message;
 }
 
-function markOptimisticVisibility(key) {
-  state.optimisticVisibilityUntil[key] = Date.now() + 15000;
+function markOptimisticVisibility(key, durationMs = 15000) {
+  state.optimisticVisibilityUntil[key] = Date.now() + durationMs;
 }
 
 function clearOptimisticVisibility(key) {
