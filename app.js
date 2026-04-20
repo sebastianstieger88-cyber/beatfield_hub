@@ -338,7 +338,10 @@ async function fetchVisibleCourses() {
     return;
   }
 
-  state.courses = data || [];
+  state.courses = (data || []).map((course) => ({
+    ...course,
+    weekday: normalizeWeekdayLabel(course.weekday),
+  }));
 
   if (!state.selectedCourseId || !state.courses.some((course) => course.id === state.selectedCourseId)) {
     state.selectedCourseId = state.courses[0]?.id || null;
@@ -731,7 +734,7 @@ async function handleCourseCreate(event) {
     .insert({
       name: String(formData.get("name")).trim(),
       location: String(formData.get("location")).trim(),
-      weekday: String(formData.get("weekday")).trim(),
+      weekday: normalizeWeekdayLabel(formData.get("weekday")),
       time: String(formData.get("time")).trim() || null,
       trainer_id: trainerSelection.trainerId,
       trainer_directory_id: trainerSelection.directoryId,
@@ -1257,16 +1260,16 @@ async function syncSeasonBookingParticipants({ bookingId, seasonId, fullName, ph
     existingParticipants
       .map((participant) => {
         const course = state.courses.find((entry) => entry.id === participant.course_id);
-        return course ? [course.weekday, participant] : null;
+        return course ? [normalizeWeekdayLabel(course.weekday), participant] : null;
       })
       .filter(Boolean),
   );
 
-  const desiredByWeekday = new Map(relevantCourses.map((entry) => [entry.weekday, entry.course]));
+  const desiredByWeekday = new Map(relevantCourses.map((entry) => [normalizeWeekdayLabel(entry.weekday), entry.course]));
 
   for (const participant of existingParticipants) {
     const course = state.courses.find((entry) => entry.id === participant.course_id);
-    if (!course || !desiredByWeekday.has(course.weekday)) {
+    if (!course || !desiredByWeekday.has(normalizeWeekdayLabel(course.weekday))) {
       const deleteResult = await state.supabase
         .from("participants")
         .delete()
@@ -3574,6 +3577,7 @@ function getMonthCourseDates(course, monthValue) {
 }
 
 function getWeekdayNumber(label) {
+  const normalizedLabel = normalizeWeekdayLabel(label);
   const map = {
     Sonntag: 0,
     Montag: 1,
@@ -3583,7 +3587,7 @@ function getWeekdayNumber(label) {
     Freitag: 5,
     Samstag: 6,
   };
-  return Object.prototype.hasOwnProperty.call(map, label) ? map[label] : null;
+  return Object.prototype.hasOwnProperty.call(map, normalizedLabel) ? map[normalizedLabel] : null;
 }
 
 function formatDateValue(date) {
@@ -3681,9 +3685,9 @@ function getCourseAttendanceAverage(courseId) {
 }
 
 function getNextCourseForToday() {
-  const todayWeekday = new Date().toLocaleDateString("de-DE", { weekday: "long" });
+  const todayWeekday = normalizeWeekdayLabel(new Date().toLocaleDateString("de-DE", { weekday: "long" }));
   const todayCourses = state.courses
-    .filter((course) => course.weekday === todayWeekday)
+    .filter((course) => normalizeWeekdayLabel(course.weekday) === todayWeekday)
     .sort((left, right) => String(left.time || "").localeCompare(String(right.time || "")));
 
   if (!todayCourses.length) {
@@ -4253,8 +4257,9 @@ function formatSelectedDays(days) {
 
 function resolveRelevantCoursesForDays(selectedDays) {
   const relevantCourses = selectedDays.map((weekday) => {
-    const matches = state.courses.filter((course) => course.weekday === weekday);
-    return { weekday, course: matches[0] || null, matchCount: matches.length };
+    const normalizedWeekday = normalizeWeekdayLabel(weekday);
+    const matches = state.courses.filter((course) => normalizeWeekdayLabel(course.weekday) === normalizedWeekday);
+    return { weekday: normalizedWeekday, course: matches[0] || null, matchCount: matches.length };
   });
 
   const missingWeekdays = relevantCourses.filter((entry) => !entry.course).map((entry) => entry.weekday);
@@ -4277,6 +4282,33 @@ function resolveRelevantCoursesForDays(selectedDays) {
     ok: true,
     data: relevantCourses,
   };
+}
+
+function normalizeWeekdayLabel(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  const normalized = raw
+    .replace(/\./g, "")
+    .replace(/\s+/g, "")
+    .replace(/s$/, "");
+
+  const map = {
+    so: "Sonntag",
+    sonntag: "Sonntag",
+    mo: "Montag",
+    montag: "Montag",
+    di: "Dienstag",
+    dienstag: "Dienstag",
+    mi: "Mittwoch",
+    mittwoch: "Mittwoch",
+    do: "Donnerstag",
+    donnerstag: "Donnerstag",
+    fr: "Freitag",
+    freitag: "Freitag",
+    sa: "Samstag",
+    samstag: "Samstag",
+  };
+
+  return map[normalized] || String(value || "").trim();
 }
 
 function getNextSeasonStartDate(endDate) {
