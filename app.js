@@ -664,7 +664,7 @@ async function handleTrainerDirectoryCreate(event) {
       email: email || null,
       phone: phone || null,
     })
-    .select("id")
+    .select("id, full_name, email, phone, linked_user_id")
     .single();
 
   if (trainerInsertResult.error) {
@@ -673,6 +673,10 @@ async function handleTrainerDirectoryCreate(event) {
   }
 
   const trainerDirectoryId = trainerInsertResult.data.id;
+  state.trainerDirectory = [
+    trainerInsertResult.data,
+    ...state.trainerDirectory.filter((entry) => entry.id !== trainerDirectoryId),
+  ].sort((left, right) => String(left.full_name || "").localeCompare(String(right.full_name || "")));
 
   let inviteCode = null;
   if (prepareLogin) {
@@ -696,6 +700,8 @@ async function handleTrainerDirectoryCreate(event) {
   }
 
   trainerDirectoryForm.reset();
+  renderTrainerSelect();
+  renderTrainerDirectory();
   await fetchSupportData();
   if (inviteCode) {
     showInviteOutput(inviteCode);
@@ -752,7 +758,7 @@ async function handleCourseCreate(event) {
       trainer_id: trainerSelection.trainerId,
       trainer_directory_id: trainerSelection.directoryId,
     })
-    .select("id")
+    .select("id, name, location, weekday, time, trainer_id, trainer_directory_id")
     .single();
 
   if (error) {
@@ -760,8 +766,24 @@ async function handleCourseCreate(event) {
     return;
   }
 
+  state.courses = [
+    {
+      ...data,
+      weekday: normalizeWeekdayLabel(data.weekday),
+    },
+    ...state.courses.filter((course) => course.id !== data.id),
+  ].sort((left, right) => {
+    const weekdayCompare = String(left.weekday || "").localeCompare(String(right.weekday || ""));
+    if (weekdayCompare !== 0) {
+      return weekdayCompare;
+    }
+    return String(left.time || "").localeCompare(String(right.time || ""));
+  });
   state.selectedCourseId = data.id;
   courseForm.reset();
+  renderCourseList();
+  renderPlanning();
+  renderParticipants();
   await fetchVisibleCourses();
   await fetchSupportData();
   render();
