@@ -2385,16 +2385,16 @@ function renderSeasonSelects() {
     const allOption = document.createElement("option");
     allOption.value = "";
     allOption.textContent = "Alle Seasons";
-    allOption.selected = !state.selectedSeasonId;
     attendanceSeasonSelect.appendChild(allOption);
 
     state.seasons.forEach((season) => {
       const option = document.createElement("option");
       option.value = season.id;
       option.textContent = `${season.name} (${season.start_date} - ${season.end_date})`;
-      option.selected = season.id === state.selectedSeasonId;
       attendanceSeasonSelect.appendChild(option);
     });
+
+    attendanceSeasonSelect.value = state.selectedSeasonId || "";
   }
 
   if (bookingSeasonSelect) {
@@ -2403,9 +2403,10 @@ function renderSeasonSelects() {
       const option = document.createElement("option");
       option.value = season.id;
       option.textContent = `${season.name} (${season.start_date} - ${season.end_date})`;
-      option.selected = season.id === state.selectedSeasonId;
       bookingSeasonSelect.appendChild(option);
     });
+
+    bookingSeasonSelect.value = state.selectedSeasonId || state.seasons[0]?.id || "";
   }
 
   syncBookingDayInputs();
@@ -4648,7 +4649,7 @@ function hydrateFromOfflineCache() {
     state.records = Array.isArray(cached.records) ? cached.records : [];
     state.beatOutEntries = Array.isArray(cached.beatOutEntries) ? cached.beatOutEntries : [];
     state.selectedCourseId = cached.selectedCourseId || state.selectedCourseId;
-    state.selectedSeasonId = cached.selectedSeasonId || state.selectedSeasonId;
+      state.selectedSeasonId = null;
   } catch (error) {
     console.error("Offline cache konnte nicht geladen werden", error);
   }
