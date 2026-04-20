@@ -476,11 +476,12 @@ async function fetchSupportData() {
   }
   if (!seasonBookingResult.error) {
     const nextSeasonBookings = seasonBookingResult.data || [];
-    if (!shouldPreserveFetchedList("seasonBookings", state.seasonBookings, nextSeasonBookings)) {
+    if ((state.optimisticVisibilityUntil.seasonBookings || 0) > Date.now()) {
+      state.seasonBookings = mergeOptimisticItems(state.seasonBookings, nextSeasonBookings);
+      state.acceptEmptyFetch.seasonBookings = false;
+    } else if (!shouldPreserveFetchedList("seasonBookings", state.seasonBookings, nextSeasonBookings)) {
       state.seasonBookings = nextSeasonBookings;
       state.acceptEmptyFetch.seasonBookings = false;
-    } else if ((state.optimisticVisibilityUntil.seasonBookings || 0) > Date.now()) {
-      state.seasonBookings = mergeOptimisticItems(state.seasonBookings, nextSeasonBookings);
     }
   }
   if (!trainerResult.error) {
@@ -1018,7 +1019,7 @@ async function handleSeasonBookingCreate(event) {
         package_type: packageType,
         selected_days: selectedDays,
       })
-      .select("id")
+      .select("id, season_id, full_name, phone, package_type, selected_days, created_at")
       .single();
 
     if (bookingInsertResult.error) {
@@ -1027,15 +1028,7 @@ async function handleSeasonBookingCreate(event) {
     }
 
     savedBookingId = bookingInsertResult.data.id;
-    optimisticBooking = {
-      id: savedBookingId,
-      season_id: seasonId,
-      full_name: fullName,
-      phone: phone || null,
-      package_type: packageType,
-      selected_days: selectedDays,
-      created_at: new Date().toISOString(),
-    };
+    optimisticBooking = bookingInsertResult.data;
   }
 
   const participantSyncResult = await syncSeasonBookingParticipants({
