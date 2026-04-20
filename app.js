@@ -3374,7 +3374,7 @@ async function ensureSession(courseId, sessionDate) {
     return existing.id;
   }
 
-  const { data, error } = await state.supabase
+  const insertResult = await state.supabase
     .from("attendance_sessions")
     .insert({
       course_id: courseId,
@@ -3384,12 +3384,35 @@ async function ensureSession(courseId, sessionDate) {
     .select("id, course_id, session_date")
     .single();
 
-  if (error) {
-    throw new Error(error.message);
+  if (insertResult.error) {
+    const normalizedMessage = String(insertResult.error.message || "").toLowerCase();
+    if (normalizedMessage.includes("duplicate") || normalizedMessage.includes("unique")) {
+      const existingResult = await state.supabase
+        .from("attendance_sessions")
+        .select("id, course_id, session_date")
+        .eq("course_id", courseId)
+        .eq("session_date", sessionDate)
+        .single();
+
+      if (existingResult.error) {
+        throw new Error(existingResult.error.message);
+      }
+
+      state.sessions = [
+        existingResult.data,
+        ...state.sessions.filter((session) => session.id !== existingResult.data.id),
+      ];
+      return existingResult.data.id;
+    }
+
+    throw new Error(insertResult.error.message);
   }
 
-  state.sessions.push(data);
-  return data.id;
+  state.sessions = [
+    insertResult.data,
+    ...state.sessions.filter((session) => session.id !== insertResult.data.id),
+  ];
+  return insertResult.data.id;
 }
 
 async function createPlannedSessions(mode) {
