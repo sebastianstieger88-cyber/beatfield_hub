@@ -35,12 +35,14 @@ const state = {
     trainerDirectory: 0,
     invites: 0,
     seasonBookings: 0,
+    participants: 0,
   },
   acceptEmptyFetch: {
     courses: false,
     trainerDirectory: false,
     invites: false,
     seasonBookings: false,
+    participants: false,
   },
 };
 
@@ -502,7 +504,14 @@ async function fetchSupportData() {
     }
   }
   if (!participantResult.error) {
-    state.participants = participantResult.data || [];
+    const nextParticipants = participantResult.data || [];
+    if ((state.optimisticVisibilityUntil.participants || 0) > Date.now()) {
+      state.participants = mergeOptimisticItems(state.participants, nextParticipants);
+      state.acceptEmptyFetch.participants = false;
+    } else if (!shouldPreserveFetchedList("participants", state.participants, nextParticipants)) {
+      state.participants = nextParticipants;
+      state.acceptEmptyFetch.participants = false;
+    }
   }
   if (!sessionResult.error) {
     state.sessions = sessionResult.data || [];
@@ -1454,6 +1463,8 @@ async function syncSeasonBookingParticipants({ bookingId, seasonId, fullName, ph
           message: getFriendlySupabaseMessage(deleteResult.error, "Teilnehmer konnten nicht aus der alten Buchung entfernt werden."),
         };
       }
+
+      state.participants = state.participants.filter((entry) => entry.id !== participant.id);
     }
   }
 
@@ -1468,6 +1479,7 @@ async function syncSeasonBookingParticipants({ bookingId, seasonId, fullName, ph
           phone: phone || null,
           season_id: seasonId,
         })
+        .select("id, course_id, full_name, phone, created_at, season_id, season_booking_id")
         .eq("id", existing.id);
 
       if (updateResult.error) {
@@ -1475,6 +1487,14 @@ async function syncSeasonBookingParticipants({ bookingId, seasonId, fullName, ph
           ok: false,
           message: getFriendlySupabaseMessage(updateResult.error, "Teilnehmer konnten nicht aktualisiert werden."),
         };
+      }
+
+      const updatedParticipant = Array.isArray(updateResult.data) ? updateResult.data[0] : null;
+      if (updatedParticipant) {
+        state.participants = [
+          updatedParticipant,
+          ...state.participants.filter((entry) => entry.id !== updatedParticipant.id),
+        ].sort((left, right) => String(left.full_name || "").localeCompare(String(right.full_name || "")));
       }
     } else {
       const insertResult = await state.supabase
@@ -1485,7 +1505,9 @@ async function syncSeasonBookingParticipants({ bookingId, seasonId, fullName, ph
           phone: phone || null,
           season_id: seasonId,
           season_booking_id: bookingId,
-        });
+        })
+        .select("id, course_id, full_name, phone, created_at, season_id, season_booking_id")
+        .single();
 
       if (insertResult.error) {
         return {
@@ -1493,9 +1515,16 @@ async function syncSeasonBookingParticipants({ bookingId, seasonId, fullName, ph
           message: getFriendlySupabaseMessage(insertResult.error, "Teilnehmer konnten nicht fuer die Buchung angelegt werden."),
         };
       }
+
+      state.participants = [
+        insertResult.data,
+        ...state.participants.filter((entry) => entry.id !== insertResult.data.id),
+      ].sort((left, right) => String(left.full_name || "").localeCompare(String(right.full_name || "")));
     }
   }
 
+  markOptimisticVisibility("participants", 60000);
+  state.acceptEmptyFetch.participants = false;
   return { ok: true };
 }
 
