@@ -138,6 +138,7 @@ const mobileReportsBtn = document.querySelector("#mobileReportsBtn");
 const mobileSessionSummary = document.querySelector("#mobileSessionSummary");
 const statusHeadline = document.querySelector("#statusHeadline");
 const statusText = document.querySelector("#statusText");
+const statusMeta = document.querySelector("#statusMeta");
 const offlineStatus = document.querySelector("#offlineStatus");
 const backendStatus = document.querySelector("#backendStatus");
 const userStatus = document.querySelector("#userStatus");
@@ -726,12 +727,8 @@ async function handleInviteCreate(event) {
   notify(`Einladungscode ${code} wurde erstellt.`);
 
   try {
-    await fetchSupportData();
-    persistOfflineCache();
-    render();
-  } catch (error) {
-    console.error("Invite refresh failed", error);
-  }
+    await refreshVisibleData({ context: "Invite refresh" });
+  } catch {}
 }
 
 async function handleTrainerDirectoryCreate(event) {
@@ -791,8 +788,7 @@ async function handleTrainerDirectoryCreate(event) {
 
       if (inviteResult.error) {
         notify(`Trainer wurde eingetragen, aber der Zugangscode konnte nicht erstellt werden: ${getFriendlySupabaseMessage(inviteResult.error, inviteResult.error.message)}`, true);
-        await fetchSupportData();
-        render();
+        await refreshVisibleData({ context: "Trainer partial refresh", silent: true });
         return;
       }
 
@@ -826,13 +822,7 @@ async function handleTrainerDirectoryCreate(event) {
       ? `Trainer eingetragen und Zugang vorbereitet fuer ${email}.`
       : "Trainer wurde eingetragen.");
 
-    try {
-      await fetchSupportData();
-      persistOfflineCache();
-      render();
-    } catch (error) {
-      console.error("Trainer refresh failed", error);
-    }
+    await refreshVisibleData({ context: "Trainer refresh", silent: true });
   } catch (error) {
     console.error("Trainer creation failed", error);
     notify(`Trainer konnte nicht angelegt werden: ${error?.message || "Unerwarteter Fehler"}`, true);
@@ -919,14 +909,7 @@ async function handleCourseCreate(event) {
     render();
     notify("Kurs gespeichert.");
 
-    try {
-      await fetchVisibleCourses();
-      await fetchSupportData();
-      persistOfflineCache();
-      render();
-    } catch (error) {
-      console.error("Course refresh failed", error);
-    }
+    await refreshVisibleData({ includeCourses: true, context: "Course refresh", silent: true });
   } catch (error) {
     console.error("Course creation failed", error);
     notify(`Kurs konnte nicht gespeichert werden: ${error?.message || "Unerwarteter Fehler"}`, true);
@@ -1076,8 +1059,7 @@ async function handleSeasonBookingCreate(event) {
 
     if (!participantSyncResult.ok) {
       notify(participantSyncResult.message, true);
-      await fetchSupportData();
-      render();
+      await refreshVisibleData({ context: "Booking participant sync refresh", silent: true });
       return;
     }
 
@@ -1093,8 +1075,7 @@ async function handleSeasonBookingCreate(event) {
     resetBookingForm();
     persistOfflineCache();
     render();
-    await fetchSupportData();
-    render();
+    await refreshVisibleData({ context: "Booking refresh", silent: true });
     notify(bookingId
       ? `${fullName} wurde in der Buchung aktualisiert.`
       : `${fullName} wurde fuer ${packageType} eingebucht.`);
@@ -1174,10 +1155,7 @@ async function handleCourseDelete() {
     clearOptimisticVisibility("participants");
     state.acceptEmptyFetch.courses = true;
     state.acceptEmptyFetch.participants = true;
-    await fetchVisibleCourses();
-    await fetchSupportData();
-    persistOfflineCache();
-    render();
+    await refreshVisibleData({ includeCourses: true, context: "Course delete refresh", silent: true });
     notify(`Kurs "${course.name}" wurde geloescht.`);
   } catch (error) {
     console.error("Course delete failed", error);
@@ -1536,10 +1514,7 @@ async function handleTrainerDirectoryDelete(entry) {
     state.acceptEmptyFetch.trainerDirectory = true;
     state.acceptEmptyFetch.invites = true;
     state.acceptEmptyFetch.courses = true;
-    await fetchVisibleCourses();
-    await fetchSupportData();
-    persistOfflineCache();
-    render();
+    await refreshVisibleData({ includeCourses: true, context: "Trainer delete refresh", silent: true });
     notify(`Trainer "${entry.full_name}" wurde geloescht.`);
   } catch (error) {
     console.error("Trainer delete failed", error);
@@ -1585,13 +1560,7 @@ async function handleParticipantCreate(event) {
     render();
     notify("Teilnehmer hinzugefuegt.");
 
-    try {
-      await fetchSupportData();
-      persistOfflineCache();
-      render();
-    } catch (error) {
-      console.error("Participant refresh failed", error);
-    }
+    await refreshVisibleData({ context: "Participant refresh", silent: true });
   } catch (error) {
     console.error("Participant create failed", error);
     notify(`Teilnehmer konnte nicht gespeichert werden: ${error?.message || "Unerwarteter Fehler"}`, true);
@@ -1903,6 +1872,13 @@ function render() {
     : connected
       ? "Supabase ist verbunden. Bitte einloggen oder Konto anlegen."
       : "Bitte config.js und Supabase-Schema einrichten.";
+  if (statusMeta && !statusMeta.dataset.locked) {
+    statusMeta.textContent = loggedIn
+      ? "Bereit fuer den Tagesbetrieb"
+      : connected
+        ? "Warte auf Anmeldung"
+        : "Setup offen";
+  }
   backendStatus.textContent = connected
     ? state.isOffline
       ? "Offline mit lokalem Cache"
@@ -3224,13 +3200,7 @@ async function toggleAttendance(courseId, participantId) {
   render();
   notify(nextPresent ? "Anwesenheit bestaetigt." : "Anwesenheit entfernt.");
 
-  try {
-    await fetchSupportData();
-    persistOfflineCache();
-    render();
-  } catch (error) {
-    console.error("Attendance refresh failed", error);
-  }
+  await refreshVisibleData({ context: "Attendance refresh", silent: true });
 }
 
 async function toggleBeatOut(courseId, participantId) {
@@ -3282,13 +3252,7 @@ async function toggleBeatOut(courseId, participantId) {
     persistOfflineCache();
     render();
     notify(`BEAT-OUT fuer ${participant.full_name} wurde entfernt.`);
-    try {
-      await fetchSupportData();
-      persistOfflineCache();
-      render();
-    } catch (error) {
-      console.error("Beat-out refresh failed", error);
-    }
+    await refreshVisibleData({ context: "Beat-out refresh", silent: true });
     return;
   }
 
@@ -3330,13 +3294,7 @@ async function toggleBeatOut(courseId, participantId) {
   persistOfflineCache();
   render();
   notify(`BEAT-OUT fuer ${participant.full_name} wurde eingetragen.`);
-  try {
-    await fetchSupportData();
-    persistOfflineCache();
-    render();
-  } catch (error) {
-    console.error("Beat-out refresh failed", error);
-  }
+  await refreshVisibleData({ context: "Beat-out refresh", silent: true });
 }
 
 async function setAttendanceForAll(value) {
@@ -4502,6 +4460,49 @@ function registerServiceWorker() {
 function notify(message, isError = false) {
   statusHeadline.textContent = isError ? "Aktion fehlgeschlagen" : "Status aktualisiert";
   statusText.textContent = message;
+  if (statusMeta) {
+    statusMeta.textContent = `${isError ? "Fehler" : "Letzte Aktion"} • ${formatStatusTimestamp()}`;
+    statusMeta.dataset.locked = "true";
+    window.clearTimeout(notify.resetTimerId);
+    notify.resetTimerId = window.setTimeout(() => {
+      if (!statusMeta) {
+        return;
+      }
+      delete statusMeta.dataset.locked;
+      if (state.session && state.profile) {
+        statusMeta.textContent = "Bereit fuer den Tagesbetrieb";
+      } else if (state.supabase) {
+        statusMeta.textContent = "Warte auf Anmeldung";
+      } else {
+        statusMeta.textContent = "Setup offen";
+      }
+    }, 6000);
+  }
+}
+
+function formatStatusTimestamp() {
+  return new Date().toLocaleTimeString("de-DE", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+async function refreshVisibleData({ includeCourses = false, context = "Refresh", silent = false } = {}) {
+  try {
+    if (includeCourses) {
+      await fetchVisibleCourses();
+    }
+    await fetchSupportData();
+    persistOfflineCache();
+    render();
+    return true;
+  } catch (error) {
+    console.error(`${context} failed`, error);
+    if (!silent) {
+      notify("Daten konnten nicht vollstaendig aktualisiert werden.", true);
+    }
+    return false;
+  }
 }
 
 function markOptimisticVisibility(key, durationMs = 15000) {
