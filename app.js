@@ -2385,6 +2385,7 @@ function renderSeasonSelects() {
     const allOption = document.createElement("option");
     allOption.value = "";
     allOption.textContent = "Alle Seasons";
+    allOption.selected = !state.selectedSeasonId;
     attendanceSeasonSelect.appendChild(allOption);
 
     state.seasons.forEach((season) => {
