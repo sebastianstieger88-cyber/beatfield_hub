@@ -1536,16 +1536,9 @@ async function handleParticipantCreate(event) {
       return;
     }
 
-      if (state.attendanceSeasonId) {
-        state.activeSection = "#bookingPanel";
-        render();
-        notify("Bei aktiver Season bitte Teilnehmer ueber Buchungen anlegen.", true);
-        return;
-      }
-
-    const formData = new FormData(participantForm);
-    const fullName = String(formData.get("fullName")).trim();
-    const phone = String(formData.get("phone")).trim();
+      const formData = new FormData(participantForm);
+      const fullName = String(formData.get("fullName")).trim();
+      const phone = String(formData.get("phone")).trim();
     if (!fullName) {
       notify("Bitte einen Teilnehmernamen eingeben.", true);
       return;
@@ -1565,18 +1558,24 @@ async function handleParticipantCreate(event) {
       return;
     }
 
-    state.participants = [
-      insertResult.data,
-      ...state.participants.filter((participant) => participant.id !== insertResult.data.id),
-    ].sort((left, right) => String(left.full_name || "").localeCompare(String(right.full_name || "")));
-    markOptimisticVisibility("participants", 60000);
-    state.acceptEmptyFetch.participants = false;
-    participantForm.reset();
-    persistOfflineCache();
-    render();
-    notify("Teilnehmer hinzugefuegt.");
+      state.participants = [
+        insertResult.data,
+        ...state.participants.filter((participant) => participant.id !== insertResult.data.id),
+      ].sort((left, right) => String(left.full_name || "").localeCompare(String(right.full_name || "")));
+      markOptimisticVisibility("participants", 60000);
+      state.acceptEmptyFetch.participants = false;
+      const hadSeasonFilter = Boolean(state.attendanceSeasonId);
+      if (state.attendanceSeasonId) {
+        state.attendanceSeasonId = null;
+      }
+      participantForm.reset();
+      persistOfflineCache();
+      render();
+      notify(hadSeasonFilter
+        ? "Teilnehmer hinzugefuegt. Ansicht wurde auf Alle Seasons umgestellt."
+        : "Teilnehmer hinzugefuegt.");
 
-    await refreshVisibleData({ context: "Participant refresh", silent: true });
+      await refreshVisibleData({ context: "Participant refresh", silent: true });
   } catch (error) {
     console.error("Participant create failed", error);
     notify(`Teilnehmer konnte nicht gespeichert werden: ${error?.message || "Unerwarteter Fehler"}`, true);
@@ -2927,8 +2926,8 @@ function renderParticipants() {
     ? `${course.name} | ${season.name}`
     : `${course.name} verwalten`;
   courseActions.classList.remove("hidden");
-  participantForm.classList.toggle("hidden", !canEditCourse(course) || Boolean(season));
-  participantFormNotice?.classList.toggle("hidden", !Boolean(season));
+  participantForm.classList.toggle("hidden", !canEditCourse(course));
+  participantFormNotice?.classList.toggle("hidden", true);
   markAllPresentBtn.disabled = !canEditCourse(course);
   markAllAbsentBtn.disabled = !canEditCourse(course);
 
