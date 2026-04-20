@@ -1601,17 +1601,18 @@ async function syncSeasonBookingParticipants({ bookingId, seasonId, fullName, ph
 
   for (const [weekday, course] of desiredByWeekday.entries()) {
     const existing = existingByWeekday.get(weekday);
-    if (existing) {
-      const updateResult = await state.supabase
-        .from("participants")
-        .update({
-          course_id: course.id,
-          full_name: fullName,
-          phone: phone || null,
-          season_id: seasonId,
-        })
-        .select("id, course_id, full_name, phone, created_at, season_id, season_booking_id")
-        .eq("id", existing.id);
+      if (existing) {
+        const updateResult = await state.supabase
+          .from("participants")
+          .update({
+            course_id: course.id,
+            full_name: fullName,
+            phone: phone || null,
+            season_id: seasonId,
+            season_booking_id: bookingId,
+          })
+          .select("id, course_id, full_name, phone, created_at, season_id, season_booking_id")
+          .eq("id", existing.id);
 
       if (updateResult.error) {
         return {
@@ -2775,21 +2776,23 @@ function renderParticipants() {
     return;
   }
 
-  const session = getSessionForCourseAndDate(course.id, attendanceDate.value);
+  const sessionDate = getEffectiveAttendanceDate();
+  const session = getSessionForCourseAndDate(course.id, sessionDate);
   const records = getRecordsForSession(session?.id);
 
   participants.forEach((participant) => {
     const record = records.find((entry) => entry.participant_id === participant.id);
     const isPresent = Boolean(record?.present);
+    const booking = getParticipantSeasonBooking(participant);
     const beatOutEntry = getBeatOutEntryForParticipantSession(participant.id, session?.id);
-    const bookingUsage = getBeatOutUsageForBooking(participant.season_booking_id);
+    const bookingUsage = getBeatOutUsageForBooking(booking?.id);
     const rate = calculateAttendanceRate(course.id, participant.id);
     const row = document.createElement("tr");
     row.innerHTML = `
       <td><button type="button" class="link-button participant-profile-btn">${escapeHtml(participant.full_name)}</button></td>
       <td>
         ${participant.phone ? escapeHtml(participant.phone) : '<span class="muted">-</span>'}
-        ${participant.season_booking_id ? `<div class="stat-meta beatout-meta">BEAT-OUT ${bookingUsage.used}/${bookingUsage.limit}</div>` : ""}
+          ${booking ? `<div class="stat-meta beatout-meta">BEAT-OUT ${bookingUsage.used}/${bookingUsage.limit}</div>` : ""}
       </td>
       <td><button type="button" class="attendance-toggle${isPresent ? " is-present" : ""}" aria-label="Anwesenheit umschalten"></button></td>
       <td><span class="badge">${rate}%</span></td>
@@ -2810,15 +2813,15 @@ function renderParticipants() {
     moveButton.disabled = !canEditCourse(course);
     moveButton.addEventListener("click", async () => {
       await handleParticipantMove(participant, course);
-    });
-    const beatOutButton = row.querySelector(".participant-beatout-btn");
-    beatOutButton.disabled = !canEditCourse(course) || !participant.season_booking_id;
-    beatOutButton.addEventListener("click", async () => {
-      await toggleBeatOut(course.id, participant.id);
-    });
-    row.querySelector(".participant-profile-btn").addEventListener("click", () => {
-      openParticipantProfile(participant.id, participant.season_booking_id);
-    });
+      });
+      const beatOutButton = row.querySelector(".participant-beatout-btn");
+      beatOutButton.disabled = !canEditCourse(course) || !booking;
+      beatOutButton.addEventListener("click", async () => {
+        await toggleBeatOut(course.id, participant.id);
+      });
+      row.querySelector(".participant-profile-btn").addEventListener("click", () => {
+        openParticipantProfile(participant.id, booking?.id || participant.season_booking_id);
+      });
     participantTableBody.appendChild(row);
 
     const card = document.createElement("article");
@@ -2828,7 +2831,7 @@ function renderParticipants() {
         <div>
           <h3><button type="button" class="link-button participant-profile-btn">${escapeHtml(participant.full_name)}</button></h3>
           <p class="stat-meta">${participant.phone ? escapeHtml(participant.phone) : "Keine Telefonnummer"}</p>
-          ${participant.season_booking_id ? `<p class="stat-meta beatout-meta">BEAT-OUT ${bookingUsage.used}/${bookingUsage.limit}</p>` : ""}
+            ${booking ? `<p class="stat-meta beatout-meta">BEAT-OUT ${bookingUsage.used}/${bookingUsage.limit}</p>` : ""}
         </div>
         <span class="badge">${rate}%</span>
       </div>
@@ -2848,15 +2851,15 @@ function renderParticipants() {
     mobileMoveButton.disabled = !canEditCourse(course);
     mobileMoveButton.addEventListener("click", async () => {
       await handleParticipantMove(participant, course);
-    });
-    const mobileBeatOutButton = card.querySelector(".participant-beatout-btn");
-    mobileBeatOutButton.disabled = !canEditCourse(course) || !participant.season_booking_id;
-    mobileBeatOutButton.addEventListener("click", async () => {
-      await toggleBeatOut(course.id, participant.id);
-    });
-    card.querySelector(".participant-profile-btn").addEventListener("click", () => {
-      openParticipantProfile(participant.id, participant.season_booking_id);
-    });
+      });
+      const mobileBeatOutButton = card.querySelector(".participant-beatout-btn");
+      mobileBeatOutButton.disabled = !canEditCourse(course) || !booking;
+      mobileBeatOutButton.addEventListener("click", async () => {
+        await toggleBeatOut(course.id, participant.id);
+      });
+      card.querySelector(".participant-profile-btn").addEventListener("click", () => {
+        openParticipantProfile(participant.id, booking?.id || participant.season_booking_id);
+      });
     participantCards.appendChild(card);
   });
 }
@@ -2956,7 +2959,8 @@ function renderMobileSessionSummary() {
   }
 
   const participants = getParticipantsForCourse(course.id);
-  const session = getSessionForCourseAndDate(course.id, attendanceDate.value);
+  const sessionDate = getEffectiveAttendanceDate();
+  const session = getSessionForCourseAndDate(course.id, sessionDate);
   const records = getRecordsForSession(session?.id);
   const presentCount = records.filter((record) => record.present).length;
   const absentCount = Math.max(participants.length - presentCount, 0);
@@ -2965,7 +2969,7 @@ function renderMobileSessionSummary() {
   mobileSessionSummary.innerHTML = `
     <h3>${escapeHtml(course.name)}</h3>
     <p class="hero-stat">${presentCount}/${participants.length}</p>
-    <p class="stat-meta">anwesend am ${escapeHtml(attendanceDate.value || getToday())}</p>
+      <p class="stat-meta">anwesend am ${escapeHtml(sessionDate)}</p>
     <p class="stat-meta">${absentCount} aktuell noch offen oder abwesend</p>
   `;
 }
@@ -3167,7 +3171,7 @@ async function toggleAttendance(courseId, participantId) {
     return;
   }
 
-  const sessionDate = attendanceDate.value || getToday();
+  const sessionDate = getEffectiveAttendanceDate();
   const session = getSessionForCourseAndDate(courseId, sessionDate);
   const currentRecord = getRecordsForSession(session?.id).find((entry) => entry.participant_id === participantId);
   const nextPresent = !currentRecord?.present;
@@ -3215,13 +3219,13 @@ async function toggleBeatOut(courseId, participantId) {
     return;
   }
 
-  const booking = state.seasonBookings.find((entry) => entry.id === participant.season_booking_id) || null;
+  const booking = getParticipantSeasonBooking(participant);
   if (!booking) {
     notify("BEAT-OUT ist nur fuer Season-Buchungen verfuegbar.", true);
     return;
   }
 
-  const sessionDate = attendanceDate.value || getToday();
+  const sessionDate = getEffectiveAttendanceDate();
   let sessionId;
   try {
     sessionId = await ensureSession(courseId, sessionDate);
@@ -3717,14 +3721,43 @@ function getBeatOutLimitForPackage(packageType) {
 }
 
 function getBeatOutUsageForBooking(bookingId) {
-  const booking = state.seasonBookings.find((entry) => entry.id === bookingId) || null;
-  const used = state.beatOutEntries.filter((entry) => entry.season_booking_id === bookingId).length;
-  const limit = getBeatOutLimitForPackage(booking?.package_type);
-  return {
-    used,
-    limit,
-    remaining: Math.max(limit - used, 0),
-  };
+    const booking = state.seasonBookings.find((entry) => entry.id === bookingId) || null;
+    const used = state.beatOutEntries.filter((entry) => entry.season_booking_id === bookingId).length;
+    const limit = getBeatOutLimitForPackage(booking?.package_type);
+    return {
+      used,
+      limit,
+      remaining: Math.max(limit - used, 0),
+    };
+  }
+
+function getParticipantSeasonBooking(participant) {
+  if (!participant) {
+    return null;
+  }
+
+  if (participant.season_booking_id) {
+    const directBooking = state.seasonBookings.find((entry) => entry.id === participant.season_booking_id) || null;
+    if (directBooking) {
+      return directBooking;
+    }
+  }
+
+  const participantName = String(participant.full_name || "").trim().toLowerCase();
+  const participantPhone = String(participant.phone || "").trim();
+
+  return state.seasonBookings.find((entry) => {
+    if (participant.season_id && entry.season_id !== participant.season_id) {
+      return false;
+    }
+    if (String(entry.full_name || "").trim().toLowerCase() !== participantName) {
+      return false;
+    }
+    if (!participantPhone) {
+      return true;
+    }
+    return String(entry.phone || "").trim() === participantPhone;
+  }) || null;
 }
 
 function getPersonKey({ full_name: fullName, phone } = {}) {
@@ -3903,8 +3936,12 @@ function getTrainerAccessState(entry) {
 }
 
 function getSelectedMonth() {
-  return monthPicker.value || getCurrentMonth();
-}
+    return monthPicker.value || getCurrentMonth();
+  }
+
+function getEffectiveAttendanceDate() {
+    return attendanceDate?.value || getToday();
+  }
 
 function getSelectedMonthLabel() {
   const [year, month] = getSelectedMonth().split("-");
