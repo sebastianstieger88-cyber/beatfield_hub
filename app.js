@@ -1610,6 +1610,15 @@ async function handleParticipantCreate(event) {
       }
 
       const hadSeasonFilter = Boolean(state.attendanceSeasonId);
+      const refreshOk = await refreshVisibleData({ context: "Participant booking refresh", silent: false });
+      const bookingPersisted = state.seasonBookings.some((entry) => entry.id === optimisticBooking.id);
+      const participantPersisted = state.participants.some((entry) => entry.season_booking_id === optimisticBooking.id);
+
+      if (!refreshOk || !bookingPersisted || !participantPersisted) {
+        notify("Teilnehmer konnte nicht dauerhaft in Supabase bestaetigt werden. Bitte Buchungen und Teilnehmerliste pruefen.", true);
+        return;
+      }
+
       if (state.attendanceSeasonId) {
         state.attendanceSeasonId = null;
       }
@@ -1620,8 +1629,6 @@ async function handleParticipantCreate(event) {
       notify(hadSeasonFilter
         ? "Teilnehmer als 1x TRAIN eingebucht. Ansicht wurde auf Alle Seasons umgestellt."
         : "Teilnehmer als 1x TRAIN eingebucht.");
-
-      await refreshVisibleData({ context: "Participant booking refresh", silent: true });
     } catch (error) {
       console.error("Participant create failed", error);
       notify(`Teilnehmer konnte nicht gespeichert werden: ${error?.message || "Unerwarteter Fehler"}`, true);
