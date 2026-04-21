@@ -112,6 +112,7 @@ create table if not exists public.trial_requests (
 create table if not exists public.attendance_sessions (
   id uuid primary key default gen_random_uuid(),
   course_id uuid not null references public.courses(id) on delete cascade,
+  season_id uuid references public.seasons(id) on delete cascade,
   session_date date not null,
   created_by uuid references public.profiles(user_id) on delete set null,
   created_at timestamptz not null default now(),

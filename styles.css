@@ -349,6 +349,20 @@ label span,
   grid-template-columns: 1.4fr 1fr 0.9fr auto;
 }
 
+.season-dates-field,
+.season-dates-hint {
+  grid-column: 1 / -1;
+}
+
+.season-dates-field textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.season-dates-hint {
+  margin: -4px 0 0;
+}
+
 .booking-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

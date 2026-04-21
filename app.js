@@ -462,7 +462,7 @@ async function fetchSupportData() {
   const sessionsQuery = courseIds.length
     ? state.supabase
       .from("attendance_sessions")
-      .select("id, course_id, session_date")
+      .select("id, course_id, session_date, season_id")
       .in("course_id", courseIds)
       .order("session_date")
     : Promise.resolve({ data: [], error: null });
@@ -969,7 +969,20 @@ async function handleSeasonCreate(event) {
   const name = String(formData.get("name")).trim();
   const startDate = String(formData.get("startDate")).trim();
   const status = String(formData.get("status")).trim() || "geplant";
+  const seasonDatesInput = String(formData.get("seasonDates") || "").trim();
+  const explicitSeasonDates = parseSeasonDateEntries(seasonDatesInput);
   const endDate = calculateSeasonEndDate(startDate);
+
+  if (seasonDatesInput && !explicitSeasonDates.length) {
+    notify("Bitte gueltige Season-Termine eingeben, z. B. 04.04.2026, 06.04.2026, 08.04.2026.", true);
+    return;
+  }
+
+  const unmappedDates = getSeasonDatesWithoutMatchingCourse(explicitSeasonDates);
+  if (unmappedDates.length) {
+    notify(`Fuer diese Season-Termine fehlt noch ein passender Kurs: ${unmappedDates.map((date) => formatDateLabel(date)).join(", ")}.`, true);
+    return;
+  }
 
   const { data, error } = await state.supabase
     .from("seasons")
@@ -987,7 +1000,7 @@ async function handleSeasonCreate(event) {
     return;
   }
 
-  const sessionPayload = buildSeasonSessionPayload(startDate, endDate);
+  const sessionPayload = buildSeasonSessionPayload(startDate, endDate, data.id, explicitSeasonDates);
   if (sessionPayload.length) {
     const sessionResult = await state.supabase
       .from("attendance_sessions")
@@ -999,10 +1012,11 @@ async function handleSeasonCreate(event) {
   }
 
   state.selectedSeasonId = data.id;
+  state.attendanceSeasonId = data.id;
   seasonForm.reset();
   await fetchSupportData();
   render();
-  notify(`Season "${name}" wurde angelegt.`);
+  notify(`Season "${name}" wurde mit ${sessionPayload.length} Terminen angelegt.`);
 }
 
 async function handleSeasonBookingCreate(event) {
@@ -1231,7 +1245,9 @@ async function handleSeasonDuplicate(sourceSeason, carryOverBookings = false) {
   }
 
   const newSeasonId = seasonResult.data.id;
-  const sessionPayload = buildSeasonSessionPayload(nextStartDate, nextEndDate);
+  const sourceSeasonDates = getSeasonTrainingDates(sourceSeason.id);
+  const shiftedSeasonDates = sourceSeasonDates.map((date) => addDaysToDate(date, 28));
+  const sessionPayload = buildSeasonSessionPayload(nextStartDate, nextEndDate, newSeasonId, shiftedSeasonDates);
   if (sessionPayload.length) {
     const sessionResult = await state.supabase
       .from("attendance_sessions")
@@ -3814,9 +3830,10 @@ async function ensureSession(courseId, sessionDate) {
     .insert({
       course_id: courseId,
       session_date: sessionDate,
+      season_id: resolveSeasonIdForSession(sessionDate),
       created_by: state.session.user.id,
     })
-    .select("id, course_id, session_date")
+      .select("id, course_id, session_date, season_id")
     .single();
 
   if (insertResult.error) {
@@ -3824,7 +3841,7 @@ async function ensureSession(courseId, sessionDate) {
     if (normalizedMessage.includes("duplicate") || normalizedMessage.includes("unique")) {
       const existingResult = await state.supabase
         .from("attendance_sessions")
-        .select("id, course_id, session_date")
+      .select("id, course_id, session_date, season_id")
         .eq("course_id", courseId)
         .eq("session_date", sessionDate)
         .single();
@@ -3870,6 +3887,7 @@ async function createPlannedSessions(mode) {
     .map((date) => ({
       course_id: course.id,
       session_date: date,
+      season_id: resolveSeasonIdForSession(date),
       created_by: state.session.user.id,
     }));
 
@@ -4168,6 +4186,14 @@ function isSessionAlignedWithCourse(session) {
 }
 
 function getSeasonSessions(seasonId) {
+  const directSessions = state.sessions
+    .filter((session) => session.season_id === seasonId && isSessionAlignedWithCourse(session))
+    .sort((left, right) => String(left.session_date).localeCompare(String(right.session_date)));
+
+  if (directSessions.length) {
+    return directSessions;
+  }
+
   const season = state.seasons.find((entry) => entry.id === seasonId);
   if (!season) {
     return [];
@@ -5362,10 +5388,11 @@ function syncBookingDayInputs() {
   }
 }
 
-function buildSeasonSessionPayload(startDate, endDate) {
+function buildSeasonSessionPayload(startDate, endDate, seasonId = null, explicitDates = []) {
   const payload = [];
-  const start = new Date(`${startDate}T00:00:00`);
-  const end = new Date(`${endDate}T00:00:00`);
+  const exactDates = Array.isArray(explicitDates) && explicitDates.length
+    ? Array.from(new Set(explicitDates)).sort()
+    : null;
 
   state.courses.forEach((course) => {
     const weekdayNumber = getWeekdayNumber(course.weekday);
@@ -5373,12 +5400,31 @@ function buildSeasonSessionPayload(startDate, endDate) {
       return;
     }
 
+    const matchingDates = exactDates
+      ? exactDates.filter((date) => new Date(`${date}T00:00:00`).getDay() === weekdayNumber)
+      : null;
+
+    if (matchingDates) {
+      matchingDates.forEach((date) => {
+        payload.push({
+          course_id: course.id,
+          session_date: date,
+          season_id: seasonId,
+          created_by: state.session.user.id,
+        });
+      });
+      return;
+    }
+
+    const start = new Date(`${startDate}T00:00:00`);
+    const end = new Date(`${endDate}T00:00:00`);
     const cursor = new Date(start);
     while (cursor <= end) {
       if (cursor.getDay() === weekdayNumber) {
         payload.push({
           course_id: course.id,
           session_date: formatDateValue(cursor),
+          season_id: seasonId,
           created_by: state.session.user.id,
         });
       }
@@ -5387,6 +5433,54 @@ function buildSeasonSessionPayload(startDate, endDate) {
   });
 
   return payload;
+}
+
+function parseSeasonDateEntries(rawValue) {
+  const matches = String(rawValue || "").match(/\d{4}-\d{2}-\d{2}|\d{1,2}\.\d{1,2}\.\d{4}/g) || [];
+  const parsed = matches
+    .map((value) => {
+      if (value.includes("-")) {
+        return value;
+      }
+      const [day, month, year] = value.split(".");
+      return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+    })
+    .filter((value) => /^\d{4}-\d{2}-\d{2}$/.test(value))
+    .sort();
+
+  return Array.from(new Set(parsed));
+}
+
+function getSeasonDatesWithoutMatchingCourse(dateValues) {
+  return (dateValues || []).filter((date) => {
+    const weekday = getWeekdayLabelFromDate(date);
+    return !state.courses.some((course) => normalizeWeekdayLabel(course.weekday) === weekday);
+  });
+}
+
+function getWeekdayLabelFromDate(dateValue) {
+  const date = new Date(`${dateValue}T00:00:00`);
+  const map = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+  return map[date.getDay()] || "";
+}
+
+function addDaysToDate(dateValue, dayCount) {
+  const date = new Date(`${dateValue}T00:00:00`);
+  date.setDate(date.getDate() + dayCount);
+  return formatDateValue(date);
+}
+
+function resolveSeasonIdForSession(sessionDate) {
+  const season = getSelectedSeason();
+  if (!season) {
+    return null;
+  }
+
+  if (sessionDate < season.start_date || sessionDate > season.end_date) {
+    return null;
+  }
+
+  return season.id;
 }
 
 function formatSelectedDays(days) {
@@ -5443,12 +5537,9 @@ function getAvailableSessionMoveTargets(participant, booking, sourceSessionId) {
       .map((entry) => entry.target_session_id),
   );
 
-  return state.sessions
+  return getSeasonSessions(season.id)
     .filter((session) => {
       if (session.id === sourceSessionId) {
-        return false;
-      }
-      if (session.session_date < season.start_date || session.session_date > season.end_date) {
         return false;
       }
       if (takenTargetSessionIds.has(session.id)) {
