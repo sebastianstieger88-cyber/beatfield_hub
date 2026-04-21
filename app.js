@@ -4148,6 +4148,25 @@ function getSessionsForCourse(courseId) {
   return state.sessions.filter((session) => session.course_id === courseId);
 }
 
+function isSessionAlignedWithCourse(session) {
+  if (!session?.course_id || !session?.session_date) {
+    return false;
+  }
+
+  const course = state.courses.find((entry) => entry.id === session.course_id);
+  if (!course) {
+    return false;
+  }
+
+  const weekdayNumber = getWeekdayNumber(course.weekday);
+  if (weekdayNumber === null) {
+    return false;
+  }
+
+  const sessionDate = new Date(`${session.session_date}T00:00:00`);
+  return sessionDate.getDay() === weekdayNumber;
+}
+
 function getSeasonSessions(seasonId) {
   const season = state.seasons.find((entry) => entry.id === seasonId);
   if (!season) {
@@ -4155,7 +4174,11 @@ function getSeasonSessions(seasonId) {
   }
 
   return state.sessions
-    .filter((session) => session.session_date >= season.start_date && session.session_date <= season.end_date)
+    .filter((session) => {
+      return session.session_date >= season.start_date
+        && session.session_date <= season.end_date
+        && isSessionAlignedWithCourse(session);
+    })
     .sort((left, right) => String(left.session_date).localeCompare(String(right.session_date)));
 }
 
