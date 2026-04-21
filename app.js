@@ -4312,26 +4312,38 @@ function isSessionAlignedWithCourse(session) {
 }
 
 function getSeasonSessions(seasonId) {
-  const directSessions = state.sessions
-    .filter((session) => session.season_id === seasonId && isSessionAlignedWithCourse(session))
-    .sort((left, right) => String(left.session_date).localeCompare(String(right.session_date)));
-
-  if (directSessions.length) {
-    return directSessions;
-  }
-
   const season = state.seasons.find((entry) => entry.id === seasonId);
   if (!season) {
     return [];
   }
 
-  return state.sessions
+  const merged = new Map();
+
+  state.sessions
+    .filter((session) => session.season_id === seasonId && isSessionAlignedWithCourse(session))
+    .forEach((session) => {
+      merged.set(session.id, session);
+    });
+
+  state.sessions
     .filter((session) => {
       return session.session_date >= season.start_date
         && session.session_date <= season.end_date
         && isSessionAlignedWithCourse(session);
     })
-    .sort((left, right) => String(left.session_date).localeCompare(String(right.session_date)));
+    .forEach((session) => {
+      if (!merged.has(session.id)) {
+        merged.set(session.id, session);
+      }
+    });
+
+  return Array.from(merged.values()).sort((left, right) => {
+    const dateCompare = String(left.session_date).localeCompare(String(right.session_date));
+    if (dateCompare !== 0) {
+      return dateCompare;
+    }
+    return String(left.course_id || "").localeCompare(String(right.course_id || ""));
+  });
 }
 
 function getSeasonSessionsForCourse(seasonId, courseId) {
