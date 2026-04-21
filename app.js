@@ -2095,16 +2095,8 @@ function render() {
         ? "Warte auf Anmeldung"
         : "Setup offen";
   }
-  backendStatus.textContent = connected
-    ? state.isOffline
-      ? "Offline mit lokalem Cache"
-      : "Supabase verbunden"
-    : "Nicht verbunden";
-  offlineStatus.textContent = state.isOffline
-    ? `Offline aktiv - ${state.pendingActions.length} offene Aenderungen`
-    : state.pendingActions.length
-      ? `${state.pendingActions.length} Aenderungen werden synchronisiert`
-      : "Online";
+  backendStatus.textContent = connected ? "Supabase verbunden" : "Nicht verbunden";
+  offlineStatus.textContent = "Live-Daten aktiv";
   userStatus.textContent = loggedIn ? state.profile.full_name : "Niemand angemeldet";
   sessionName.textContent = state.profile?.full_name || "-";
   sessionRole.textContent = state.profile?.role || "-";
