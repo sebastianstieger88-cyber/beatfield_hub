@@ -1357,6 +1357,75 @@ async function handleSeasonArchive(season) {
   await handleSeasonStatusUpdate(season, "abgeschlossen");
 }
 
+async function handleSeasonDelete(season) {
+  if (!isAdmin() || !season) {
+    return;
+  }
+
+  const confirmed = window.confirm(`Soll die Season "${season.name}" wirklich komplett geloescht werden? Alle Buchungen, verknuepften Teilnehmer und Season-Termine werden dabei entfernt.`);
+  if (!confirmed) {
+    return;
+  }
+
+  const bookingIds = state.seasonBookings
+    .filter((booking) => booking.season_id === season.id)
+    .map((booking) => booking.id);
+  const participantIds = state.participants
+    .filter((participant) => participant.season_id === season.id)
+    .map((participant) => participant.id);
+  const sessionIds = getSeasonSessions(season.id).map((session) => session.id);
+
+  if (sessionIds.length) {
+    const sessionDeleteResult = await state.supabase
+      .from("attendance_sessions")
+      .delete()
+      .in("id", sessionIds);
+
+    if (sessionDeleteResult.error) {
+      notify(getFriendlySupabaseMessage(sessionDeleteResult.error, "Season-Termine konnten nicht geloescht werden."), true);
+      return;
+    }
+  }
+
+  const seasonDeleteResult = await state.supabase
+    .from("seasons")
+    .delete()
+    .eq("id", season.id);
+
+  if (seasonDeleteResult.error) {
+    notify(getFriendlySupabaseMessage(seasonDeleteResult.error, "Season konnte nicht geloescht werden."), true);
+    return;
+  }
+
+  state.seasons = state.seasons.filter((entry) => entry.id !== season.id);
+  state.seasonBookings = state.seasonBookings.filter((entry) => entry.season_id !== season.id);
+  state.participants = state.participants.filter((entry) => entry.season_id !== season.id);
+  state.sessions = state.sessions.filter((entry) => !sessionIds.includes(entry.id) && entry.season_id !== season.id);
+  state.records = state.records.filter((entry) => !sessionIds.includes(entry.session_id) && !participantIds.includes(entry.participant_id));
+  state.beatOutEntries = state.beatOutEntries.filter((entry) => !sessionIds.includes(entry.session_id) && !participantIds.includes(entry.participant_id) && !bookingIds.includes(entry.season_booking_id));
+  state.sessionOverrides = state.sessionOverrides.filter((entry) => !sessionIds.includes(entry.source_session_id) && !sessionIds.includes(entry.target_session_id) && !participantIds.includes(entry.participant_id) && !bookingIds.includes(entry.season_booking_id));
+
+  if (state.selectedSeasonId === season.id) {
+    state.selectedSeasonId = null;
+  }
+  if (state.attendanceSeasonId === season.id) {
+    state.attendanceSeasonId = null;
+  }
+
+  clearOptimisticVisibility("seasonBookings");
+  clearOptimisticVisibility("participants");
+  clearOptimisticVisibility("records");
+  clearOptimisticVisibility("beatOutEntries");
+  state.acceptEmptyFetch.seasonBookings = true;
+  state.acceptEmptyFetch.participants = true;
+  state.acceptEmptyFetch.records = true;
+  state.acceptEmptyFetch.beatOutEntries = true;
+
+  render();
+  notify(`Season "${season.name}" wurde geloescht.`);
+  await refreshVisibleData({ context: "Season delete refresh", silent: true });
+}
+
 async function ensureFollowUpSeason(sourceSeason) {
   const existing = getNextSeasonForRenewal(sourceSeason);
   if (existing) {
@@ -2808,6 +2877,15 @@ function renderSeasons() {
       });
       actions.appendChild(archiveBtn);
     }
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.className = "danger";
+    deleteBtn.textContent = "Season loeschen";
+    deleteBtn.addEventListener("click", async () => {
+      await handleSeasonDelete(season);
+    });
+    actions.appendChild(deleteBtn);
 
     card.appendChild(actions);
     seasonList.appendChild(card);
@@ -5630,7 +5708,6 @@ function getAvailableSessionMoveTargets(participant, booking, sourceSessionId) {
     return [];
   }
 
-  const bookedDaySet = new Set((booking.selected_days || []).map((day) => normalizeWeekdayLabel(day)));
   const takenTargetSessionIds = new Set(
     state.sessionOverrides
       .filter((entry) => entry.participant_id === participant.id)
@@ -5649,7 +5726,7 @@ function getAvailableSessionMoveTargets(participant, booking, sourceSessionId) {
       if (!course) {
         return false;
       }
-      return !bookedDaySet.has(normalizeWeekdayLabel(course.weekday));
+      return true;
     })
     .map((session) => ({
       session,
