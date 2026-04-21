@@ -12,6 +12,7 @@ const state = {
   profile: null,
   courses: [],
   seasons: [],
+  seasonDraftDates: [],
   seasonBookings: [],
   sessionOverrides: [],
   trainers: [],
@@ -83,6 +84,11 @@ const inviteForm = document.querySelector("#inviteForm");
 const trainerDirectoryForm = document.querySelector("#trainerDirectoryForm");
 const courseForm = document.querySelector("#courseForm");
 const seasonForm = document.querySelector("#seasonForm");
+const generateSeasonDatesBtn = document.querySelector("#generateSeasonDatesBtn");
+const clearSeasonDatesBtn = document.querySelector("#clearSeasonDatesBtn");
+const addSeasonDateBtn = document.querySelector("#addSeasonDateBtn");
+const seasonDateDraftInput = document.querySelector("#seasonDateDraftInput");
+const seasonDatePreview = document.querySelector("#seasonDatePreview");
 const seasonBookingForm = document.querySelector("#seasonBookingForm");
 const saveBookingBtn = document.querySelector("#saveBookingBtn");
 const cancelBookingEditBtn = document.querySelector("#cancelBookingEditBtn");
@@ -199,6 +205,12 @@ inviteForm?.addEventListener("submit", handleInviteCreate);
 trainerDirectoryForm?.addEventListener("submit", handleTrainerDirectoryCreate);
 courseForm?.addEventListener("submit", handleCourseCreate);
 seasonForm?.addEventListener("submit", handleSeasonCreate);
+generateSeasonDatesBtn?.addEventListener("click", handleGenerateSeasonDates);
+clearSeasonDatesBtn?.addEventListener("click", () => {
+  state.seasonDraftDates = [];
+  renderSeasonDateEditor();
+});
+addSeasonDateBtn?.addEventListener("click", handleAddSeasonDraftDate);
 seasonBookingForm?.addEventListener("submit", handleSeasonBookingCreate);
 cancelBookingEditBtn?.addEventListener("click", resetBookingForm);
 deleteCourseBtn?.addEventListener("click", handleCourseDelete);
@@ -969,7 +981,7 @@ async function handleSeasonCreate(event) {
   const name = String(formData.get("name")).trim();
   const startDate = String(formData.get("startDate")).trim();
   const status = String(formData.get("status")).trim() || "geplant";
-  const seasonDatesInput = String(formData.get("seasonDates") || "").trim();
+  const seasonDatesInput = state.seasonDraftDates.join(", ");
   const explicitSeasonDates = parseSeasonDateEntries(seasonDatesInput);
   const endDate = calculateSeasonEndDate(startDate);
 
@@ -1014,6 +1026,7 @@ async function handleSeasonCreate(event) {
   state.selectedSeasonId = data.id;
   state.attendanceSeasonId = data.id;
   seasonForm.reset();
+  state.seasonDraftDates = [];
   await fetchSupportData();
   render();
   notify(`Season "${name}" wurde mit ${sessionPayload.length} Terminen angelegt.`);
@@ -2289,6 +2302,7 @@ function render() {
   }
 
   renderSeasonSelects();
+  renderSeasonDateEditor();
   renderSeasons();
   renderSeasonBookings();
   renderTrainerSelect();
@@ -2643,6 +2657,40 @@ function renderSeasonSelects() {
   }
 
   syncBookingDayInputs();
+}
+
+function renderSeasonDateEditor() {
+  if (!seasonForm || !seasonDatePreview) {
+    return;
+  }
+
+  const seasonDatesInput = seasonForm.querySelector('textarea[name="seasonDates"]');
+  if (seasonDatesInput) {
+    seasonDatesInput.value = state.seasonDraftDates.join(", ");
+  }
+
+  seasonDatePreview.innerHTML = "";
+  if (!state.seasonDraftDates.length) {
+    const empty = document.createElement("p");
+    empty.className = "stat-meta";
+    empty.textContent = "Noch keine exakten Season-Termine gepflegt.";
+    seasonDatePreview.appendChild(empty);
+    return;
+  }
+
+  state.seasonDraftDates.forEach((dateValue) => {
+    const chip = document.createElement("div");
+    chip.className = "season-date-chip";
+    chip.innerHTML = `
+      <span>${escapeHtml(formatDateLabel(dateValue))}</span>
+      <button type="button" class="ghost">Entfernen</button>
+    `;
+    chip.querySelector("button").addEventListener("click", () => {
+      state.seasonDraftDates = state.seasonDraftDates.filter((entry) => entry !== dateValue);
+      renderSeasonDateEditor();
+    });
+    seasonDatePreview.appendChild(chip);
+  });
 }
 
 function renderAttendanceSessionOptions() {
@@ -5449,6 +5497,58 @@ function parseSeasonDateEntries(rawValue) {
     .sort();
 
   return Array.from(new Set(parsed));
+}
+
+function handleGenerateSeasonDates() {
+  if (!seasonForm) {
+    return;
+  }
+
+  const startDate = String(new FormData(seasonForm).get("startDate") || "").trim();
+  if (!startDate) {
+    notify("Bitte zuerst ein Startdatum fuer die Season setzen.", true);
+    return;
+  }
+
+  const endDate = calculateSeasonEndDate(startDate);
+  state.seasonDraftDates = getGeneratedSeasonDates(startDate, endDate);
+  renderSeasonDateEditor();
+  notify(`${state.seasonDraftDates.length} Standardtermine fuer die Season geladen.`);
+}
+
+function handleAddSeasonDraftDate() {
+  const dateValue = String(seasonDateDraftInput?.value || "").trim();
+  if (!dateValue) {
+    notify("Bitte zuerst ein Datum fuer den Season-Termin waehlen.", true);
+    return;
+  }
+
+  state.seasonDraftDates = Array.from(new Set([...state.seasonDraftDates, dateValue])).sort();
+  if (seasonDateDraftInput) {
+    seasonDateDraftInput.value = "";
+  }
+  renderSeasonDateEditor();
+}
+
+function getGeneratedSeasonDates(startDate, endDate) {
+  const dates = new Set();
+  const start = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
+  const weekdayNumbers = Array.from(new Set(
+    state.courses
+      .map((course) => getWeekdayNumber(course.weekday))
+      .filter((value) => value !== null),
+  ));
+
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    if (weekdayNumbers.includes(cursor.getDay())) {
+      dates.add(formatDateValue(cursor));
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return Array.from(dates).sort();
 }
 
 function getSeasonDatesWithoutMatchingCourse(dateValues) {
