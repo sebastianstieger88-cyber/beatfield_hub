@@ -13,6 +13,7 @@ const state = {
   courses: [],
   seasons: [],
   seasonBookings: [],
+  sessionOverrides: [],
   trainers: [],
   trainerDirectory: [],
   invites: [],
@@ -111,7 +112,10 @@ const seasonFilterClosedBtn = document.querySelector("#seasonFilterClosedBtn");
 const moveParticipantModal = document.querySelector("#moveParticipantModal");
 const moveParticipantForm = document.querySelector("#moveParticipantForm");
 const moveParticipantText = document.querySelector("#moveParticipantText");
+const moveParticipantTitle = document.querySelector("#moveParticipantTitle");
+const moveParticipantTargetLabel = document.querySelector("#moveParticipantTargetLabel");
 const moveParticipantTargetCourse = document.querySelector("#moveParticipantTargetCourse");
+const moveParticipantSubmitBtn = document.querySelector("#moveParticipantSubmitBtn");
 const closeMoveParticipantModalBtn = document.querySelector("#closeMoveParticipantModalBtn");
 const cancelMoveParticipantBtn = document.querySelector("#cancelMoveParticipantBtn");
 const trialCourseSelect = document.querySelector("#trialCourseSelect");
@@ -542,6 +546,21 @@ async function fetchSupportData() {
   }
   if (!trialResult.error) {
     state.trialRequests = trialResult.data || [];
+  }
+
+  const bookingIds = state.seasonBookings.map((booking) => booking.id);
+  const sessionOverrideResult = bookingIds.length
+    ? await state.supabase
+      .from("session_overrides")
+      .select("id, season_booking_id, participant_id, source_session_id, target_session_id, created_at")
+      .in("season_booking_id", bookingIds)
+      .order("created_at", { ascending: false })
+    : { data: [], error: null };
+
+  if (sessionOverrideResult.error) {
+    notify(getFriendlySupabaseMessage(sessionOverrideResult.error, "Termin-Umbuchungen konnten nicht geladen werden."), true);
+  } else {
+    state.sessionOverrides = sessionOverrideResult.data || [];
   }
 
   if (state.selectedSeasonId && !state.seasons.some((season) => season.id === state.selectedSeasonId)) {
@@ -1927,6 +1946,78 @@ async function handleParticipantMove(participant, currentCourse) {
     return;
   }
 
+  if (!moveParticipantModal || !moveParticipantTargetCourse || !moveParticipantText) {
+    notify("Umbuchungsfenster konnte nicht geoeffnet werden.", true);
+    return;
+  }
+
+  const sessionDate = getEffectiveAttendanceDate();
+  const booking = getParticipantSeasonBooking(participant);
+  const activeSession = booking ? getSessionForCourseAndDate(currentCourse.id, sessionDate) : null;
+  const incomingOverride = activeSession ? getSessionOverrideForTarget(participant.id, activeSession.id) : null;
+
+  if (incomingOverride) {
+    const removeConfirmed = window.confirm(`Soll die Einzeltermin-Umbuchung fuer ${participant.full_name} wieder aufgehoben werden?`);
+    if (!removeConfirmed) {
+      return;
+    }
+    await removeSessionOverride(incomingOverride, participant.full_name);
+    return;
+  }
+
+  if (booking) {
+    const bookingSeason = state.seasons.find((entry) => entry.id === booking.season_id);
+    if (bookingSeason && (sessionDate < bookingSeason.start_date || sessionDate > bookingSeason.end_date)) {
+      notify(`Termin-Umbuchungen sind nur innerhalb der Season ${bookingSeason.name} moeglich.`, true);
+      return;
+    }
+
+    let sourceSessionId = activeSession?.id || null;
+    if (!sourceSessionId) {
+      try {
+        sourceSessionId = await ensureSession(currentCourse.id, sessionDate);
+      } catch (error) {
+        notify(error.message, true);
+        return;
+      }
+    }
+
+    const availableSessions = getAvailableSessionMoveTargets(participant, booking, sourceSessionId);
+    if (!availableSessions.length) {
+      notify("Fuer diese Buchung gibt es in der Season aktuell keinen passenden Ausweichtermin auf einem anderen Trainingstag.", true);
+      return;
+    }
+
+    state.moveParticipantContext = {
+      mode: "session",
+      participantId: participant.id,
+      bookingId: booking.id,
+      currentCourseId: currentCourse.id,
+      sourceSessionId,
+      availableTargetSessionIds: availableSessions.map((entry) => entry.session.id),
+    };
+
+    if (moveParticipantTitle) {
+      moveParticipantTitle.textContent = "Einzeltermin umbuchen";
+    }
+    if (moveParticipantTargetLabel) {
+      moveParticipantTargetLabel.textContent = "Zieltermin";
+    }
+    if (moveParticipantSubmitBtn) {
+      moveParticipantSubmitBtn.textContent = "Termin-Umbuchung speichern";
+    }
+    moveParticipantText.textContent = `${participant.full_name} wird nur fuer den Termin am ${formatDateLabel(sessionDate)} auf einen konkreten Ersatztermin umgebucht. Die Season-Buchung bleibt dabei unveraendert.`;
+    moveParticipantTargetCourse.innerHTML = "";
+    availableSessions.forEach(({ session, course }) => {
+      const option = document.createElement("option");
+      option.value = session.id;
+      option.textContent = `${formatDateLabel(session.session_date)} | ${course.name} (${course.weekday}${course.time ? `, ${course.time} Uhr` : ""})`;
+      moveParticipantTargetCourse.appendChild(option);
+    });
+    moveParticipantModal.classList.remove("hidden");
+    return;
+  }
+
   const availableCourses = state.courses.filter((course) => course.id !== currentCourse.id);
   if (!availableCourses.length) {
     notify("Es gibt keinen anderen Kurs zum Umbuchen.", true);
@@ -1934,16 +2025,21 @@ async function handleParticipantMove(participant, currentCourse) {
   }
 
   state.moveParticipantContext = {
+    mode: "permanent",
     participantId: participant.id,
     currentCourseId: currentCourse.id,
     availableCourseIds: availableCourses.map((course) => course.id),
   };
 
-  if (!moveParticipantModal || !moveParticipantTargetCourse || !moveParticipantText) {
-    notify("Umbuchungsfenster konnte nicht geoeffnet werden.", true);
-    return;
+  if (moveParticipantTitle) {
+    moveParticipantTitle.textContent = "Teilnehmer umbuchen";
   }
-
+  if (moveParticipantTargetLabel) {
+    moveParticipantTargetLabel.textContent = "Zielkurs";
+  }
+  if (moveParticipantSubmitBtn) {
+    moveParticipantSubmitBtn.textContent = "Umbuchung speichern";
+  }
   moveParticipantText.textContent = `${participant.full_name} von ${currentCourse.name} in einen anderen Kurs verschieben.`;
   moveParticipantTargetCourse.innerHTML = "";
   availableCourses.forEach((course) => {
@@ -1965,9 +2061,70 @@ async function handleMoveParticipantSubmit(event) {
 
   const participant = state.participants.find((entry) => entry.id === context.participantId);
   const currentCourse = state.courses.find((entry) => entry.id === context.currentCourseId);
-  const targetCourse = state.courses.find((entry) => entry.id === moveParticipantTargetCourse.value);
+  if (!participant || !currentCourse) {
+    notify("Umbuchung konnte nicht vorbereitet werden.", true);
+    closeMoveParticipantModal();
+    return;
+  }
 
-  if (!participant || !currentCourse || !targetCourse) {
+  if (context.mode === "session") {
+    const booking = state.seasonBookings.find((entry) => entry.id === context.bookingId);
+    const targetSession = state.sessions.find((entry) => entry.id === moveParticipantTargetCourse.value);
+    const sourceSession = state.sessions.find((entry) => entry.id === context.sourceSessionId);
+    const targetCourse = targetSession ? state.courses.find((entry) => entry.id === targetSession.course_id) : null;
+
+    if (!booking || !targetSession || !sourceSession || !targetCourse) {
+      notify("Der Zieltermin konnte nicht aufgeloest werden.", true);
+      closeMoveParticipantModal();
+      return;
+    }
+
+    const existingOverride = getSessionOverrideForSource(participant.id, sourceSession.id);
+    if (existingOverride) {
+      const removeResult = await state.supabase
+        .from("session_overrides")
+        .delete()
+        .eq("id", existingOverride.id);
+
+      if (removeResult.error) {
+        notify(getFriendlySupabaseMessage(removeResult.error, "Vorherige Termin-Umbuchung konnte nicht ersetzt werden."), true);
+        return;
+      }
+    }
+
+    const overrideResult = await state.supabase
+      .from("session_overrides")
+      .insert({
+        season_booking_id: booking.id,
+        participant_id: participant.id,
+        source_session_id: sourceSession.id,
+        target_session_id: targetSession.id,
+      })
+      .select("id, season_booking_id, participant_id, source_session_id, target_session_id, created_at")
+      .single();
+
+    if (overrideResult.error) {
+      notify(getFriendlySupabaseMessage(overrideResult.error, "Einzeltermin-Umbuchung konnte nicht gespeichert werden."), true);
+      return;
+    }
+
+    state.sessionOverrides = [
+      overrideResult.data,
+      ...state.sessionOverrides.filter((entry) => entry.id !== overrideResult.data.id && !(entry.participant_id === participant.id && entry.source_session_id === sourceSession.id)),
+    ];
+    if (attendanceDate) {
+      attendanceDate.value = targetSession.session_date;
+    }
+    state.selectedCourseId = targetCourse.id;
+    closeMoveParticipantModal();
+    render();
+    notify(`${participant.full_name} wurde fuer ${formatDateLabel(targetSession.session_date)} nach ${targetCourse.name} umgebucht.`);
+    await refreshVisibleData({ context: "Session override refresh", silent: true });
+    return;
+  }
+
+  const targetCourse = state.courses.find((entry) => entry.id === moveParticipantTargetCourse.value);
+  if (!targetCourse) {
     notify("Umbuchung konnte nicht vorbereitet werden.", true);
     closeMoveParticipantModal();
     return;
@@ -2975,9 +3132,12 @@ function renderParticipants() {
   participantFormNotice?.classList.toggle("hidden", true);
   markAllPresentBtn.disabled = !canEditCourse(course);
   markAllAbsentBtn.disabled = !canEditCourse(course);
+  const sessionDate = getEffectiveAttendanceDate();
+  const session = getSessionForCourseAndDate(course.id, sessionDate);
+  const records = getRecordsForSession(session?.id);
+  const sessionParticipants = getFilteredParticipants(course.id, session?.id);
 
-  const participants = getFilteredParticipants(course.id);
-  if (!participants.length) {
+  if (!sessionParticipants.length) {
     const row = document.createElement("tr");
     row.innerHTML = `<td colspan="5"><div class="empty-state"><p>Keine Teilnehmer fuer die aktuelle Suche gefunden.</p></div></td>`;
     participantTableBody.appendChild(row);
@@ -2985,30 +3145,29 @@ function renderParticipants() {
     return;
   }
 
-  const sessionDate = getEffectiveAttendanceDate();
-  const session = getSessionForCourseAndDate(course.id, sessionDate);
-  const records = getRecordsForSession(session?.id);
-
-  participants.forEach((participant) => {
+  sessionParticipants.forEach((participant) => {
     const record = records.find((entry) => entry.participant_id === participant.id);
     const isPresent = Boolean(record?.present);
     const booking = getParticipantSeasonBooking(participant);
     const beatOutEntry = getBeatOutEntryForParticipantSession(participant.id, session?.id);
     const bookingUsage = getBeatOutUsageForBooking(booking?.id);
     const rate = calculateAttendanceRate(course.id, participant.id);
+    const targetOverride = session?.id ? getSessionOverrideForTarget(participant.id, session.id) : null;
+    const overrideMeta = targetOverride ? getSessionOverrideLabel(targetOverride) : "";
     const row = document.createElement("tr");
     row.innerHTML = `
       <td><button type="button" class="link-button participant-profile-btn">${escapeHtml(participant.full_name)}</button></td>
       <td>
         ${participant.phone ? escapeHtml(participant.phone) : '<span class="muted">-</span>'}
           ${booking ? `<div class="stat-meta beatout-meta">BEAT-OUT ${bookingUsage.used}/${bookingUsage.limit}</div>` : ""}
+          ${overrideMeta ? `<div class="stat-meta">${escapeHtml(overrideMeta)}</div>` : ""}
       </td>
       <td><button type="button" class="attendance-toggle${isPresent ? " is-present" : ""}" aria-label="Anwesenheit umschalten"></button></td>
       <td><span class="badge">${rate}%</span></td>
         <td>
           <div class="mini-actions table-actions">
             <button type="button" class="ghost participant-beatout-btn${beatOutEntry ? " is-active" : ""}">${beatOutEntry ? "BEAT-OUT aktiv" : "BEAT-OUT"}</button>
-            <button type="button" class="ghost participant-move-btn">Umbuchen</button>
+            <button type="button" class="ghost participant-move-btn">${targetOverride ? "Terminwechsel aufheben" : booking ? "Termin umbuchen" : "Umbuchen"}</button>
             <button type="button" class="danger participant-delete-btn">${booking ? "Entfernen" : "Loeschen"}</button>
           </div>
         </td>
@@ -3047,13 +3206,14 @@ function renderParticipants() {
           <h3><button type="button" class="link-button participant-profile-btn">${escapeHtml(participant.full_name)}</button></h3>
           <p class="stat-meta">${participant.phone ? escapeHtml(participant.phone) : "Keine Telefonnummer"}</p>
             ${booking ? `<p class="stat-meta beatout-meta">BEAT-OUT ${bookingUsage.used}/${bookingUsage.limit}</p>` : ""}
+            ${overrideMeta ? `<p class="stat-meta">${escapeHtml(overrideMeta)}</p>` : ""}
         </div>
         <span class="badge">${rate}%</span>
       </div>
         <div class="participant-card-actions">
           <button type="button" class="attendance-toggle${isPresent ? " is-present" : ""}" aria-label="Anwesenheit umschalten"></button>
           <button type="button" class="ghost participant-beatout-btn${beatOutEntry ? " is-active" : ""}">${beatOutEntry ? "BEAT-OUT aktiv" : "BEAT-OUT"}</button>
-          <button type="button" class="ghost participant-move-btn">Umbuchen</button>
+          <button type="button" class="ghost participant-move-btn">${targetOverride ? "Terminwechsel aufheben" : booking ? "Termin umbuchen" : "Umbuchen"}</button>
           <button type="button" class="danger participant-delete-btn">${booking ? "Entfernen" : "Loeschen"}</button>
         </div>
       `;
@@ -3179,9 +3339,9 @@ function renderMobileSessionSummary() {
     return;
   }
 
-  const participants = getParticipantsForCourse(course.id);
   const sessionDate = getEffectiveAttendanceDate();
   const session = getSessionForCourseAndDate(course.id, sessionDate);
+  const participants = getAttendanceParticipantsForCourse(course.id, session?.id);
   const records = getRecordsForSession(session?.id);
   const presentCount = records.filter((record) => record.present).length;
   const absentCount = Math.max(participants.length - presentCount, 0);
@@ -3529,9 +3689,11 @@ async function setAttendanceForAll(value) {
   }
 
   const sessionDate = attendanceDate.value || getToday();
+  const session = getSessionForCourseAndDate(course.id, sessionDate);
+  const attendanceParticipants = getAttendanceParticipantsForCourse(course.id, session?.id);
 
   if (state.isOffline) {
-    getParticipantsForCourse(course.id).forEach((participant) => {
+    attendanceParticipants.forEach((participant) => {
       applyLocalAttendanceChange(course.id, participant.id, sessionDate, value);
     });
     queueOfflineAction({
@@ -3552,7 +3714,7 @@ async function setAttendanceForAll(value) {
     return;
   }
 
-  const payload = getParticipantsForCourse(course.id).map((participant) => ({
+  const payload = attendanceParticipants.map((participant) => ({
     session_id: sessionId,
     participant_id: participant.id,
     present: value,
@@ -3574,7 +3736,7 @@ async function setAttendanceForAll(value) {
   }
 
   if (value) {
-    const participantIds = getParticipantsForCourse(course.id).map((participant) => participant.id);
+    const participantIds = attendanceParticipants.map((participant) => participant.id);
     if (participantIds.length) {
       const beatOutDeleteResult = await state.supabase
         .from("beat_out_entries")
@@ -3888,8 +4050,42 @@ function getParticipantsForCourse(courseId) {
   });
 }
 
-function getFilteredParticipants(courseId) {
-  const participants = getParticipantsForCourse(courseId);
+function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
+  const baseParticipants = getParticipantsForCourse(courseId);
+  if (!sessionId) {
+    return baseParticipants;
+  }
+
+  const movedOutIds = new Set(
+    state.sessionOverrides
+      .filter((entry) => entry.source_session_id === sessionId)
+      .map((entry) => entry.participant_id),
+  );
+
+  const roster = baseParticipants.filter((participant) => !movedOutIds.has(participant.id));
+  const rosterIds = new Set(roster.map((participant) => participant.id));
+
+  state.sessionOverrides
+    .filter((entry) => entry.target_session_id === sessionId)
+    .forEach((entry) => {
+      const participant = state.participants.find((item) => item.id === entry.participant_id);
+      if (!participant) {
+        return;
+      }
+      if (state.attendanceSeasonId && participant.season_id !== state.attendanceSeasonId) {
+        return;
+      }
+      if (!rosterIds.has(participant.id)) {
+        roster.push(participant);
+        rosterIds.add(participant.id);
+      }
+    });
+
+  return roster.sort((left, right) => String(left.full_name || "").localeCompare(String(right.full_name || "")));
+}
+
+function getFilteredParticipants(courseId, sessionId = null) {
+  const participants = getAttendanceParticipantsForCourse(courseId, sessionId);
   if (!state.participantSearch) {
     return participants;
   }
@@ -3926,6 +4122,36 @@ function getBeatOutEntryForParticipantSession(participantId, sessionId) {
   }
 
   return state.beatOutEntries.find((entry) => entry.participant_id === participantId && entry.session_id === sessionId) || null;
+}
+
+function getSessionOverrideForSource(participantId, sessionId) {
+  if (!participantId || !sessionId) {
+    return null;
+  }
+
+  return state.sessionOverrides.find((entry) => entry.participant_id === participantId && entry.source_session_id === sessionId) || null;
+}
+
+function getSessionOverrideForTarget(participantId, sessionId) {
+  if (!participantId || !sessionId) {
+    return null;
+  }
+
+  return state.sessionOverrides.find((entry) => entry.participant_id === participantId && entry.target_session_id === sessionId) || null;
+}
+
+function getSessionOverrideLabel(override) {
+  if (!override) {
+    return "";
+  }
+
+  const sourceSession = state.sessions.find((entry) => entry.id === override.source_session_id);
+  const sourceCourse = sourceSession ? state.courses.find((entry) => entry.id === sourceSession.course_id) : null;
+  if (!sourceSession || !sourceCourse) {
+    return "Einzeltermin umgebucht";
+  }
+
+  return `Ersatz fuer ${sourceCourse.weekday} ${formatDateLabel(sourceSession.session_date)}`;
 }
 
 function getBeatOutLimitForPackage(packageType) {
@@ -4931,6 +5157,9 @@ function getFriendlySupabaseMessage(error, fallback) {
     || normalized.includes("selected_days")
     || normalized.includes("beat_out")
     || normalized.includes("beat out")
+    || normalized.includes("session_overrides")
+    || normalized.includes("source_session_id")
+    || normalized.includes("target_session_id")
   ) {
     return "Die App braucht das neueste Supabase-Schema. Bitte `supabase-schema.sql` noch einmal komplett im SQL Editor ausfuehren.";
   }
@@ -5104,6 +5333,69 @@ function resolveRelevantCoursesForDays(selectedDays) {
     ok: true,
     data: relevantCourses,
   };
+}
+
+function getAvailableSessionMoveTargets(participant, booking, sourceSessionId) {
+  if (!participant || !booking || !sourceSessionId) {
+    return [];
+  }
+
+  const season = state.seasons.find((entry) => entry.id === booking.season_id);
+  if (!season) {
+    return [];
+  }
+
+  const bookedDaySet = new Set((booking.selected_days || []).map((day) => normalizeWeekdayLabel(day)));
+  const takenTargetSessionIds = new Set(
+    state.sessionOverrides
+      .filter((entry) => entry.participant_id === participant.id)
+      .map((entry) => entry.target_session_id),
+  );
+
+  return state.sessions
+    .filter((session) => {
+      if (session.id === sourceSessionId) {
+        return false;
+      }
+      if (session.session_date < season.start_date || session.session_date > season.end_date) {
+        return false;
+      }
+      if (takenTargetSessionIds.has(session.id)) {
+        return false;
+      }
+      const course = state.courses.find((entry) => entry.id === session.course_id);
+      if (!course) {
+        return false;
+      }
+      return !bookedDaySet.has(normalizeWeekdayLabel(course.weekday));
+    })
+    .map((session) => ({
+      session,
+      course: state.courses.find((entry) => entry.id === session.course_id),
+    }))
+    .filter((entry) => entry.course)
+    .sort((left, right) => String(left.session.session_date).localeCompare(String(right.session.session_date)));
+}
+
+async function removeSessionOverride(override, participantName = "Teilnehmer") {
+  if (!override?.id) {
+    return;
+  }
+
+  const deleteResult = await state.supabase
+    .from("session_overrides")
+    .delete()
+    .eq("id", override.id);
+
+  if (deleteResult.error) {
+    notify(getFriendlySupabaseMessage(deleteResult.error, "Termin-Umbuchung konnte nicht aufgehoben werden."), true);
+    return;
+  }
+
+  state.sessionOverrides = state.sessionOverrides.filter((entry) => entry.id !== override.id);
+  render();
+  notify(`Termin-Umbuchung fuer ${participantName} wurde aufgehoben.`);
+  await refreshVisibleData({ context: "Session override delete refresh", silent: true });
 }
 
 function normalizeWeekdayLabel(value) {
