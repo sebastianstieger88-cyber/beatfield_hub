@@ -2,6 +2,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
 const config = window.APP_CONFIG || {};
 const hasConfig = Boolean(config.supabaseUrl && config.supabaseAnonKey && config.siteUrl);
+const ENABLE_OFFLINE_MODE = false;
 const OFFLINE_CACHE_KEY = "beatfield-offline-cache-v2";
 const OFFLINE_QUEUE_KEY = "beatfield-offline-queue-v2";
 
@@ -273,7 +274,11 @@ window.addEventListener("offline", handleConnectivityChange);
 initialize();
 
 async function initialize() {
-  registerServiceWorker();
+  if (ENABLE_OFFLINE_MODE) {
+    registerServiceWorker();
+  } else {
+    await clearLegacyOfflineState();
+  }
 
   if (!hasConfig) {
     setupNotice.classList.remove("hidden");
@@ -323,7 +328,9 @@ async function loadProtectedData() {
     return;
   }
 
-  hydrateFromOfflineCache();
+  if (ENABLE_OFFLINE_MODE) {
+    hydrateFromOfflineCache();
+  }
   state.selectedSeasonId = null;
   state.attendanceSeasonId = null;
   if (state.courses.length) {
@@ -336,10 +343,10 @@ async function loadProtectedData() {
     markOptimisticVisibility("invites", 60000);
   }
 
-  if (state.isOffline) {
-    notify("Offline-Modus aktiv. Letzte geladene Daten werden verwendet.");
-    return;
-  }
+    if (state.isOffline) {
+      notify("Offline-Modus aktiv. Letzte geladene Daten werden verwendet.");
+      return;
+    }
 
   await fetchProfile();
   await fetchVisibleCourses();
@@ -4649,6 +4656,9 @@ async function executeOfflineAction(action) {
 }
 
 function persistOfflineCache() {
+  if (!ENABLE_OFFLINE_MODE) {
+    return;
+  }
   const payload = {
     profile: state.profile,
     courses: state.courses,
@@ -4668,6 +4678,9 @@ function persistOfflineCache() {
 }
 
 function hydrateFromOfflineCache() {
+  if (!ENABLE_OFFLINE_MODE) {
+    return;
+  }
   const raw = localStorage.getItem(OFFLINE_CACHE_KEY);
   if (!raw) {
     return;
@@ -4696,6 +4709,9 @@ function hydrateFromOfflineCache() {
   }
 
 function loadOfflineQueue() {
+  if (!ENABLE_OFFLINE_MODE) {
+    return [];
+  }
   const raw = localStorage.getItem(OFFLINE_QUEUE_KEY);
   if (!raw) {
     return [];
@@ -4710,7 +4726,35 @@ function loadOfflineQueue() {
 }
 
 function persistOfflineQueue() {
+  if (!ENABLE_OFFLINE_MODE) {
+    return;
+  }
   localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(state.pendingActions));
+}
+
+async function clearLegacyOfflineState() {
+  try {
+    localStorage.removeItem("beatfield-offline-cache-v1");
+    localStorage.removeItem("beatfield-offline-queue-v1");
+    localStorage.removeItem("beatfield-offline-cache-v2");
+    localStorage.removeItem("beatfield-offline-queue-v2");
+
+    if ("serviceWorker" in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((registration) => registration.unregister()));
+    }
+
+    if ("caches" in window) {
+      const cacheKeys = await caches.keys();
+      await Promise.all(
+        cacheKeys
+          .filter((key) => key.startsWith("beatfield-attendance-cache-"))
+          .map((key) => caches.delete(key)),
+      );
+    }
+  } catch (error) {
+    console.error("Legacy offline state cleanup failed", error);
+  }
 }
 
 function registerServiceWorker() {
