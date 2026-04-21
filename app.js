@@ -2,8 +2,8 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
 const config = window.APP_CONFIG || {};
 const hasConfig = Boolean(config.supabaseUrl && config.supabaseAnonKey && config.siteUrl);
-const OFFLINE_CACHE_KEY = "beatfield-offline-cache-v1";
-const OFFLINE_QUEUE_KEY = "beatfield-offline-queue-v1";
+const OFFLINE_CACHE_KEY = "beatfield-offline-cache-v2";
+const OFFLINE_QUEUE_KEY = "beatfield-offline-queue-v2";
 
 const state = {
   supabase: null,
