@@ -135,6 +135,18 @@ create table if not exists public.beat_out_entries (
   unique (session_id, participant_id)
 );
 
+create table if not exists public.session_overrides (
+  id uuid primary key default gen_random_uuid(),
+  season_booking_id uuid not null references public.season_bookings(id) on delete cascade,
+  participant_id uuid not null references public.participants(id) on delete cascade,
+  source_session_id uuid not null references public.attendance_sessions(id) on delete cascade,
+  target_session_id uuid not null references public.attendance_sessions(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (participant_id, source_session_id),
+  unique (participant_id, target_session_id),
+  constraint session_overrides_distinct_sessions check (source_session_id <> target_session_id)
+);
+
 create or replace function public.current_user_role()
 returns text
 language sql
@@ -238,6 +250,7 @@ alter table public.trial_requests enable row level security;
 alter table public.attendance_sessions enable row level security;
 alter table public.attendance_records enable row level security;
 alter table public.beat_out_entries enable row level security;
+alter table public.session_overrides enable row level security;
 
 create policy "profiles select own or admin"
 on public.profiles
@@ -507,5 +520,65 @@ with check (
     join public.courses on courses.id = attendance_sessions.course_id
     where attendance_sessions.id = beat_out_entries.session_id
       and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+  )
+);
+
+drop policy if exists "session overrides visible to course owners" on public.session_overrides;
+create policy "session overrides visible to course owners"
+on public.session_overrides
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.attendance_sessions source_sessions
+    join public.courses source_courses on source_courses.id = source_sessions.course_id
+    where source_sessions.id = session_overrides.source_session_id
+      and (source_courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+  )
+  or exists (
+    select 1
+    from public.attendance_sessions target_sessions
+    join public.courses target_courses on target_courses.id = target_sessions.course_id
+    where target_sessions.id = session_overrides.target_session_id
+      and (target_courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+  )
+);
+
+drop policy if exists "session overrides managed by course owners" on public.session_overrides;
+create policy "session overrides managed by course owners"
+on public.session_overrides
+for all
+to authenticated
+using (
+  exists (
+    select 1
+    from public.attendance_sessions source_sessions
+    join public.courses source_courses on source_courses.id = source_sessions.course_id
+    where source_sessions.id = session_overrides.source_session_id
+      and (source_courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+  )
+  or exists (
+    select 1
+    from public.attendance_sessions target_sessions
+    join public.courses target_courses on target_courses.id = target_sessions.course_id
+    where target_sessions.id = session_overrides.target_session_id
+      and (target_courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.attendance_sessions source_sessions
+    join public.courses source_courses on source_courses.id = source_sessions.course_id
+    where source_sessions.id = session_overrides.source_session_id
+      and (source_courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+  )
+  or exists (
+    select 1
+    from public.attendance_sessions target_sessions
+    join public.courses target_courses on target_courses.id = target_sessions.course_id
+    where target_sessions.id = session_overrides.target_session_id
+      and (target_courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
   )
 );
