@@ -95,6 +95,8 @@ const inviteOutputCode = document.querySelector("#inviteOutputCode");
 const inviteOutputLink = document.querySelector("#inviteOutputLink");
 const copyInviteLinkBtn = document.querySelector("#copyInviteLinkBtn");
 const attendanceDate = document.querySelector("#attendanceDate");
+const attendanceSessionPicker = document.querySelector("#attendanceSessionPicker");
+const attendanceSessionSelect = document.querySelector("#attendanceSessionSelect");
 const monthPicker = document.querySelector("#monthPicker");
 const participantSearch = document.querySelector("#participantSearch");
 const trainerSelect = document.querySelector("#trainerSelect");
@@ -220,9 +222,17 @@ seasonFilterPlannedBtn?.addEventListener("click", () => setSeasonFilter("geplant
 seasonFilterActiveBtn?.addEventListener("click", () => setSeasonFilter("aktiv"));
 seasonFilterClosedBtn?.addEventListener("click", () => setSeasonFilter("abgeschlossen"));
 attendanceDate?.addEventListener("change", render);
+attendanceSessionSelect?.addEventListener("change", () => {
+  if (!attendanceDate) {
+    return;
+  }
+  attendanceDate.value = attendanceSessionSelect.value || getToday();
+  render();
+});
 monthPicker?.addEventListener("change", render);
 attendanceSeasonSelect?.addEventListener("change", () => {
   state.attendanceSeasonId = normalizeOptionalId(attendanceSeasonSelect.value);
+  syncAttendanceDateWithSeasonSessions();
   render();
 });
 bookingPackageSelect?.addEventListener("change", syncBookingDayInputs);
@@ -2274,6 +2284,7 @@ function render() {
   renderCourseList();
   renderPlanning();
   renderParticipants();
+  renderAttendanceSessionOptions();
   renderMonthlyOverview();
   renderStats();
   renderBusinessDashboard();
@@ -2618,6 +2629,39 @@ function renderSeasonSelects() {
   syncBookingDayInputs();
 }
 
+function renderAttendanceSessionOptions() {
+  if (!attendanceSessionPicker || !attendanceSessionSelect) {
+    return;
+  }
+
+  const course = getSelectedCourse();
+  const season = getSelectedSeason();
+  if (!course || !season) {
+    attendanceSessionPicker.classList.add("hidden");
+    attendanceSessionSelect.innerHTML = "";
+    return;
+  }
+
+  const sessions = getSeasonSessionsForCourse(season.id, course.id);
+  if (!sessions.length) {
+    attendanceSessionPicker.classList.add("hidden");
+    attendanceSessionSelect.innerHTML = "";
+    return;
+  }
+
+  attendanceSessionPicker.classList.remove("hidden");
+  attendanceSessionSelect.innerHTML = "";
+  sessions.forEach((session) => {
+    const option = document.createElement("option");
+    option.value = session.session_date;
+    option.textContent = `${formatDateLabel(session.session_date)}${course.time ? ` | ${course.time} Uhr` : ""}`;
+    attendanceSessionSelect.appendChild(option);
+  });
+
+  syncAttendanceDateWithSeasonSessions();
+  attendanceSessionSelect.value = attendanceDate?.value || sessions[0].session_date;
+}
+
 function renderSeasons() {
   if (!seasonList) {
     return;
@@ -2639,11 +2683,13 @@ function renderSeasons() {
     const card = document.createElement("article");
     card.className = "stat-card";
     const bookings = state.seasonBookings.filter((booking) => booking.season_id === season.id);
+    const trainingDates = getSeasonTrainingDates(season.id);
     card.innerHTML = `
       <h3>${escapeHtml(season.name)}</h3>
       <p class="stat-meta">${escapeHtml(season.start_date)} bis ${escapeHtml(season.end_date)}</p>
       <p class="stat-meta">Status: ${escapeHtml(season.status)}</p>
       <p class="stat-meta">${bookings.length} Buchungen</p>
+      <p class="stat-meta">Trainingstage: ${trainingDates.length ? escapeHtml(trainingDates.map((date) => formatDateLabel(date)).join(" / ")) : "Noch keine Termine erzeugt"}</p>
     `;
 
     const actions = document.createElement("div");
@@ -3028,6 +3074,7 @@ async function convertTrialToParticipant(trial) {
 
 function handleJumpToToday() {
   attendanceDate.value = getToday();
+  syncAttendanceDateWithSeasonSessions();
   render();
   scrollToSection("#attendancePanel");
 }
@@ -3041,6 +3088,7 @@ function handleFocusNextCourse() {
 
   state.selectedCourseId = nextCourse.id;
   attendanceDate.value = getToday();
+  syncAttendanceDateWithSeasonSessions();
   render();
   scrollToSection("#attendancePanel");
 }
@@ -4100,6 +4148,25 @@ function getSessionsForCourse(courseId) {
   return state.sessions.filter((session) => session.course_id === courseId);
 }
 
+function getSeasonSessions(seasonId) {
+  const season = state.seasons.find((entry) => entry.id === seasonId);
+  if (!season) {
+    return [];
+  }
+
+  return state.sessions
+    .filter((session) => session.session_date >= season.start_date && session.session_date <= season.end_date)
+    .sort((left, right) => String(left.session_date).localeCompare(String(right.session_date)));
+}
+
+function getSeasonSessionsForCourse(seasonId, courseId) {
+  return getSeasonSessions(seasonId).filter((session) => session.course_id === courseId);
+}
+
+function getSeasonTrainingDates(seasonId) {
+  return Array.from(new Set(getSeasonSessions(seasonId).map((session) => session.session_date))).sort();
+}
+
 function getSessionsForMonth(monthValue) {
   return state.sessions.filter((session) => String(session.session_date).startsWith(monthValue));
 }
@@ -4396,8 +4463,9 @@ function getSelectedMonth() {
   }
 
 function getEffectiveAttendanceDate() {
-    return attendanceDate?.value || getToday();
-  }
+  syncAttendanceDateWithSeasonSessions();
+  return attendanceDate?.value || getToday();
+}
 
 function getSelectedMonthLabel() {
   const [year, month] = getSelectedMonth().split("-");
@@ -5396,6 +5464,33 @@ async function removeSessionOverride(override, participantName = "Teilnehmer") {
   render();
   notify(`Termin-Umbuchung fuer ${participantName} wurde aufgehoben.`);
   await refreshVisibleData({ context: "Session override delete refresh", silent: true });
+}
+
+function syncAttendanceDateWithSeasonSessions() {
+  if (!attendanceDate) {
+    return;
+  }
+
+  const course = getSelectedCourse();
+  const season = getSelectedSeason();
+  if (!course || !season) {
+    return;
+  }
+
+  const seasonSessions = getSeasonSessionsForCourse(season.id, course.id);
+  if (!seasonSessions.length) {
+    return;
+  }
+
+  const availableDates = seasonSessions.map((session) => session.session_date);
+  const currentValue = attendanceDate.value;
+  if (availableDates.includes(currentValue)) {
+    return;
+  }
+
+  const today = getToday();
+  const nextDate = availableDates.find((date) => date >= today) || availableDates[0];
+  attendanceDate.value = nextDate;
 }
 
 function normalizeWeekdayLabel(value) {

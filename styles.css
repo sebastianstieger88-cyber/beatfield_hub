@@ -803,6 +803,15 @@ th {
   background: rgba(255, 255, 255, 0.03);
 }
 
+#attendanceSessionPicker {
+  margin-top: 14px;
+}
+
+#attendanceSessionPicker label {
+  display: grid;
+  gap: 8px;
+}
+
 .hidden {
   display: none;
 }

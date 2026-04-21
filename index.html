@@ -487,6 +487,14 @@
             </div>
           </div>
 
+          <div id="attendanceSessionPicker" class="stat-card hidden">
+            <label>
+              <span>Genaue Season-Termine fuer diesen Kurs</span>
+              <select id="attendanceSessionSelect"></select>
+            </label>
+            <p class="stat-meta">Nur diese Termine gehoeren aktuell zur ausgewaehlten Season und koennen fuer Einzeltermin-Umbuchungen genutzt werden.</p>
+          </div>
+
           <div id="mobileSessionSummary" class="stat-card mobile-session-summary"></div>
 
           <div class="table-wrap">
@@ -567,18 +575,18 @@
       <div class="panel-heading">
         <div>
           <p class="eyebrow">Umbuchung</p>
-          <h2>Teilnehmer umbuchen</h2>
+          <h2 id="moveParticipantTitle">Teilnehmer umbuchen</h2>
         </div>
         <button id="closeMoveParticipantModalBtn" type="button" class="ghost">Schliessen</button>
       </div>
       <form id="moveParticipantForm" class="stack">
         <p id="moveParticipantText" class="stat-meta">Bitte Zielkurs waehlen.</p>
         <label>
-          <span>Zielkurs</span>
+          <span id="moveParticipantTargetLabel">Zielkurs</span>
           <select id="moveParticipantTargetCourse" name="targetCourseId"></select>
         </label>
         <div class="form-actions">
-          <button type="submit" class="primary">Umbuchung speichern</button>
+          <button id="moveParticipantSubmitBtn" type="submit" class="primary">Umbuchung speichern</button>
           <button id="cancelMoveParticipantBtn" type="button" class="ghost">Abbrechen</button>
         </div>
       </form>
