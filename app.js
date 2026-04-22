@@ -2488,6 +2488,11 @@ function renderTodayDashboard() {
   const activeBookings = state.seasonBookings.filter((booking) => booking.season_id === activeSeason.id);
   const renewalCandidates = getRenewalCandidates(activeSeason.id);
   const rewardSummary = activeBookings.reduce((sum, booking) => sum + getFreeSeasonRewardStatus(booking).achievedRewards, 0);
+  const rewardReadyCount = activeBookings.filter((booking) => getFreeSeasonRewardStatus(booking).achievedRewards > 0).length;
+  const rewardNearCount = activeBookings.filter((booking) => {
+    const reward = getFreeSeasonRewardStatus(booking);
+    return reward.achievedRewards === 0 && reward.remainingToNext > 0 && reward.remainingToNext <= 1;
+  }).length;
   const packageSummary = [
     { label: "1x TRAIN", count: activeBookings.filter((booking) => booking.package_type === "1x TRAIN").length },
     { label: "2x BEAT", count: activeBookings.filter((booking) => booking.package_type === "2x BEAT").length },
@@ -2523,8 +2528,12 @@ function renderTodayDashboard() {
     {
       title: "Gratis-Seasons",
       value: rewardSummary,
-      meta: "erreichte Bonus-Stufen aus BEAT-OUTs",
-      tone: rewardSummary ? "warn" : "neutral",
+      meta: rewardReadyCount
+        ? `${rewardReadyCount} Teilnehmer mit freier Season`
+        : rewardNearCount
+          ? `${rewardNearCount} Teilnehmer kurz vor der Freistufe`
+          : "noch keine freigeschaltete Gratis-Season",
+      tone: rewardSummary || rewardNearCount ? "warn" : "neutral",
     },
   ];
 
@@ -2648,6 +2657,78 @@ function renderTodayDashboard() {
   }
   recoveryCard.appendChild(recoveryList);
   todayInsights.appendChild(recoveryCard);
+
+  const beatOutCard = document.createElement("article");
+  const bookingsWithBeatOutPressure = activeBookings
+    .map((booking) => {
+      const usage = getBeatOutUsageForBooking(booking.id);
+      const reward = getFreeSeasonRewardStatus(booking);
+      return {
+        booking,
+        usage,
+        reward,
+      };
+    })
+    .filter((entry) => entry.usage.limit > 0)
+    .sort((left, right) => {
+      const rewardCompare = right.reward.achievedRewards - left.reward.achievedRewards;
+      if (rewardCompare !== 0) {
+        return rewardCompare;
+      }
+      if (left.reward.remainingToNext !== right.reward.remainingToNext) {
+        return left.reward.remainingToNext - right.reward.remainingToNext;
+      }
+      return right.usage.used - left.usage.used;
+    });
+
+  beatOutCard.className = `stat-card dashboard-card ${bookingsWithBeatOutPressure.some((entry) => entry.reward.achievedRewards > 0 || entry.reward.remainingToNext <= 1) ? "dashboard-card-warn" : "dashboard-card-ok"}`;
+  beatOutCard.innerHTML = `
+    <h3>BEAT-OUT & Gratis-Seasons</h3>
+    <p class="stat-meta">Wer viel gesammelt hat, kurz vor der naechsten Freistufe steht oder bereits eine Gratis-Season erreicht hat.</p>
+  `;
+  const beatOutList = document.createElement("div");
+  beatOutList.className = "stack";
+  if (bookingsWithBeatOutPressure.length) {
+    bookingsWithBeatOutPressure.slice(0, 5).forEach((entry) => {
+      const nextRewardMeta = entry.reward.achievedRewards > 0
+        ? `${entry.reward.total} BEAT-OUTs gesamt | ${entry.reward.achievedRewards} Gratis-Season${entry.reward.achievedRewards > 1 ? "s" : ""} freigeschaltet`
+        : entry.reward.nextMilestone
+          ? `${entry.reward.total} BEAT-OUTs gesamt | noch ${entry.reward.remainingToNext} bis ${entry.reward.nextMilestone}`
+          : `${entry.reward.total} BEAT-OUTs gesamt | hoechste Freistufe erreicht`;
+      const row = document.createElement("div");
+      row.className = "list-row";
+      row.innerHTML = `
+        <div>
+          <strong>${escapeHtml(entry.booking.full_name)}</strong>
+          <div class="stat-meta">${escapeHtml(entry.booking.package_type)} | ${entry.usage.used}/${entry.usage.limit} BEAT-OUTs in dieser Season</div>
+          <div class="stat-meta dashboard-detail-line">${escapeHtml(nextRewardMeta)}</div>
+        </div>
+      `;
+      const rowActions = document.createElement("div");
+      rowActions.className = "mini-actions";
+      const usagePill = document.createElement("span");
+      usagePill.className = `status-pill ${entry.usage.used >= entry.usage.limit ? "status-pill-warn" : "status-pill-info"}`;
+      usagePill.textContent = `Season ${entry.usage.used}/${entry.usage.limit}`;
+      rowActions.appendChild(usagePill);
+      if (entry.reward.achievedRewards > 0) {
+        const rewardPill = document.createElement("span");
+        rewardPill.className = "status-pill status-pill-warn";
+        rewardPill.textContent = `${entry.reward.achievedRewards} Gratis`;
+        rowActions.appendChild(rewardPill);
+      } else if (entry.reward.nextMilestone) {
+        const nextPill = document.createElement("span");
+        nextPill.className = "status-pill status-pill-info";
+        nextPill.textContent = `noch ${entry.reward.remainingToNext}`;
+        rowActions.appendChild(nextPill);
+      }
+      row.appendChild(rowActions);
+      beatOutList.appendChild(row);
+    });
+  } else {
+    beatOutList.innerHTML = '<p class="stat-meta">Noch keine BEAT-OUT-Dynamik in der aktiven Season.</p>';
+  }
+  beatOutCard.appendChild(beatOutList);
+  todayInsights.appendChild(beatOutCard);
 }
 
 function renderPlanning() {
@@ -2822,8 +2903,10 @@ function renderSeasons() {
       <p class="stat-meta">${escapeHtml(season.start_date)} bis ${escapeHtml(season.end_date)}</p>
       <p class="stat-meta">Status: ${escapeHtml(season.status)}</p>
       <p class="stat-meta">${bookings.length} Buchungen</p>
-      <p class="stat-meta">Trainingstage: ${trainingDates.length ? escapeHtml(trainingDates.map((date) => formatDateLabel(date)).join(" / ")) : "Noch keine Termine erzeugt"}</p>
     `;
+
+    const schedule = renderSeasonTrainingSchedule(trainingDates);
+    card.appendChild(schedule);
 
     const actions = document.createElement("div");
     actions.className = "stat-card-actions";
@@ -2890,6 +2973,52 @@ function renderSeasons() {
     card.appendChild(actions);
     seasonList.appendChild(card);
   });
+}
+
+function renderSeasonTrainingSchedule(trainingDates) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "season-schedule";
+
+  if (!trainingDates.length) {
+    const empty = document.createElement("p");
+    empty.className = "stat-meta";
+    empty.textContent = "Noch keine Termine erzeugt";
+    wrapper.appendChild(empty);
+    return wrapper;
+  }
+
+  const weekdayOrder = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
+  const grouped = new Map();
+  trainingDates.forEach((dateValue) => {
+    const weekday = getWeekdayLabelFromDate(dateValue);
+    if (!grouped.has(weekday)) {
+      grouped.set(weekday, []);
+    }
+    grouped.get(weekday).push(dateValue);
+  });
+
+  weekdayOrder
+    .filter((weekday) => grouped.has(weekday))
+    .forEach((weekday) => {
+      const group = document.createElement("div");
+      group.className = "season-schedule-group";
+      const label = document.createElement("strong");
+      label.textContent = weekday;
+      group.appendChild(label);
+
+      const chips = document.createElement("div");
+      chips.className = "season-schedule-chips";
+      grouped.get(weekday).forEach((dateValue) => {
+        const chip = document.createElement("span");
+        chip.className = "season-schedule-chip";
+        chip.textContent = formatCompactDateLabel(dateValue);
+        chips.appendChild(chip);
+      });
+      group.appendChild(chips);
+      wrapper.appendChild(group);
+    });
+
+  return wrapper;
 }
 
 function setSeasonFilter(filter) {
@@ -3344,13 +3473,19 @@ function renderParticipants() {
     const rate = calculateAttendanceRate(course.id, participant.id);
     const targetOverride = session?.id ? getSessionOverrideForTarget(participant.id, session.id) : null;
     const overrideMeta = targetOverride ? getSessionOverrideLabel(targetOverride) : "";
+    const overrideBadge = targetOverride
+      ? `<div class="participant-override"><span class="status-pill status-pill-info">Ersatztermin</span><span class="participant-override-text">${escapeHtml(overrideMeta)}</span></div>`
+      : "";
     const row = document.createElement("tr");
+    row.className = targetOverride ? "participant-row-override" : "";
     row.innerHTML = `
       <td><button type="button" class="link-button participant-profile-btn">${escapeHtml(participant.full_name)}</button></td>
       <td>
-        ${participant.phone ? escapeHtml(participant.phone) : '<span class="muted">-</span>'}
+        <div class="participant-meta-stack">
+          <div>${participant.phone ? escapeHtml(participant.phone) : '<span class="muted">-</span>'}</div>
           ${booking ? `<div class="stat-meta beatout-meta">BEAT-OUT ${bookingUsage.used}/${bookingUsage.limit}</div>` : ""}
-          ${overrideMeta ? `<div class="stat-meta">${escapeHtml(overrideMeta)}</div>` : ""}
+          ${overrideBadge}
+        </div>
       </td>
       <td><button type="button" class="attendance-toggle${isPresent ? " is-present" : ""}" aria-label="Anwesenheit umschalten"></button></td>
       <td><span class="badge">${rate}%</span></td>
@@ -3389,14 +3524,14 @@ function renderParticipants() {
     participantTableBody.appendChild(row);
 
     const card = document.createElement("article");
-    card.className = "participant-card";
+    card.className = `participant-card${targetOverride ? " participant-card-override" : ""}`;
     card.innerHTML = `
       <div class="participant-card-head">
         <div>
           <h3><button type="button" class="link-button participant-profile-btn">${escapeHtml(participant.full_name)}</button></h3>
           <p class="stat-meta">${participant.phone ? escapeHtml(participant.phone) : "Keine Telefonnummer"}</p>
             ${booking ? `<p class="stat-meta beatout-meta">BEAT-OUT ${bookingUsage.used}/${bookingUsage.limit}</p>` : ""}
-            ${overrideMeta ? `<p class="stat-meta">${escapeHtml(overrideMeta)}</p>` : ""}
+            ${overrideBadge}
         </div>
         <span class="badge">${rate}%</span>
       </div>
@@ -4493,12 +4628,15 @@ function getLifetimeBeatOutCount(bookingOrParticipant) {
 
 function getFreeSeasonRewardStatus(bookingOrParticipant) {
   const total = getLifetimeBeatOutCount(bookingOrParticipant);
+  const milestones = [4, 8, 12];
   const achievedRewards = Math.min(Math.floor(total / 4), 3);
-  const nextMilestone = [4, 8, 12].find((value) => value > total) || null;
+  const nextMilestone = milestones.find((value) => value > total) || null;
+  const remainingToNext = nextMilestone ? Math.max(nextMilestone - total, 0) : 0;
   return {
     total,
     achievedRewards,
     nextMilestone,
+    remainingToNext,
   };
 }
 
@@ -4742,6 +4880,14 @@ function formatDateLabel(dateValue) {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+  });
+}
+
+function formatCompactDateLabel(dateValue) {
+  const date = new Date(`${dateValue}T00:00:00`);
+  return date.toLocaleDateString("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
   });
 }
 
