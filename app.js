@@ -597,6 +597,23 @@ async function fetchSupportData() {
     state.dropInBookings = dropInResult.data || [];
   }
 
+  if (state.profile?.role === "trainer") {
+    const visibleParticipantBookingIds = new Set(
+      state.participants
+        .map((participant) => participant.season_booking_id)
+        .filter(Boolean),
+    );
+    const visibleSeasonIds = new Set(
+      [
+        ...state.participants.map((participant) => participant.season_id).filter(Boolean),
+        ...state.sessions.map((session) => session.season_id).filter(Boolean),
+      ],
+    );
+
+    state.seasonBookings = state.seasonBookings.filter((booking) => visibleParticipantBookingIds.has(booking.id));
+    state.seasons = state.seasons.filter((season) => visibleSeasonIds.has(season.id));
+  }
+
   const bookingIds = state.seasonBookings.map((booking) => booking.id);
   const sessionOverrideResult = bookingIds.length
     ? await state.supabase
