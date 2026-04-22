@@ -447,7 +447,7 @@ async function fetchSupportData() {
 
   const seasonBookingsQuery = state.supabase
     .from("season_bookings")
-    .select("id, season_id, full_name, phone, package_type, selected_days, created_at")
+    .select("id, season_id, full_name, phone, package_type, contact_status, free_seasons_redeemed, selected_days, created_at")
     .order("created_at", { ascending: false });
 
   const trainerQuery = state.supabase
@@ -1112,6 +1112,8 @@ async function handleSeasonBookingCreate(event) {
         full_name: fullName,
         phone: phone || null,
         package_type: packageType,
+        contact_status: state.seasonBookings.find((entry) => entry.id === bookingId)?.contact_status || "offen",
+        free_seasons_redeemed: state.seasonBookings.find((entry) => entry.id === bookingId)?.free_seasons_redeemed || 0,
         selected_days: selectedDays,
         created_at: state.seasonBookings.find((entry) => entry.id === bookingId)?.created_at || new Date().toISOString(),
       };
@@ -1123,9 +1125,11 @@ async function handleSeasonBookingCreate(event) {
           full_name: fullName,
           phone: phone || null,
           package_type: packageType,
+          contact_status: "offen",
+          free_seasons_redeemed: 0,
           selected_days: selectedDays,
         })
-        .select("id, season_id, full_name, phone, package_type, selected_days, created_at")
+        .select("id, season_id, full_name, phone, package_type, contact_status, free_seasons_redeemed, selected_days, created_at")
         .single();
 
       if (bookingInsertResult.error) {
@@ -1485,6 +1489,8 @@ async function cloneBookingIntoSeason(booking, targetSeason) {
       full_name: booking.full_name,
       phone: booking.phone || null,
       package_type: booking.package_type,
+      contact_status: "zugesagt",
+      free_seasons_redeemed: 0,
       selected_days: booking.selected_days,
     })
     .select("id")
@@ -1532,6 +1538,10 @@ async function handleCarryOverBookingToNextSeason(booking, sourceSeason) {
   if (!result.ok) {
     notify(result.message, true);
     return;
+  }
+
+  if (booking.contact_status !== "zugesagt") {
+    await updateBookingContactStatus(booking, "zugesagt", { silent: true });
   }
 
   state.selectedSeasonId = targetSeason.id;
@@ -1691,6 +1701,67 @@ async function handleTrainerDirectoryDelete(entry) {
   }
 }
 
+async function updateBookingContactStatus(booking, nextStatus = null, { silent = false } = {}) {
+  if (!isAdmin() || !booking) {
+    return;
+  }
+
+  const resolvedStatus = nextStatus || getNextContactStatus(booking.contact_status);
+  const updateResult = await state.supabase
+    .from("season_bookings")
+    .update({ contact_status: resolvedStatus })
+    .eq("id", booking.id);
+
+  if (updateResult.error) {
+    if (!silent) {
+      notify(getFriendlySupabaseMessage(updateResult.error, "Kontaktstatus konnte nicht aktualisiert werden."), true);
+    }
+    return;
+  }
+
+  state.seasonBookings = state.seasonBookings.map((entry) => {
+    return entry.id === booking.id
+      ? { ...entry, contact_status: resolvedStatus }
+      : entry;
+  });
+
+  if (!silent) {
+    render();
+    notify(`Kontaktstatus fuer ${booking.full_name}: ${resolvedStatus}.`);
+  }
+}
+
+async function redeemFreeSeasonForBooking(booking) {
+  if (!isAdmin() || !booking) {
+    return;
+  }
+
+  const rewardStatus = getFreeSeasonRewardStatus(booking);
+  if (rewardStatus.availableRewards <= 0) {
+    notify("Fuer diese Buchung ist aktuell keine Gratis-Season verfuegbar.", true);
+    return;
+  }
+
+  const nextRedeemedCount = rewardStatus.redeemedRewards + 1;
+  const updateResult = await state.supabase
+    .from("season_bookings")
+    .update({ free_seasons_redeemed: nextRedeemedCount })
+    .eq("id", booking.id);
+
+  if (updateResult.error) {
+    notify(getFriendlySupabaseMessage(updateResult.error, "Gratis-Season konnte nicht eingeloest werden."), true);
+    return;
+  }
+
+  state.seasonBookings = state.seasonBookings.map((entry) => {
+    return entry.id === booking.id
+      ? { ...entry, free_seasons_redeemed: nextRedeemedCount }
+      : entry;
+  });
+  render();
+  notify(`Gratis-Season fuer ${booking.full_name} wurde eingeloest.`);
+}
+
 async function handleParticipantCreate(event) {
   event.preventDefault();
 
@@ -1724,9 +1795,11 @@ async function handleParticipantCreate(event) {
           phone: phone || null,
           season_id: preferredSeasonId,
           package_type: "1x TRAIN",
+          contact_status: "offen",
+          free_seasons_redeemed: 0,
           selected_days: [selectedDay],
         })
-        .select("id, season_id, full_name, phone, package_type, selected_days, created_at")
+        .select("id, season_id, full_name, phone, package_type, contact_status, free_seasons_redeemed, selected_days, created_at")
         .single();
 
       if (bookingInsertResult.error) {
@@ -2562,11 +2635,11 @@ function renderTodayDashboard() {
 
   const activeBookings = state.seasonBookings.filter((booking) => booking.season_id === activeSeason.id);
   const renewalCandidates = getRenewalCandidates(activeSeason.id);
-  const rewardSummary = activeBookings.reduce((sum, booking) => sum + getFreeSeasonRewardStatus(booking).achievedRewards, 0);
-  const rewardReadyCount = activeBookings.filter((booking) => getFreeSeasonRewardStatus(booking).achievedRewards > 0).length;
+  const rewardSummary = activeBookings.reduce((sum, booking) => sum + getFreeSeasonRewardStatus(booking).availableRewards, 0);
+  const rewardReadyCount = activeBookings.filter((booking) => getFreeSeasonRewardStatus(booking).availableRewards > 0).length;
   const rewardNearCount = activeBookings.filter((booking) => {
     const reward = getFreeSeasonRewardStatus(booking);
-    return reward.achievedRewards === 0 && reward.remainingToNext > 0 && reward.remainingToNext <= 1;
+    return reward.availableRewards === 0 && reward.remainingToNext > 0 && reward.remainingToNext <= 1;
   }).length;
   const packageSummary = [
     { label: "1x TRAIN", count: activeBookings.filter((booking) => booking.package_type === "1x TRAIN").length },
@@ -2604,7 +2677,7 @@ function renderTodayDashboard() {
       title: "Gratis-Seasons",
       value: rewardSummary,
       meta: rewardReadyCount
-        ? `${rewardReadyCount} Teilnehmer mit freier Season`
+        ? `${rewardReadyCount} Teilnehmer mit einloesbarer Gratis-Season`
         : rewardNearCount
           ? `${rewardNearCount} Teilnehmer kurz vor der Freistufe`
           : "noch keine freigeschaltete Gratis-Season",
@@ -2656,6 +2729,7 @@ function renderTodayDashboard() {
   renewalList.className = "stack";
   if (activeBookings.length) {
     activeBookings.slice(0, 5).forEach((booking) => {
+      const contactMeta = getContactStatusMeta(booking.contact_status);
       const row = document.createElement("div");
       row.className = "list-row";
       row.innerHTML = `
@@ -2666,6 +2740,10 @@ function renderTodayDashboard() {
       `;
       const rowActions = document.createElement("div");
       rowActions.className = "mini-actions";
+      const contactPill = document.createElement("span");
+      contactPill.className = `status-pill ${contactMeta.tone}`;
+      contactPill.textContent = contactMeta.label;
+      rowActions.appendChild(contactPill);
       const carryBtn = document.createElement("button");
       carryBtn.type = "button";
       carryBtn.className = "ghost";
@@ -2695,11 +2773,12 @@ function renderTodayDashboard() {
     renewalCandidates.slice(0, 5).forEach((candidate) => {
       const row = document.createElement("div");
       const severity = getRecoverySeverity(candidate.rate);
+      const contactMeta = getContactStatusMeta(candidate.contact_status);
       row.className = `list-row recovery-row recovery-row-${severity}`;
       row.innerHTML = `
         <div>
           <strong>${escapeHtml(candidate.full_name)}</strong>
-          <div class="stat-meta">${escapeHtml(candidate.package_type)} | ${candidate.rate}% Teilnahme</div>
+          <div class="stat-meta">${escapeHtml(candidate.package_type)} | ${candidate.rate}% Teilnahme | Kontakt: ${escapeHtml(contactMeta.label)}</div>
         </div>
       `;
       const severityBadge = document.createElement("span");
@@ -2708,6 +2787,14 @@ function renderTodayDashboard() {
       const rowActions = document.createElement("div");
       rowActions.className = "mini-actions";
       rowActions.appendChild(severityBadge);
+      const contactBtn = document.createElement("button");
+      contactBtn.type = "button";
+      contactBtn.className = "ghost";
+      contactBtn.textContent = `Status: ${contactMeta.label}`;
+      contactBtn.addEventListener("click", async () => {
+        await updateBookingContactStatus(candidate);
+      });
+      rowActions.appendChild(contactBtn);
       const profileBtn = document.createElement("button");
       profileBtn.type = "button";
       profileBtn.className = "ghost";
@@ -2746,7 +2833,7 @@ function renderTodayDashboard() {
     })
     .filter((entry) => entry.usage.limit > 0)
     .sort((left, right) => {
-      const rewardCompare = right.reward.achievedRewards - left.reward.achievedRewards;
+      const rewardCompare = right.reward.availableRewards - left.reward.availableRewards;
       if (rewardCompare !== 0) {
         return rewardCompare;
       }
@@ -2756,7 +2843,7 @@ function renderTodayDashboard() {
       return right.usage.used - left.usage.used;
     });
 
-  beatOutCard.className = `stat-card dashboard-card ${bookingsWithBeatOutPressure.some((entry) => entry.reward.achievedRewards > 0 || entry.reward.remainingToNext <= 1) ? "dashboard-card-warn" : "dashboard-card-ok"}`;
+  beatOutCard.className = `stat-card dashboard-card ${bookingsWithBeatOutPressure.some((entry) => entry.reward.availableRewards > 0 || entry.reward.remainingToNext <= 1) ? "dashboard-card-warn" : "dashboard-card-ok"}`;
   beatOutCard.innerHTML = `
     <h3>BEAT-OUT & Gratis-Seasons</h3>
     <p class="stat-meta">Wer viel gesammelt hat, kurz vor der naechsten Freistufe steht oder bereits eine Gratis-Season erreicht hat.</p>
@@ -2765,8 +2852,8 @@ function renderTodayDashboard() {
   beatOutList.className = "stack";
   if (bookingsWithBeatOutPressure.length) {
     bookingsWithBeatOutPressure.slice(0, 5).forEach((entry) => {
-      const nextRewardMeta = entry.reward.achievedRewards > 0
-        ? `${entry.reward.total} BEAT-OUTs gesamt | ${entry.reward.achievedRewards} Gratis-Season${entry.reward.achievedRewards > 1 ? "s" : ""} freigeschaltet`
+      const nextRewardMeta = entry.reward.availableRewards > 0
+        ? `${entry.reward.total} BEAT-OUTs gesamt | ${entry.reward.availableRewards} Gratis-Season${entry.reward.availableRewards > 1 ? "s" : ""} einloesbar`
         : entry.reward.nextMilestone
           ? `${entry.reward.total} BEAT-OUTs gesamt | noch ${entry.reward.remainingToNext} bis ${entry.reward.nextMilestone}`
           : `${entry.reward.total} BEAT-OUTs gesamt | hoechste Freistufe erreicht`;
@@ -2785,11 +2872,19 @@ function renderTodayDashboard() {
       usagePill.className = `status-pill ${entry.usage.used >= entry.usage.limit ? "status-pill-warn" : "status-pill-info"}`;
       usagePill.textContent = `Season ${entry.usage.used}/${entry.usage.limit}`;
       rowActions.appendChild(usagePill);
-      if (entry.reward.achievedRewards > 0) {
+      if (entry.reward.availableRewards > 0) {
         const rewardPill = document.createElement("span");
         rewardPill.className = "status-pill status-pill-warn";
-        rewardPill.textContent = `${entry.reward.achievedRewards} Gratis`;
+        rewardPill.textContent = `${entry.reward.availableRewards} Gratis`;
         rowActions.appendChild(rewardPill);
+        const redeemBtn = document.createElement("button");
+        redeemBtn.type = "button";
+        redeemBtn.className = "ghost";
+        redeemBtn.textContent = "Einloesen";
+        redeemBtn.addEventListener("click", async () => {
+          await redeemFreeSeasonForBooking(entry.booking);
+        });
+        rowActions.appendChild(redeemBtn);
       } else if (entry.reward.nextMilestone) {
         const nextPill = document.createElement("span");
         nextPill.className = "status-pill status-pill-info";
@@ -3258,6 +3353,7 @@ function renderSeasonBookings() {
     const season = state.seasons.find((entry) => entry.id === booking.season_id);
     const beatOutUsage = getBeatOutUsageForBooking(booking.id);
     const rewardStatus = getFreeSeasonRewardStatus(booking);
+    const contactMeta = getContactStatusMeta(booking.contact_status);
     const card = document.createElement("article");
     card.className = "stat-card";
     card.innerHTML = `
@@ -3266,8 +3362,12 @@ function renderSeasonBookings() {
       <p class="stat-meta">Paket: ${escapeHtml(booking.package_type)}</p>
       <p class="stat-meta">Tage: ${escapeHtml(formatSelectedDays(booking.selected_days))}</p>
       <p class="stat-meta">BEAT-OUTS: ${beatOutUsage.used}/${beatOutUsage.limit}</p>
-      <p class="stat-meta">Gratis-Season: ${rewardStatus.achievedRewards} erreicht</p>
+      <p class="stat-meta">Gratis-Season: ${rewardStatus.availableRewards} verfuegbar | ${rewardStatus.redeemedRewards} eingeloest</p>
       <p class="stat-meta">${booking.phone ? escapeHtml(booking.phone) : "Keine Telefonnummer"}</p>
+      <div class="trial-pipeline">
+        <span class="status-pill ${escapeHtml(contactMeta.tone)}">${escapeHtml(contactMeta.label)}</span>
+        <span class="stat-meta">${rewardStatus.nextMilestone ? `Noch ${rewardStatus.remainingToNext} bis ${rewardStatus.nextMilestone}` : "Hoechste Freistufe erreicht"}</span>
+      </div>
     `;
     const actions = document.createElement("div");
     actions.className = "stat-card-actions";
@@ -3289,6 +3389,36 @@ function renderSeasonBookings() {
       openParticipantProfile(linkedParticipants[0]?.id || null, booking.id);
     });
     actions.appendChild(profileBtn);
+
+    const contactBtn = document.createElement("button");
+    contactBtn.type = "button";
+    contactBtn.className = "ghost";
+    contactBtn.textContent = `Kontakt: ${contactMeta.label}`;
+    contactBtn.addEventListener("click", async () => {
+      await updateBookingContactStatus(booking);
+    });
+    actions.appendChild(contactBtn);
+
+    const carryBtn = document.createElement("button");
+    carryBtn.type = "button";
+    carryBtn.className = "ghost";
+    carryBtn.textContent = "Verlaengern";
+    carryBtn.addEventListener("click", async () => {
+      if (season) {
+        await handleCarryOverBookingToNextSeason(booking, season);
+      }
+    });
+    actions.appendChild(carryBtn);
+
+    const redeemBtn = document.createElement("button");
+    redeemBtn.type = "button";
+    redeemBtn.className = rewardStatus.availableRewards > 0 ? "primary" : "ghost";
+    redeemBtn.textContent = rewardStatus.availableRewards > 0 ? "Gratis-Season einloesen" : "Keine Gratis-Season";
+    redeemBtn.disabled = rewardStatus.availableRewards <= 0;
+    redeemBtn.addEventListener("click", async () => {
+      await redeemFreeSeasonForBooking(booking);
+    });
+    actions.appendChild(redeemBtn);
 
     const deleteBtn = document.createElement("button");
     deleteBtn.type = "button";
@@ -3696,9 +3826,11 @@ async function convertTrialToParticipant(trial) {
         full_name: trial.full_name,
         phone: trial.phone || null,
         package_type: "1x TRAIN",
+        contact_status: "zugesagt",
+        free_seasons_redeemed: 0,
         selected_days: [selectedDay],
       })
-      .select("id, season_id, full_name, phone, package_type, selected_days, created_at")
+      .select("id, season_id, full_name, phone, package_type, contact_status, free_seasons_redeemed, selected_days, created_at")
       .single();
 
     if (bookingInsertResult.error) {
@@ -4129,6 +4261,7 @@ function renderParticipantProfile(fallbackBookingId = null) {
   const rate = participant ? getParticipantSeasonAttendanceRate(participant, season?.id) : 0;
   const beatOutUsage = booking ? getBeatOutUsageForBooking(booking.id) : { used: 0, limit: 0, remaining: 0 };
   const rewardStatus = getFreeSeasonRewardStatus(booking || participant || {});
+  const contactMeta = getContactStatusMeta(booking?.contact_status);
   const history = participant ? getParticipantRecentHistory(participant.id, 6) : [];
 
   participantProfileTitle.textContent = title;
@@ -4156,8 +4289,13 @@ function renderParticipantProfile(fallbackBookingId = null) {
       </article>
       <article class="stat-card">
         <h3>Gratis-Season Status</h3>
-        <p class="hero-stat">${rewardStatus.achievedRewards}</p>
-        <p class="stat-meta">${rewardStatus.nextMilestone ? `Naechste Schwelle bei ${rewardStatus.nextMilestone} BEAT-OUTs` : "12 BEAT-OUTs erreicht"}</p>
+        <p class="hero-stat">${rewardStatus.availableRewards}</p>
+        <p class="stat-meta">${rewardStatus.redeemedRewards} eingeloest | ${rewardStatus.nextMilestone ? `Naechste Schwelle bei ${rewardStatus.nextMilestone} BEAT-OUTs` : "12 BEAT-OUTs erreicht"}</p>
+      </article>
+      <article class="stat-card">
+        <h3>Kontaktstatus</h3>
+        <p class="hero-stat">${escapeHtml(contactMeta.label)}</p>
+        <p class="stat-meta">Verlaengerung und Follow-up im Blick behalten</p>
       </article>
     </div>
     <article class="stat-card">
@@ -5422,14 +5560,37 @@ function getFreeSeasonRewardStatus(bookingOrParticipant) {
   const total = getLifetimeBeatOutCount(bookingOrParticipant);
   const milestones = [4, 8, 12];
   const achievedRewards = Math.min(Math.floor(total / 4), 3);
+  const redeemedRewards = Math.max(Number(bookingOrParticipant?.free_seasons_redeemed || 0), 0);
+  const availableRewards = Math.max(achievedRewards - redeemedRewards, 0);
   const nextMilestone = milestones.find((value) => value > total) || null;
   const remainingToNext = nextMilestone ? Math.max(nextMilestone - total, 0) : 0;
   return {
     total,
     achievedRewards,
+    redeemedRewards,
+    availableRewards,
     nextMilestone,
     remainingToNext,
   };
+}
+
+function getContactStatusMeta(status = "offen") {
+  if (status === "kontaktiert") {
+    return { label: "Kontaktiert", tone: "status-pill-info" };
+  }
+  if (status === "zugesagt") {
+    return { label: "Zugesagt", tone: "status-pill-warn" };
+  }
+  if (status === "pausiert") {
+    return { label: "Pausiert", tone: "status-pill-critical" };
+  }
+  return { label: "Offen", tone: "status-pill-info" };
+}
+
+function getNextContactStatus(currentStatus = "offen") {
+  const order = ["offen", "kontaktiert", "zugesagt", "pausiert"];
+  const index = order.indexOf(currentStatus);
+  return order[(index + 1) % order.length] || "offen";
 }
 
 function getVisibleSeasonBookings() {

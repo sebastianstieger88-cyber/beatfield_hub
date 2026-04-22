@@ -53,6 +53,26 @@ create table if not exists public.season_bookings (
   created_at timestamptz not null default now()
 );
 
+alter table public.season_bookings
+  add column if not exists contact_status text not null default 'offen';
+
+alter table public.season_bookings
+  add column if not exists free_seasons_redeemed integer not null default 0;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'season_bookings_contact_status_check'
+  ) then
+    alter table public.season_bookings
+      add constraint season_bookings_contact_status_check
+      check (contact_status in ('offen', 'kontaktiert', 'zugesagt', 'pausiert'));
+  end if;
+end
+$$;
+
 alter table public.participants
   add column if not exists season_id uuid references public.seasons(id) on delete cascade;
 
