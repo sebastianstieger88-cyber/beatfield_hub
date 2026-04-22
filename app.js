@@ -275,9 +275,9 @@ jumpToTodayBtn?.addEventListener("click", handleJumpToToday);
 focusNextCourseBtn?.addEventListener("click", handleFocusNextCourse);
 copyInviteLinkBtn?.addEventListener("click", handleCopyInviteLink);
 navToggleBtn?.addEventListener("click", toggleMobileNav);
-mobileTodayBtn?.addEventListener("click", () => scrollToSection("#attendancePanel"));
-mobileMonthBtn?.addEventListener("click", () => scrollToSection("#monthlyPanel"));
-mobileReportsBtn?.addEventListener("click", () => scrollToSection("#reportsPanel"));
+mobileTodayBtn?.addEventListener("click", () => setActiveSection("#attendancePanel"));
+mobileMonthBtn?.addEventListener("click", () => setActiveSection("#monthlyPanel"));
+mobileReportsBtn?.addEventListener("click", () => setActiveSection("#reportsPanel"));
 navLinks.forEach((link) => {
   link.addEventListener("click", (event) => {
     event.preventDefault();
@@ -5799,6 +5799,10 @@ function closeMobileNav() {
   navToggleBtn.setAttribute("aria-expanded", "false");
 }
 
+function isCompactViewport() {
+  return window.matchMedia("(max-width: 860px)").matches;
+}
+
 async function handleConnectivityChange() {
   state.isOffline = !navigator.onLine;
   if (!state.isOffline && state.session) {
@@ -5868,6 +5872,11 @@ function ensureActiveSection(availableSections, { connected, loggedIn, appUnlock
 
   if (!connected || !loggedIn) {
     state.activeSection = "#authPanel";
+    return;
+  }
+
+  if (appUnlocked && isCompactViewport()) {
+    state.activeSection = availableSections.includes("#todayPanel") ? "#todayPanel" : availableSections[0] || null;
     return;
   }
 

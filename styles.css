@@ -1036,15 +1036,25 @@ th {
 }
 
 @media (max-width: 860px) {
+  .app-shell {
+    width: min(100%, calc(100% - 16px));
+    padding: 16px 0 36px;
+  }
+
   .app-nav {
     align-items: flex-start;
     flex-direction: column;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 16px;
   }
 
   .nav-toggle {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    min-height: 50px;
+    padding-inline: 16px;
   }
 
   .nav-links {
@@ -1064,6 +1074,9 @@ th {
 
   .nav-group summary {
     width: 100%;
+    min-height: 50px;
+    padding: 12px 14px;
+    font-size: 0.98rem;
   }
 
   .nav-submenu {
@@ -1074,6 +1087,8 @@ th {
 
   .nav-submenu a {
     width: 100%;
+    min-height: 48px;
+    align-items: center;
   }
 
   .hero,
@@ -1103,6 +1118,24 @@ th {
     grid-column: span 1;
   }
 
+  .hero-card,
+  .panel {
+    border-radius: 20px;
+  }
+
+  .panel {
+    padding: 18px;
+  }
+
+  .panel-heading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
   .attendance-toolbar {
     flex-direction: column;
     align-items: stretch;
@@ -1126,10 +1159,12 @@ th {
 
   .planning-actions {
     display: grid;
+    grid-template-columns: 1fr;
   }
 
   .today-actions {
     display: grid;
+    grid-template-columns: 1fr;
   }
 
   .trial-form {
@@ -1143,6 +1178,25 @@ th {
   .mini-actions {
     width: 100%;
     justify-content: flex-start;
+  }
+
+  .mini-actions button,
+  .participant-card-actions button,
+  .trial-actions button,
+  .stat-card-actions button,
+  .form-actions button,
+  .toolbar-actions button,
+  .today-actions button,
+  .planning-actions button {
+    width: 100%;
+    min-height: 52px;
+  }
+
+  .participant-card-actions,
+  .trial-actions,
+  .stat-card-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
 
   .mobile-quickbar button {
@@ -1169,6 +1223,16 @@ th {
   .participant-card h3 {
     font-size: 1.15rem;
     margin-bottom: 6px;
+  }
+
+  .hero-hint {
+    display: none;
+  }
+
+  button,
+  input,
+  select {
+    font-size: 16px;
   }
 
   .participant-card .attendance-toggle {
