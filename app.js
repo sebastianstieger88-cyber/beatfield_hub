@@ -2430,8 +2430,8 @@ function renderTodayDashboard() {
   const todaySessionIds = new Set(todaySessions.map((session) => session.id));
   const todayRecords = state.records.filter((record) => todaySessionIds.has(record.session_id));
   const nextCourse = getNextCourseForToday();
-  const openTrials = state.trialRequests.filter((trial) => trial.status !== "konvertiert" && trial.status !== "abgesagt").length;
-  const openTrialRequests = getOpenTrialRequests().slice(0, 5);
+  const openTrialRequests = getOpenTrialRequests();
+  const nextOpenTrial = openTrialRequests[0] || null;
 
   const items = [
     {
@@ -2445,14 +2445,14 @@ function renderTodayDashboard() {
       meta: "aktuell anwesend markiert",
     },
     {
-      title: "Offene Offline-Aktionen",
-      value: state.pendingActions.length,
-      meta: state.isOffline ? "werden spaeter synchronisiert" : "bereit",
-    },
-    {
       title: "Offene Probetrainings",
-      value: openTrials,
-      meta: "aktuelle Conversion-Chancen",
+      value: openTrialRequests.length,
+      meta: nextOpenTrial ? formatTrialSessionLabel(nextOpenTrial) : "aktuell keine offenen Probetrainings",
+      action: nextOpenTrial
+        ? () => {
+            openTrialInAttendance(nextOpenTrial);
+          }
+        : null,
     },
     {
       title: "Naechster Fokus",
@@ -2464,6 +2464,18 @@ function renderTodayDashboard() {
   items.forEach((item) => {
     const card = document.createElement("article");
     card.className = "stat-card";
+    if (item.action) {
+      card.classList.add("stat-card-clickable");
+      card.role = "button";
+      card.tabIndex = 0;
+      card.addEventListener("click", item.action);
+      card.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          item.action();
+        }
+      });
+    }
     card.innerHTML = `
       <h3>${escapeHtml(item.title)}</h3>
       <p class="hero-stat">${escapeHtml(item.value)}</p>
@@ -2753,26 +2765,12 @@ function renderTodayDashboard() {
   const trialReminderList = document.createElement("div");
   trialReminderList.className = "stack";
   if (openTrialRequests.length) {
-    openTrialRequests.forEach((trial) => {
+    openTrialRequests.slice(0, 5).forEach((trial) => {
       const row = document.createElement("div");
       row.className = "list-row trial-reminder-row";
       row.role = "button";
       row.tabIndex = 0;
-      const openTrialCourse = () => {
-        const session = trial.attendance_session_id
-          ? state.sessions.find((entry) => entry.id === trial.attendance_session_id) || null
-          : null;
-        if (trial.course_id) {
-          state.selectedCourseId = trial.course_id;
-        }
-        if (session?.season_id) {
-          state.attendanceSeasonId = session.season_id;
-        }
-        if (session?.session_date && attendanceDate) {
-          attendanceDate.value = session.session_date;
-        }
-        setActiveSection("#attendancePanel");
-      };
+      const openTrialCourse = () => openTrialInAttendance(trial);
       row.innerHTML = `
         <div>
           <strong>${escapeHtml(trial.full_name)}</strong>
@@ -2809,6 +2807,22 @@ function renderTodayDashboard() {
   }
   trialReminderCard.appendChild(trialReminderList);
   todayInsights.appendChild(trialReminderCard);
+}
+
+function openTrialInAttendance(trial) {
+  const session = trial?.attendance_session_id
+    ? state.sessions.find((entry) => entry.id === trial.attendance_session_id) || null
+    : null;
+  if (trial?.course_id) {
+    state.selectedCourseId = trial.course_id;
+  }
+  if (session?.season_id) {
+    state.attendanceSeasonId = session.season_id;
+  }
+  if (session?.session_date && attendanceDate) {
+    attendanceDate.value = session.session_date;
+  }
+  setActiveSection("#attendancePanel");
 }
 
 function renderPlanning() {
