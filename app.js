@@ -3726,7 +3726,7 @@ function renderDropIns() {
       <div class="trial-actions">
         <button type="button" class="ghost" data-dropin-action="attended">Teilgenommen</button>
         <button type="button" class="ghost" data-dropin-action="open">Zum Kurs</button>
-        <button type="button" class="ghost" data-dropin-action="archive">${isArchived ? "Wiederherstellen" : "Archivieren"}</button>
+        ${isPast || isArchived ? `<button type="button" class="ghost" data-dropin-action="archive">${isArchived ? "Wiederherstellen" : "Archivieren"}</button>` : ""}
         <button type="button" class="danger" data-dropin-action="cancel">Loeschen</button>
       </div>
     `;
@@ -3738,8 +3738,7 @@ function renderDropIns() {
       openDropInInAttendance(dropIn);
     });
     const archiveButton = card.querySelector('[data-dropin-action="archive"]');
-    archiveButton.disabled = !isArchived && !isPast;
-    archiveButton.addEventListener("click", async () => {
+    archiveButton?.addEventListener("click", async () => {
       await handleDropInArchive(dropIn, !isArchived);
     });
     card.querySelector('[data-dropin-action="cancel"]').addEventListener("click", async () => {
