@@ -148,6 +148,7 @@ const participantCards = document.querySelector("#participantCards");
 const participantSectionTitle = document.querySelector("#participantSectionTitle");
 const courseActions = document.querySelector("#courseActions");
 const monthlyCards = document.querySelector("#monthlyCards");
+const monthlyCalendar = document.querySelector("#monthlyCalendar");
 const statsCards = document.querySelector("#statsCards");
 const businessCards = document.querySelector("#businessCards");
 const businessInsights = document.querySelector("#businessInsights");
@@ -2531,6 +2532,9 @@ function render() {
   renderReportPreview();
   renderMobileSessionSummary();
   renderParticipantProfile();
+  updateNavigationVisibility(availableSections);
+  mobileMonthBtn?.classList.toggle("hidden", !isAdmin());
+  mobileReportsBtn?.classList.toggle("hidden", !isAdmin());
   updateActiveNavLink();
 }
 
@@ -4588,6 +4592,7 @@ function renderBusinessDashboard() {
 
 function renderMonthlyOverview() {
   monthlyCards.innerHTML = "";
+  monthlyCalendar.innerHTML = "";
 
   if (!state.courses.length) {
     monthlyCards.appendChild(emptyStateTemplate.content.cloneNode(true));
@@ -4619,6 +4624,189 @@ function renderMonthlyOverview() {
     `;
     monthlyCards.appendChild(card);
   });
+
+  renderMonthlyCalendarView(getSelectedMonth());
+}
+
+function renderMonthlyCalendarView(monthValue) {
+  if (!monthlyCalendar) {
+    return;
+  }
+
+  monthlyCalendar.innerHTML = "";
+  const [year, month] = monthValue.split("-").map(Number);
+  const title = document.createElement("div");
+  title.className = "panel-heading";
+  title.innerHTML = `
+    <div>
+      <p class="eyebrow">Kalender</p>
+      <h3>${escapeHtml(getSelectedMonthLabel())}</h3>
+    </div>
+  `;
+  monthlyCalendar.appendChild(title);
+
+  const weekdays = document.createElement("div");
+  weekdays.className = "monthly-calendar-weekdays";
+  ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].forEach((label) => {
+    const weekdayCell = document.createElement("span");
+    weekdayCell.textContent = label;
+    weekdays.appendChild(weekdayCell);
+  });
+  monthlyCalendar.appendChild(weekdays);
+
+  const grid = document.createElement("div");
+  grid.className = "monthly-calendar-grid";
+  const firstDate = new Date(year, month - 1, 1);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const offset = (firstDate.getDay() + 6) % 7;
+  const eventsByDate = getMonthlyCalendarEvents(monthValue);
+  const today = getToday();
+
+  for (let index = 0; index < offset; index += 1) {
+    const emptyCell = document.createElement("div");
+    emptyCell.className = "monthly-calendar-day is-empty";
+    grid.appendChild(emptyCell);
+  }
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const dateValue = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const dayEvents = eventsByDate.get(dateValue) || [];
+    const dayCell = document.createElement("article");
+    dayCell.className = `monthly-calendar-day${dayEvents.length ? " has-events" : ""}${dateValue === today ? " is-today" : ""}`;
+
+    const dayNumber = document.createElement("strong");
+    dayNumber.className = "monthly-calendar-day-number";
+    dayNumber.textContent = String(day);
+    dayCell.appendChild(dayNumber);
+
+    const eventList = document.createElement("div");
+    eventList.className = "monthly-calendar-event-list";
+    dayEvents.slice(0, 4).forEach((entry) => {
+      const eventButton = document.createElement("button");
+      eventButton.type = "button";
+      eventButton.className = `monthly-calendar-event monthly-calendar-event-${entry.type}`;
+      eventButton.textContent = entry.label;
+      if (entry.meta) {
+        eventButton.title = entry.meta;
+      }
+      if (entry.courseId && entry.date) {
+        eventButton.addEventListener("click", () => {
+          state.selectedCourseId = entry.courseId;
+          state.attendanceSeasonId = entry.seasonId || null;
+          if (attendanceDate) {
+            attendanceDate.value = entry.date;
+          }
+          setActiveSection("#attendancePanel");
+        });
+      } else {
+        eventButton.disabled = true;
+      }
+      eventList.appendChild(eventButton);
+    });
+
+    if (dayEvents.length > 4) {
+      const overflow = document.createElement("span");
+      overflow.className = "monthly-calendar-more";
+      overflow.textContent = `+${dayEvents.length - 4} mehr`;
+      eventList.appendChild(overflow);
+    }
+
+    dayCell.appendChild(eventList);
+    grid.appendChild(dayCell);
+  }
+
+  monthlyCalendar.appendChild(grid);
+}
+
+function getMonthlyCalendarEvents(monthValue) {
+  const events = new Map();
+  const appendEvent = (dateValue, event) => {
+    if (!events.has(dateValue)) {
+      events.set(dateValue, []);
+    }
+    events.get(dateValue).push(event);
+  };
+
+  const monthSessions = getSessionsForMonth(monthValue);
+  monthSessions.forEach((session) => {
+    const course = state.courses.find((entry) => entry.id === session.course_id) || null;
+    const season = session.season_id
+      ? state.seasons.find((entry) => entry.id === session.season_id) || null
+      : null;
+    appendEvent(session.session_date, {
+      type: "session",
+      label: `${course?.weekday || "Termin"} ${course?.time ? course.time : ""}`.trim(),
+      meta: `${course?.name || "Kurs"}${season ? ` | ${season.name}` : ""}`,
+      courseId: session.course_id,
+      seasonId: session.season_id || null,
+      date: session.session_date,
+    });
+  });
+
+  state.trialRequests
+    .filter((trial) => trial.status !== "konvertiert" && trial.status !== "abgesagt")
+    .forEach((trial) => {
+      const session = trial.attendance_session_id
+        ? state.sessions.find((entry) => entry.id === trial.attendance_session_id) || null
+        : null;
+      if (!session || !String(session.session_date || "").startsWith(monthValue)) {
+        return;
+      }
+      appendEvent(session.session_date, {
+        type: "trial",
+        label: `Probe: ${trial.full_name}`,
+        meta: formatTrialSessionLabel(trial),
+        courseId: session.course_id,
+        seasonId: session.season_id || null,
+        date: session.session_date,
+      });
+    });
+
+  state.dropInBookings
+    .filter((entry) => !entry.archived_at && entry.status !== "abgesagt")
+    .forEach((dropIn) => {
+      const session = dropIn.attendance_session_id
+        ? state.sessions.find((entry) => entry.id === dropIn.attendance_session_id) || null
+        : null;
+      if (!session || !String(session.session_date || "").startsWith(monthValue)) {
+        return;
+      }
+      appendEvent(session.session_date, {
+        type: "dropin",
+        label: `Drop-In: ${dropIn.full_name}`,
+        meta: formatDropInSessionLabel(dropIn),
+        courseId: session.course_id,
+        seasonId: session.season_id || null,
+        date: session.session_date,
+      });
+    });
+
+  state.sessionOverrides.forEach((override) => {
+    const targetSession = state.sessions.find((entry) => entry.id === override.target_session_id) || null;
+    const sourceSession = state.sessions.find((entry) => entry.id === override.source_session_id) || null;
+    const participant = state.participants.find((entry) => entry.id === override.participant_id) || null;
+    if (!targetSession || !String(targetSession.session_date || "").startsWith(monthValue)) {
+      return;
+    }
+    appendEvent(targetSession.session_date, {
+      type: "override",
+      label: `Umbuchung: ${participant?.full_name || "Teilnehmer"}`,
+      meta: sourceSession ? `von ${formatDateLabel(sourceSession.session_date)}` : "Einzeltermin-Umbuchung",
+      courseId: targetSession.course_id,
+      seasonId: targetSession.season_id || null,
+      date: targetSession.session_date,
+    });
+  });
+
+  events.forEach((items, key) => {
+    items.sort((left, right) => {
+      const order = { session: 0, trial: 1, dropin: 2, override: 3 };
+      return (order[left.type] ?? 99) - (order[right.type] ?? 99);
+    });
+    events.set(key, items);
+  });
+
+  return events;
 }
 
 function renderReportPreview() {
@@ -6082,6 +6270,21 @@ function updateActiveNavLink() {
   });
 }
 
+function updateNavigationVisibility(availableSections) {
+  navLinks.forEach((link) => {
+    const isVisible = availableSections.includes(link.getAttribute("href"));
+    link.classList.toggle("hidden", !isVisible);
+  });
+
+  navGroups.forEach((group) => {
+    const visibleLinks = Array.from(group.querySelectorAll(".nav-submenu a")).filter((link) => !link.classList.contains("hidden"));
+    group.classList.toggle("hidden", visibleLinks.length === 0);
+    if (!visibleLinks.length) {
+      group.open = false;
+    }
+  });
+}
+
 function setActiveSection(sectionId) {
   if (!sectionId) {
     return;
@@ -6108,17 +6311,26 @@ function getAvailableSections({ connected, loggedIn, appUnlocked }) {
   }
 
   if (appUnlocked) {
-    sections.push(
-      "#todayPanel",
-      "#trialsPanel",
-      "#courseListPanel",
-      "#planningPanel",
-      "#attendancePanel",
-      "#monthlyPanel",
-      "#statsPanel",
-      "#businessPanel",
-      "#reportsPanel",
-    );
+    if (isAdmin()) {
+      sections.push(
+        "#todayPanel",
+        "#trialsPanel",
+        "#courseListPanel",
+        "#planningPanel",
+        "#attendancePanel",
+        "#monthlyPanel",
+        "#statsPanel",
+        "#businessPanel",
+        "#reportsPanel",
+      );
+    } else {
+      sections.push(
+        "#todayPanel",
+        "#trialsPanel",
+        "#courseListPanel",
+        "#attendancePanel",
+      );
+    }
   }
 
   return sections;

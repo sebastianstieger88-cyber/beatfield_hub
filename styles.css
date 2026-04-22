@@ -470,6 +470,99 @@ label span,
   gap: 8px;
 }
 
+.monthly-calendar-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.monthly-calendar-weekdays,
+.monthly-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.monthly-calendar-weekdays span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.monthly-calendar-day {
+  min-height: 148px;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(103, 193, 47, 0.1);
+}
+
+.monthly-calendar-day.is-empty {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.monthly-calendar-day.is-today {
+  border-color: rgba(103, 193, 47, 0.3);
+  box-shadow: inset 0 0 0 1px rgba(103, 193, 47, 0.08);
+}
+
+.monthly-calendar-day.has-events {
+  background: rgba(103, 193, 47, 0.04);
+}
+
+.monthly-calendar-day-number {
+  font-size: 0.98rem;
+}
+
+.monthly-calendar-event-list {
+  display: grid;
+  gap: 6px;
+}
+
+.monthly-calendar-event {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+  min-height: 0;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.monthly-calendar-event-session {
+  background: rgba(103, 193, 47, 0.16);
+  color: #c8f5a8;
+}
+
+.monthly-calendar-event-trial {
+  background: rgba(245, 185, 66, 0.16);
+  color: #ffd37a;
+}
+
+.monthly-calendar-event-dropin {
+  background: rgba(87, 179, 255, 0.16);
+  color: #a8d8ff;
+}
+
+.monthly-calendar-event-override {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+.monthly-calendar-more {
+  color: var(--muted);
+  font-size: 0.8rem;
+  padding: 2px 4px;
+}
+
 .season-schedule-chip {
   display: inline-flex;
   align-items: center;
@@ -1272,6 +1365,22 @@ th {
 
   .mobile-session-summary-grid {
     grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .monthly-calendar-weekdays,
+  .monthly-calendar-grid {
+    gap: 6px;
+  }
+
+  .monthly-calendar-day {
+    min-height: 112px;
+    padding: 8px;
+    border-radius: 14px;
+  }
+
+  .monthly-calendar-event {
+    padding: 6px 8px;
+    font-size: 0.74rem;
   }
 
   .table-wrap {
