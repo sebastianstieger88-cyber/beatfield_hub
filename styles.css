@@ -403,6 +403,58 @@ label span,
   margin-top: 12px;
 }
 
+.season-calendar {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(103, 193, 47, 0.12);
+}
+
+.season-calendar-title {
+  font-size: 0.98rem;
+  text-transform: capitalize;
+}
+
+.season-calendar-weekdays,
+.season-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.season-calendar-weekdays span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.season-calendar-day {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid transparent;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.season-calendar-day.is-training {
+  background: rgba(103, 193, 47, 0.16);
+  border-color: rgba(103, 193, 47, 0.24);
+  color: var(--text);
+  font-weight: 800;
+}
+
+.season-calendar-day.is-empty {
+  background: transparent;
+  border-color: transparent;
+}
+
 .season-schedule-group {
   display: grid;
   gap: 8px;
@@ -706,6 +758,12 @@ button.danger {
   gap: 10px;
   flex-wrap: wrap;
   margin-top: 12px;
+}
+
+.trial-pipeline {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .today-actions {

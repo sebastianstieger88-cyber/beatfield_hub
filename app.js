@@ -3081,38 +3081,79 @@ function renderSeasonTrainingSchedule(trainingDates) {
     return wrapper;
   }
 
-  const weekdayOrder = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
-  const grouped = new Map();
+  const groupedByMonth = new Map();
   trainingDates.forEach((dateValue) => {
-    const weekday = getWeekdayLabelFromDate(dateValue);
-    if (!grouped.has(weekday)) {
-      grouped.set(weekday, []);
+    const date = new Date(`${dateValue}T00:00:00`);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    if (!groupedByMonth.has(key)) {
+      groupedByMonth.set(key, []);
     }
-    grouped.get(weekday).push(dateValue);
+    groupedByMonth.get(key).push(dateValue);
   });
 
-  weekdayOrder
-    .filter((weekday) => grouped.has(weekday))
-    .forEach((weekday) => {
-      const group = document.createElement("div");
-      group.className = "season-schedule-group";
-      const label = document.createElement("strong");
-      label.textContent = weekday;
-      group.appendChild(label);
-
-      const chips = document.createElement("div");
-      chips.className = "season-schedule-chips";
-      grouped.get(weekday).forEach((dateValue) => {
-        const chip = document.createElement("span");
-        chip.className = "season-schedule-chip";
-        chip.textContent = formatCompactDateLabel(dateValue);
-        chips.appendChild(chip);
-      });
-      group.appendChild(chips);
-      wrapper.appendChild(group);
-    });
+  Array.from(groupedByMonth.entries()).forEach(([monthKey, monthDates]) => {
+    wrapper.appendChild(renderSeasonCalendarMonth(monthKey, monthDates));
+  });
 
   return wrapper;
+}
+
+function renderSeasonCalendarMonth(monthKey, trainingDates) {
+  const [year, month] = monthKey.split("-").map(Number);
+  const section = document.createElement("div");
+  section.className = "season-calendar";
+
+  const title = document.createElement("strong");
+  title.className = "season-calendar-title";
+  title.textContent = new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1));
+  section.appendChild(title);
+
+  const weekdays = document.createElement("div");
+  weekdays.className = "season-calendar-weekdays";
+  ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].forEach((label) => {
+    const weekdayCell = document.createElement("span");
+    weekdayCell.textContent = label;
+    weekdays.appendChild(weekdayCell);
+  });
+  section.appendChild(weekdays);
+
+  const grid = document.createElement("div");
+  grid.className = "season-calendar-grid";
+  const firstDate = new Date(year, month - 1, 1);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const offset = (firstDate.getDay() + 6) % 7;
+  const trainingSet = new Set(trainingDates);
+
+  for (let index = 0; index < offset; index += 1) {
+    const emptyCell = document.createElement("span");
+    emptyCell.className = "season-calendar-day is-empty";
+    grid.appendChild(emptyCell);
+  }
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const dateValue = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const dayCell = document.createElement("span");
+    dayCell.className = `season-calendar-day${trainingSet.has(dateValue) ? " is-training" : ""}`;
+    dayCell.textContent = String(day);
+    if (trainingSet.has(dateValue)) {
+      dayCell.title = formatDateLabel(dateValue);
+    }
+    grid.appendChild(dayCell);
+  }
+
+  section.appendChild(grid);
+
+  const chips = document.createElement("div");
+  chips.className = "season-schedule-chips";
+  trainingDates.forEach((dateValue) => {
+    const chip = document.createElement("span");
+    chip.className = "season-schedule-chip";
+    chip.textContent = `${getWeekdayLabelFromDate(dateValue)}, ${formatCompactDateLabel(dateValue)}`;
+    chips.appendChild(chip);
+  });
+  section.appendChild(chips);
+
+  return section;
 }
 
 function setSeasonFilter(filter) {
@@ -3385,6 +3426,7 @@ function renderTrials() {
       : course
         ? escapeHtml(course.name)
         : "Kein Termin";
+    const pipelineMeta = getTrialPipelineMeta(trial);
     const card = document.createElement("article");
     card.className = "stat-card";
     card.innerHTML = `
@@ -3394,6 +3436,10 @@ function renderTrials() {
       <p class="stat-meta">${trial.email ? escapeHtml(trial.email) : "Keine E-Mail"}</p>
       <p class="stat-meta">${trial.phone ? escapeHtml(trial.phone) : "Keine Telefonnummer"}</p>
       <p class="stat-meta">Status: ${escapeHtml(trial.status)}</p>
+      <div class="trial-pipeline">
+        <span class="status-pill ${escapeHtml(pipelineMeta.tone)}">${escapeHtml(pipelineMeta.label)}</span>
+        <span class="stat-meta">${escapeHtml(pipelineMeta.meta)}</span>
+      </div>
       <div class="trial-actions">
         <button type="button" class="ghost" data-trial-action="booked">Gebucht</button>
         <button type="button" class="ghost" data-trial-action="attended">Teilgenommen</button>
@@ -4677,6 +4723,43 @@ function getOpenTrialRequests() {
       const rightDate = rightSession?.session_date || String(right.created_at || "");
       return String(leftDate).localeCompare(String(rightDate));
     });
+}
+
+function getTrialPipelineMeta(trial) {
+  const status = trial?.status || "angefragt";
+  if (status === "angefragt") {
+    return {
+      label: "Anfrage offen",
+      meta: "Termin bestaetigen oder rueckmelden",
+      tone: "status-pill-info",
+    };
+  }
+  if (status === "gebucht") {
+    return {
+      label: "Termin steht",
+      meta: "am Termin erinnern",
+      tone: "status-pill-info",
+    };
+  }
+  if (status === "teilgenommen") {
+    return {
+      label: "Conversion offen",
+      meta: "Nachfassen und in Teilnehmer uebernehmen",
+      tone: "status-pill-warn",
+    };
+  }
+  if (status === "konvertiert") {
+    return {
+      label: "Konvertiert",
+      meta: "bereits in Teilnehmer uebernommen",
+      tone: "status-pill-info",
+    };
+  }
+  return {
+    label: "Abgesagt",
+    meta: "kein weiterer Schritt noetig",
+    tone: "status-pill-critical",
+  };
 }
 
 function formatTrialSessionLabel(trial) {
