@@ -71,6 +71,9 @@ create table if not exists public.beat_out_entries (
 alter table public.attendance_sessions
   add column if not exists season_id uuid references public.seasons(id) on delete cascade;
 
+alter table public.trial_requests
+  add column if not exists attendance_session_id uuid references public.attendance_sessions(id) on delete set null;
+
 create table if not exists public.session_overrides (
   id uuid primary key default gen_random_uuid(),
   season_booking_id uuid not null references public.season_bookings(id) on delete cascade,

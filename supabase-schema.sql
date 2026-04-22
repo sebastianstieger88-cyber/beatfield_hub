@@ -100,6 +100,7 @@ alter table public.participants
 create table if not exists public.trial_requests (
   id uuid primary key default gen_random_uuid(),
   course_id uuid not null references public.courses(id) on delete cascade,
+  attendance_session_id uuid,
   full_name text not null,
   email text,
   phone text,
@@ -118,6 +119,22 @@ create table if not exists public.attendance_sessions (
   created_at timestamptz not null default now(),
   unique (course_id, session_date)
 );
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'trial_requests_attendance_session_id_fkey'
+  ) then
+    alter table public.trial_requests
+      add constraint trial_requests_attendance_session_id_fkey
+      foreign key (attendance_session_id)
+      references public.attendance_sessions(id)
+      on delete set null;
+  end if;
+end
+$$;
 
 create table if not exists public.attendance_records (
   session_id uuid not null references public.attendance_sessions(id) on delete cascade,

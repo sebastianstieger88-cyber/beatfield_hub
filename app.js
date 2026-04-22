@@ -482,7 +482,7 @@ async function fetchSupportData() {
   const trialsQuery = courseIds.length
     ? state.supabase
       .from("trial_requests")
-      .select("id, course_id, full_name, email, phone, status, notes, created_at, converted_participant_id")
+      .select("id, course_id, attendance_session_id, full_name, email, phone, status, notes, created_at, converted_participant_id")
       .in("course_id", courseIds)
       .order("created_at", { ascending: false })
     : Promise.resolve({ data: [], error: null });
@@ -2295,15 +2295,17 @@ async function handleTrialCreate(event) {
   }
 
   const formData = new FormData(trialForm);
-  const courseId = normalizeOptionalId(formData.get("courseId"));
-  if (!courseId) {
-    notify("Bitte zuerst einen gueltigen Kurs fuer das Probetraining auswaehlen.", true);
+  const sessionId = normalizeOptionalId(formData.get("sessionId"));
+  const selectedSession = sessionId ? state.sessions.find((entry) => entry.id === sessionId) : null;
+  if (!selectedSession) {
+    notify("Bitte zuerst einen gueltigen Season-Termin fuer das Probetraining auswaehlen.", true);
     return;
   }
   const { error } = await state.supabase
     .from("trial_requests")
     .insert({
-      course_id: courseId,
+      course_id: selectedSession.course_id,
+      attendance_session_id: selectedSession.id,
       full_name: String(formData.get("fullName")).trim(),
       email: String(formData.get("email")).trim(),
       phone: String(formData.get("phone")).trim(),
@@ -3221,11 +3223,29 @@ function renderInvites() {
 
 function renderTrialCourseSelect() {
   trialCourseSelect.innerHTML = "";
+  const preferredSeasonId = getPreferredTrialSeasonId();
+  const sessionOptions = preferredSeasonId
+    ? getSeasonSessions(preferredSeasonId)
+    : getUpcomingTrialSessions();
 
-  state.courses.forEach((course) => {
+  if (!sessionOptions.length) {
     const option = document.createElement("option");
-    option.value = course.id;
-    option.textContent = `${course.name}${course.time ? ` - ${course.time} Uhr` : ""}`;
+    option.value = "";
+    option.textContent = preferredSeasonId
+      ? "Keine Termine in der gewaehlten Season"
+      : "Keine kommenden Termine verfuegbar";
+    trialCourseSelect.appendChild(option);
+    return;
+  }
+
+  sessionOptions.forEach((session) => {
+    const course = state.courses.find((entry) => entry.id === session.course_id);
+    if (!course) {
+      return;
+    }
+    const option = document.createElement("option");
+    option.value = session.id;
+    option.textContent = `${formatDateLabel(session.session_date)} | ${course.name} (${course.weekday}${course.time ? `, ${course.time} Uhr` : ""})`;
     trialCourseSelect.appendChild(option);
   });
 }
@@ -3240,11 +3260,23 @@ function renderTrials() {
 
   state.trialRequests.forEach((trial) => {
     const course = state.courses.find((entry) => entry.id === trial.course_id);
+    const session = trial.attendance_session_id
+      ? state.sessions.find((entry) => entry.id === trial.attendance_session_id) || null
+      : null;
+    const season = session?.season_id
+      ? state.seasons.find((entry) => entry.id === session.season_id) || null
+      : null;
+    const trialMeta = session
+      ? `${formatDateLabel(session.session_date)} | ${course ? escapeHtml(course.name) : "Kein Kurs"}`
+      : course
+        ? escapeHtml(course.name)
+        : "Kein Termin";
     const card = document.createElement("article");
     card.className = "stat-card";
     card.innerHTML = `
       <h3>${escapeHtml(trial.full_name)}</h3>
-      <p class="stat-meta">${course ? escapeHtml(course.name) : "Kein Kurs"}</p>
+      <p class="stat-meta">${trialMeta}</p>
+      <p class="stat-meta">${season ? escapeHtml(season.name) : "Ohne Season-Zuordnung"}</p>
       <p class="stat-meta">${trial.email ? escapeHtml(trial.email) : "Keine E-Mail"}</p>
       <p class="stat-meta">${trial.phone ? escapeHtml(trial.phone) : "Keine Telefonnummer"}</p>
       <p class="stat-meta">Status: ${escapeHtml(trial.status)}</p>
@@ -3310,10 +3342,14 @@ async function updateTrialStatus(trialId, status) {
 }
 
 async function convertTrialToParticipant(trial) {
+  const session = trial.attendance_session_id
+    ? state.sessions.find((entry) => entry.id === trial.attendance_session_id) || null
+    : null;
   const { data, error } = await state.supabase
     .from("participants")
     .insert({
       course_id: trial.course_id,
+      season_id: session?.season_id || null,
       full_name: trial.full_name,
       phone: trial.phone || "",
     })
@@ -3465,30 +3501,34 @@ function renderParticipants() {
   }
 
   sessionParticipants.forEach((participant) => {
+    const isTrialParticipant = Boolean(participant.is_trial);
     const record = records.find((entry) => entry.participant_id === participant.id);
     const isPresent = Boolean(record?.present);
     const booking = getParticipantSeasonBooking(participant);
     const beatOutEntry = getBeatOutEntryForParticipantSession(participant.id, session?.id);
     const bookingUsage = getBeatOutUsageForBooking(booking?.id);
-    const rate = calculateAttendanceRate(course.id, participant.id);
+    const rate = isTrialParticipant ? "Probe" : calculateAttendanceRate(course.id, participant.id);
+    const rateBadge = isTrialParticipant ? "Probe" : `${rate}%`;
     const targetOverride = session?.id ? getSessionOverrideForTarget(participant.id, session.id) : null;
     const overrideMeta = targetOverride ? getSessionOverrideLabel(targetOverride) : "";
     const overrideBadge = targetOverride
       ? `<div class="participant-override"><span class="status-pill status-pill-info">Ersatztermin</span><span class="participant-override-text">${escapeHtml(overrideMeta)}</span></div>`
       : "";
+    const trialBadge = isTrialParticipant ? '<div class="participant-override"><span class="status-pill status-pill-info">Probetraining</span></div>' : "";
     const row = document.createElement("tr");
     row.className = targetOverride ? "participant-row-override" : "";
     row.innerHTML = `
-      <td><button type="button" class="link-button participant-profile-btn">${escapeHtml(participant.full_name)}</button></td>
+      <td>${isTrialParticipant ? escapeHtml(participant.full_name) : `<button type="button" class="link-button participant-profile-btn">${escapeHtml(participant.full_name)}</button>`}</td>
       <td>
         <div class="participant-meta-stack">
           <div>${participant.phone ? escapeHtml(participant.phone) : '<span class="muted">-</span>'}</div>
           ${booking ? `<div class="stat-meta beatout-meta">BEAT-OUT ${bookingUsage.used}/${bookingUsage.limit}</div>` : ""}
+          ${trialBadge}
           ${overrideBadge}
         </div>
       </td>
       <td><button type="button" class="attendance-toggle${isPresent ? " is-present" : ""}" aria-label="Anwesenheit umschalten"></button></td>
-      <td><span class="badge">${rate}%</span></td>
+      <td><span class="badge">${rateBadge}</span></td>
         <td>
           <div class="mini-actions table-actions">
             <button type="button" class="ghost participant-beatout-btn${beatOutEntry ? " is-active" : ""}">${beatOutEntry ? "BEAT-OUT aktiv" : "BEAT-OUT"}</button>
@@ -3499,28 +3539,36 @@ function renderParticipants() {
       `;
 
     const toggleButton = row.querySelector(".attendance-toggle");
-    toggleButton.disabled = !canEditCourse(course);
-    toggleButton.addEventListener("click", async () => {
-      await toggleAttendance(course.id, participant.id);
-    });
+    toggleButton.disabled = !canEditCourse(course) || isTrialParticipant;
+    if (!isTrialParticipant) {
+      toggleButton.addEventListener("click", async () => {
+        await toggleAttendance(course.id, participant.id);
+      });
+    }
     const moveButton = row.querySelector(".participant-move-btn");
-    moveButton.disabled = !canEditCourse(course);
-    moveButton.addEventListener("click", async () => {
-      await handleParticipantMove(participant, course);
+    moveButton.disabled = !canEditCourse(course) || isTrialParticipant;
+    if (!isTrialParticipant) {
+      moveButton.addEventListener("click", async () => {
+        await handleParticipantMove(participant, course);
       });
+    }
       const beatOutButton = row.querySelector(".participant-beatout-btn");
-      beatOutButton.disabled = !canEditCourse(course) || !booking;
-      beatOutButton.addEventListener("click", async () => {
-        await toggleBeatOut(course.id, participant.id);
-      });
+      beatOutButton.disabled = !canEditCourse(course) || !booking || isTrialParticipant;
+      if (!isTrialParticipant) {
+        beatOutButton.addEventListener("click", async () => {
+          await toggleBeatOut(course.id, participant.id);
+        });
+      }
       const deleteButton = row.querySelector(".participant-delete-btn");
-      deleteButton.disabled = !canEditCourse(course);
-      deleteButton.addEventListener("click", async () => {
-        await handleParticipantDelete(participant, course);
-      });
-      row.querySelector(".participant-profile-btn").addEventListener("click", () => {
-        openParticipantProfile(participant.id, booking?.id || participant.season_booking_id);
-      });
+      deleteButton.disabled = !canEditCourse(course) || isTrialParticipant;
+      if (!isTrialParticipant) {
+        deleteButton.addEventListener("click", async () => {
+          await handleParticipantDelete(participant, course);
+        });
+        row.querySelector(".participant-profile-btn").addEventListener("click", () => {
+          openParticipantProfile(participant.id, booking?.id || participant.season_booking_id);
+        });
+      }
     participantTableBody.appendChild(row);
 
     const card = document.createElement("article");
@@ -3528,12 +3576,13 @@ function renderParticipants() {
     card.innerHTML = `
       <div class="participant-card-head">
         <div>
-          <h3><button type="button" class="link-button participant-profile-btn">${escapeHtml(participant.full_name)}</button></h3>
+          <h3>${isTrialParticipant ? escapeHtml(participant.full_name) : `<button type="button" class="link-button participant-profile-btn">${escapeHtml(participant.full_name)}</button>`}</h3>
           <p class="stat-meta">${participant.phone ? escapeHtml(participant.phone) : "Keine Telefonnummer"}</p>
             ${booking ? `<p class="stat-meta beatout-meta">BEAT-OUT ${bookingUsage.used}/${bookingUsage.limit}</p>` : ""}
+            ${trialBadge}
             ${overrideBadge}
         </div>
-        <span class="badge">${rate}%</span>
+        <span class="badge">${rateBadge}</span>
       </div>
         <div class="participant-card-actions">
           <button type="button" class="attendance-toggle${isPresent ? " is-present" : ""}" aria-label="Anwesenheit umschalten"></button>
@@ -3544,28 +3593,36 @@ function renderParticipants() {
       `;
 
     const mobileToggle = card.querySelector(".attendance-toggle");
-    mobileToggle.disabled = !canEditCourse(course);
-    mobileToggle.addEventListener("click", async () => {
-      await toggleAttendance(course.id, participant.id);
-    });
+    mobileToggle.disabled = !canEditCourse(course) || isTrialParticipant;
+    if (!isTrialParticipant) {
+      mobileToggle.addEventListener("click", async () => {
+        await toggleAttendance(course.id, participant.id);
+      });
+    }
     const mobileMoveButton = card.querySelector(".participant-move-btn");
-    mobileMoveButton.disabled = !canEditCourse(course);
-    mobileMoveButton.addEventListener("click", async () => {
-      await handleParticipantMove(participant, course);
+    mobileMoveButton.disabled = !canEditCourse(course) || isTrialParticipant;
+    if (!isTrialParticipant) {
+      mobileMoveButton.addEventListener("click", async () => {
+        await handleParticipantMove(participant, course);
       });
+    }
       const mobileBeatOutButton = card.querySelector(".participant-beatout-btn");
-      mobileBeatOutButton.disabled = !canEditCourse(course) || !booking;
-      mobileBeatOutButton.addEventListener("click", async () => {
-        await toggleBeatOut(course.id, participant.id);
-      });
+      mobileBeatOutButton.disabled = !canEditCourse(course) || !booking || isTrialParticipant;
+      if (!isTrialParticipant) {
+        mobileBeatOutButton.addEventListener("click", async () => {
+          await toggleBeatOut(course.id, participant.id);
+        });
+      }
       const mobileDeleteButton = card.querySelector(".participant-delete-btn");
-      mobileDeleteButton.disabled = !canEditCourse(course);
-      mobileDeleteButton.addEventListener("click", async () => {
-        await handleParticipantDelete(participant, course);
-      });
-      card.querySelector(".participant-profile-btn").addEventListener("click", () => {
-        openParticipantProfile(participant.id, booking?.id || participant.season_booking_id);
-      });
+      mobileDeleteButton.disabled = !canEditCourse(course) || isTrialParticipant;
+      if (!isTrialParticipant) {
+        mobileDeleteButton.addEventListener("click", async () => {
+          await handleParticipantDelete(participant, course);
+        });
+        card.querySelector(".participant-profile-btn").addEventListener("click", () => {
+          openParticipantProfile(participant.id, booking?.id || participant.season_booking_id);
+        });
+      }
     participantCards.appendChild(card);
   });
 }
@@ -4408,6 +4465,27 @@ function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
       }
     });
 
+  const trialRoster = state.trialRequests
+    .filter((entry) => entry.status !== "konvertiert" && entry.status !== "abgesagt" && entry.attendance_session_id === sessionId)
+    .map((entry) => ({
+      id: `trial-${entry.id}`,
+      course_id: entry.course_id,
+      season_id: state.sessions.find((session) => session.id === entry.attendance_session_id)?.season_id || null,
+      season_booking_id: null,
+      full_name: `${entry.full_name} (Probetraining)`,
+      phone: entry.phone || "",
+      email: entry.email || "",
+      is_trial: true,
+      trial_request_id: entry.id,
+    }));
+
+  trialRoster.forEach((participant) => {
+    if (!rosterIds.has(participant.id)) {
+      roster.push(participant);
+      rosterIds.add(participant.id);
+    }
+  });
+
   return roster.sort((left, right) => String(left.full_name || "").localeCompare(String(right.full_name || "")));
 }
 
@@ -4421,6 +4499,28 @@ function getFilteredParticipants(courseId, sessionId = null) {
     return participant.full_name.toLowerCase().includes(state.participantSearch)
       || String(participant.phone || "").toLowerCase().includes(state.participantSearch);
   });
+}
+
+function getPreferredTrialSeasonId() {
+  if (state.selectedSeasonId && state.seasons.some((entry) => entry.id === state.selectedSeasonId)) {
+    return state.selectedSeasonId;
+  }
+  if (state.attendanceSeasonId && state.seasons.some((entry) => entry.id === state.attendanceSeasonId)) {
+    return state.attendanceSeasonId;
+  }
+  return state.seasons.find((entry) => entry.status === "aktiv")?.id || null;
+}
+
+function getUpcomingTrialSessions() {
+  return state.sessions
+    .filter((session) => session.session_date >= getToday() && isSessionAlignedWithCourse(session))
+    .sort((left, right) => {
+      const dateCompare = String(left.session_date).localeCompare(String(right.session_date));
+      if (dateCompare !== 0) {
+        return dateCompare;
+      }
+      return String(left.course_id || "").localeCompare(String(right.course_id || ""));
+    });
 }
 
 function getSessionsForCourse(courseId) {
