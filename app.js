@@ -4000,6 +4000,15 @@ function renderParticipants() {
 
     participantTableBody.appendChild(row);
 
+    const mobileStatusLabel = isDropInParticipant
+      ? isPresent ? "DROP-IN teilgenommen" : "DROP-IN gebucht"
+      : isTrialParticipant
+        ? "Probetraining"
+        : isPresent
+          ? "Anwesend"
+          : beatOutEntry
+            ? "BEAT-OUT aktiv"
+            : "Noch offen";
     const card = document.createElement("article");
     card.className = `participant-card${targetOverride ? " participant-card-override" : ""}${isTrialParticipant ? " participant-card-trial" : ""}${isDropInParticipant ? " participant-card-dropin" : ""}`;
     card.innerHTML = `
@@ -4014,8 +4023,14 @@ function renderParticipants() {
         </div>
         <span class="badge">${rateBadge}</span>
       </div>
-      <div class="participant-card-actions">
+      <div class="participant-card-status-row">
+        <div class="participant-card-status-copy">
+          <span class="participant-card-section-label">Anwesenheit</span>
+          <strong>${escapeHtml(mobileStatusLabel)}</strong>
+        </div>
         <button type="button" class="attendance-toggle${isPresent ? " is-present" : ""}" aria-label="Anwesenheit umschalten"></button>
+      </div>
+      <div class="participant-card-actions participant-card-actions-secondary">
         <button type="button" class="ghost participant-beatout-btn${beatOutEntry ? " is-active" : ""}">${beatOutEntry ? "BEAT-OUT aktiv" : "BEAT-OUT"}</button>
         <button type="button" class="ghost participant-move-btn">${targetOverride ? "Terminwechsel aufheben" : booking ? "Termin umbuchen" : "Umbuchen"}</button>
         <button type="button" class="danger participant-delete-btn">${booking ? "Entfernen" : "Loeschen"}</button>
@@ -4177,14 +4192,20 @@ function renderMobileSessionSummary() {
   const participants = getAttendanceParticipantsForCourse(course.id, session?.id);
   const records = getRecordsForSession(session?.id);
   const presentCount = records.filter((record) => record.present).length;
-  const absentCount = Math.max(participants.length - presentCount, 0);
+  const beatOutCount = participants.filter((participant) => getBeatOutEntryForParticipantSession(participant.id, session?.id)).length;
+  const openCount = Math.max(participants.length - presentCount - beatOutCount, 0);
 
   mobileSessionSummary.classList.remove("hidden");
   mobileSessionSummary.innerHTML = `
     <h3>${escapeHtml(course.name)}</h3>
     <p class="hero-stat">${presentCount}/${participants.length}</p>
-      <p class="stat-meta">anwesend am ${escapeHtml(sessionDate)}</p>
-    <p class="stat-meta">${absentCount} aktuell noch offen oder abwesend</p>
+    <p class="stat-meta">${escapeHtml(course.weekday)}${course.time ? ` | ${escapeHtml(course.time)} Uhr` : ""}</p>
+    <p class="stat-meta">Termin: ${escapeHtml(sessionDate)}</p>
+    <div class="mobile-session-summary-grid">
+      <div><strong>${presentCount}</strong><span>Anwesend</span></div>
+      <div><strong>${beatOutCount}</strong><span>BEAT-OUT</span></div>
+      <div><strong>${openCount}</strong><span>Offen</span></div>
+    </div>
   `;
 }
 

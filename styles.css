@@ -791,6 +791,31 @@ button.danger {
   margin-bottom: 16px;
 }
 
+.mobile-session-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.mobile-session-summary-grid div {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(103, 193, 47, 0.08);
+  border: 1px solid rgba(103, 193, 47, 0.12);
+}
+
+.mobile-session-summary-grid strong {
+  font-size: 1.15rem;
+}
+
+.mobile-session-summary-grid span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 .participant-cards {
   display: none;
   gap: 14px;
@@ -861,6 +886,23 @@ button.danger {
   display: flex;
   justify-content: flex-end;
   margin-top: 14px;
+}
+
+.participant-card-status-row {
+  display: none;
+}
+
+.participant-card-status-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.participant-card-section-label {
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .stat-card-actions {
@@ -1199,6 +1241,26 @@ th {
     grid-template-columns: 1fr 1fr;
   }
 
+  .participant-card-status-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: rgba(103, 193, 47, 0.08);
+    border: 1px solid rgba(103, 193, 47, 0.12);
+  }
+
+  .participant-card-actions-secondary {
+    margin-top: 12px;
+  }
+
+  .participant-card-status-copy strong {
+    font-size: 1rem;
+  }
+
   .mobile-quickbar button {
     min-height: 54px;
     font-weight: 800;
@@ -1206,6 +1268,10 @@ th {
 
   .mobile-session-summary {
     display: block;
+  }
+
+  .mobile-session-summary-grid {
+    grid-template-columns: 1fr 1fr 1fr;
   }
 
   .table-wrap {
