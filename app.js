@@ -2431,6 +2431,7 @@ function renderTodayDashboard() {
   const todayRecords = state.records.filter((record) => todaySessionIds.has(record.session_id));
   const nextCourse = getNextCourseForToday();
   const openTrials = state.trialRequests.filter((trial) => trial.status !== "konvertiert" && trial.status !== "abgesagt").length;
+  const openTrialRequests = getOpenTrialRequests().slice(0, 5);
 
   const items = [
     {
@@ -2731,6 +2732,50 @@ function renderTodayDashboard() {
   }
   beatOutCard.appendChild(beatOutList);
   todayInsights.appendChild(beatOutCard);
+
+  const trialReminderCard = document.createElement("article");
+  trialReminderCard.className = `stat-card dashboard-card ${openTrialRequests.length ? "dashboard-card-warn" : "dashboard-card-ok"}`;
+  trialReminderCard.innerHTML = `
+    <h3>Probetraining im Blick</h3>
+    <p class="stat-meta">Offene Probetrainings und anstehende Conversion-Faelle.</p>
+  `;
+  const trialReminderActions = document.createElement("div");
+  trialReminderActions.className = "stat-card-actions mini-actions";
+  const openTrialsBtn = document.createElement("button");
+  openTrialsBtn.type = "button";
+  openTrialsBtn.className = "ghost";
+  openTrialsBtn.textContent = "Probetrainings oeffnen";
+  openTrialsBtn.addEventListener("click", () => {
+    setActiveSection("#trialsPanel");
+  });
+  trialReminderActions.appendChild(openTrialsBtn);
+  trialReminderCard.appendChild(trialReminderActions);
+  const trialReminderList = document.createElement("div");
+  trialReminderList.className = "stack";
+  if (openTrialRequests.length) {
+    openTrialRequests.forEach((trial) => {
+      const row = document.createElement("div");
+      row.className = "list-row trial-reminder-row";
+      row.innerHTML = `
+        <div>
+          <strong>${escapeHtml(trial.full_name)}</strong>
+          <div class="stat-meta">${escapeHtml(formatTrialSessionLabel(trial))}</div>
+        </div>
+      `;
+      const rowActions = document.createElement("div");
+      rowActions.className = "mini-actions";
+      const statusPill = document.createElement("span");
+      statusPill.className = `status-pill ${trial.status === "teilgenommen" ? "status-pill-warn" : "status-pill-info"}`;
+      statusPill.textContent = trial.status === "teilgenommen" ? "Conversion offen" : escapeHtml(trial.status);
+      rowActions.appendChild(statusPill);
+      row.appendChild(rowActions);
+      trialReminderList.appendChild(row);
+    });
+  } else {
+    trialReminderList.innerHTML = '<p class="stat-meta">Aktuell keine offenen Probetrainings.</p>';
+  }
+  trialReminderCard.appendChild(trialReminderList);
+  todayInsights.appendChild(trialReminderCard);
 }
 
 function renderPlanning() {
@@ -3538,7 +3583,10 @@ function renderParticipants() {
       : "";
     const trialBadge = isTrialParticipant ? '<div class="participant-override"><span class="status-pill status-pill-info">Probetraining</span></div>' : "";
     const row = document.createElement("tr");
-    row.className = targetOverride ? "participant-row-override" : "";
+    row.className = [
+      targetOverride ? "participant-row-override" : "",
+      isTrialParticipant ? "participant-row-trial" : "",
+    ].filter(Boolean).join(" ");
     row.innerHTML = `
       <td>${isTrialParticipant ? escapeHtml(participant.full_name) : `<button type="button" class="link-button participant-profile-btn">${escapeHtml(participant.full_name)}</button>`}</td>
       <td>
@@ -3594,7 +3642,7 @@ function renderParticipants() {
     participantTableBody.appendChild(row);
 
     const card = document.createElement("article");
-    card.className = `participant-card${targetOverride ? " participant-card-override" : ""}`;
+    card.className = `participant-card${targetOverride ? " participant-card-override" : ""}${isTrialParticipant ? " participant-card-trial" : ""}`;
     card.innerHTML = `
       <div class="participant-card-head">
         <div>
@@ -3817,12 +3865,23 @@ function renderBusinessDashboard() {
   const newParticipantsThisMonth = state.participants.filter((participant) => {
     return String(participant.created_at || "").startsWith(selectedMonth);
   }).length;
+  const monthTrials = state.trialRequests.filter((trial) => {
+    const session = trial.attendance_session_id
+      ? state.sessions.find((entry) => entry.id === trial.attendance_session_id) || null
+      : null;
+    const referenceDate = session?.session_date || String(trial.created_at || "");
+    return String(referenceDate).startsWith(selectedMonth);
+  });
+  const convertedTrials = monthTrials.filter((trial) => trial.status === "konvertiert").length;
+  const trialConversionRate = monthTrials.length ? Math.round((convertedTrials / monthTrials.length) * 100) : 0;
 
   const summaryCards = [
     { title: "Teilnehmer gesamt", value: state.participants.length, meta: `${newParticipantsThisMonth} neu in ${getSelectedMonthLabel()}` },
     { title: "Aktive Trainer", value: activeTrainerIds.size, meta: `${state.courses.length} Kurse live` },
     { title: "Sessions im Monat", value: monthSessions.length, meta: getSelectedMonthLabel() },
     { title: "No-Show-Rate", value: `${noShowRate}%`, meta: `${avgAttendance}% Anwesenheit` },
+    { title: "Probetrainings", value: monthTrials.length, meta: `${convertedTrials} konvertiert in ${getSelectedMonthLabel()}` },
+    { title: "Conversion", value: `${trialConversionRate}%`, meta: "Probetrainings zu Teilnehmern" },
   ];
 
   summaryCards.forEach((item) => {
@@ -3874,6 +3933,40 @@ function renderBusinessDashboard() {
     `;
     businessInsights.appendChild(card);
   });
+
+  const trialSeasonCard = document.createElement("article");
+  trialSeasonCard.className = "stat-card";
+  trialSeasonCard.innerHTML = `
+    <h3>Conversion pro Season</h3>
+    <p class="stat-meta">Probetrainings je Season und wie viele davon konvertiert wurden.</p>
+  `;
+  const trialSeasonList = document.createElement("div");
+  trialSeasonList.className = "stack";
+  const trialSeasonSummaries = getTrialSeasonSummaries(selectedMonth);
+  if (trialSeasonSummaries.length) {
+    trialSeasonSummaries.forEach((entry) => {
+      const row = document.createElement("div");
+      row.className = "list-row";
+      row.innerHTML = `
+        <div>
+          <strong>${escapeHtml(entry.label)}</strong>
+          <div class="stat-meta">${entry.total} Probetrainings | ${entry.converted} konvertiert</div>
+        </div>
+      `;
+      const rowActions = document.createElement("div");
+      rowActions.className = "mini-actions";
+      const conversionPill = document.createElement("span");
+      conversionPill.className = `status-pill ${entry.rate >= 50 ? "status-pill-info" : "status-pill-warn"}`;
+      conversionPill.textContent = `${entry.rate}% Conversion`;
+      rowActions.appendChild(conversionPill);
+      row.appendChild(rowActions);
+      trialSeasonList.appendChild(row);
+    });
+  } else {
+    trialSeasonList.innerHTML = '<p class="stat-meta">Noch keine Probetrainings mit Season-Bezug im gewaehlten Monat.</p>';
+  }
+  trialSeasonCard.appendChild(trialSeasonList);
+  businessInsights.appendChild(trialSeasonCard);
 }
 
 function renderMonthlyOverview() {
@@ -4521,6 +4614,81 @@ function getFilteredParticipants(courseId, sessionId = null) {
     return participant.full_name.toLowerCase().includes(state.participantSearch)
       || String(participant.phone || "").toLowerCase().includes(state.participantSearch);
   });
+}
+
+function getOpenTrialRequests() {
+  return state.trialRequests
+    .filter((trial) => trial.status !== "konvertiert" && trial.status !== "abgesagt")
+    .sort((left, right) => {
+      const leftSession = left.attendance_session_id
+        ? state.sessions.find((entry) => entry.id === left.attendance_session_id) || null
+        : null;
+      const rightSession = right.attendance_session_id
+        ? state.sessions.find((entry) => entry.id === right.attendance_session_id) || null
+        : null;
+      const leftDate = leftSession?.session_date || String(left.created_at || "");
+      const rightDate = rightSession?.session_date || String(right.created_at || "");
+      return String(leftDate).localeCompare(String(rightDate));
+    });
+}
+
+function formatTrialSessionLabel(trial) {
+  const session = trial.attendance_session_id
+    ? state.sessions.find((entry) => entry.id === trial.attendance_session_id) || null
+    : null;
+  const course = trial.course_id
+    ? state.courses.find((entry) => entry.id === trial.course_id) || null
+    : null;
+  const season = session?.season_id
+    ? state.seasons.find((entry) => entry.id === session.season_id) || null
+    : null;
+  const base = session
+    ? `${formatDateLabel(session.session_date)} | ${course ? course.name : "Kein Kurs"}`
+    : course
+      ? course.name
+      : "Kein Termin";
+  return season ? `${base} | ${season.name}` : base;
+}
+
+function getTrialSeasonSummaries(monthValue) {
+  const grouped = new Map();
+  state.trialRequests.forEach((trial) => {
+    const session = trial.attendance_session_id
+      ? state.sessions.find((entry) => entry.id === trial.attendance_session_id) || null
+      : null;
+    const referenceDate = session?.session_date || String(trial.created_at || "").slice(0, 10);
+    if (!String(referenceDate).startsWith(monthValue)) {
+      return;
+    }
+    const season = session?.season_id
+      ? state.seasons.find((entry) => entry.id === session.season_id) || null
+      : null;
+    const key = season?.id || "no-season";
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        label: season?.name || "Ohne Season",
+        total: 0,
+        converted: 0,
+      });
+    }
+    const bucket = grouped.get(key);
+    bucket.total += 1;
+    if (trial.status === "konvertiert") {
+      bucket.converted += 1;
+    }
+  });
+
+  return Array.from(grouped.values())
+    .map((entry) => ({
+      ...entry,
+      rate: entry.total ? Math.round((entry.converted / entry.total) * 100) : 0,
+    }))
+    .sort((left, right) => {
+      if (right.rate !== left.rate) {
+        return right.rate - left.rate;
+      }
+      return right.total - left.total;
+    });
 }
 
 function getPreferredTrialSeasonId() {
