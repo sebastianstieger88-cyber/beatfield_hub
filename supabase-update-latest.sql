@@ -74,6 +74,18 @@ alter table public.attendance_sessions
 alter table public.trial_requests
   add column if not exists attendance_session_id uuid references public.attendance_sessions(id) on delete set null;
 
+create table if not exists public.drop_in_bookings (
+  id uuid primary key default gen_random_uuid(),
+  course_id uuid not null references public.courses(id) on delete cascade,
+  attendance_session_id uuid references public.attendance_sessions(id) on delete set null,
+  full_name text not null,
+  email text,
+  phone text,
+  status text not null default 'gebucht' check (status in ('gebucht', 'teilgenommen', 'abgesagt')),
+  notes text,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.session_overrides (
   id uuid primary key default gen_random_uuid(),
   season_booking_id uuid not null references public.season_bookings(id) on delete cascade,
@@ -173,6 +185,7 @@ alter table public.seasons enable row level security;
 alter table public.season_bookings enable row level security;
 alter table public.beat_out_entries enable row level security;
 alter table public.session_overrides enable row level security;
+alter table public.drop_in_bookings enable row level security;
 
 drop policy if exists "authenticated can read trainer directory" on public.trainer_directory;
 create policy "authenticated can read trainer directory"
@@ -218,6 +231,42 @@ for all
 to authenticated
 using (public.current_user_role() = 'admin')
 with check (public.current_user_role() = 'admin');
+
+drop policy if exists "drop-ins visible to course owners" on public.drop_in_bookings;
+create policy "drop-ins visible to course owners"
+on public.drop_in_bookings
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.courses
+    where courses.id = drop_in_bookings.course_id
+      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+  )
+);
+
+drop policy if exists "drop-ins managed by course owners" on public.drop_in_bookings;
+create policy "drop-ins managed by course owners"
+on public.drop_in_bookings
+for all
+to authenticated
+using (
+  exists (
+    select 1
+    from public.courses
+    where courses.id = drop_in_bookings.course_id
+      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.courses
+    where courses.id = drop_in_bookings.course_id
+      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+  )
+);
 
 drop policy if exists "beat outs visible to course owners" on public.beat_out_entries;
 create policy "beat outs visible to course owners"

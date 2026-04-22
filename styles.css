@@ -815,6 +815,11 @@ button.danger {
   box-shadow: inset 0 0 0 1px rgba(245, 185, 66, 0.08), 0 10px 24px rgba(0, 0, 0, 0.2);
 }
 
+.participant-card-dropin {
+  border-color: rgba(103, 193, 47, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(103, 193, 47, 0.06), 0 10px 24px rgba(0, 0, 0, 0.2);
+}
+
 .participant-card-head {
   display: flex;
   align-items: start;
@@ -828,6 +833,10 @@ button.danger {
 
 .participant-row-trial td {
   background: rgba(245, 185, 66, 0.06);
+}
+
+.participant-row-dropin td {
+  background: rgba(103, 193, 47, 0.05);
 }
 
 .participant-meta-stack {

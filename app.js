@@ -20,6 +20,7 @@ const state = {
   invites: [],
   participants: [],
   trialRequests: [],
+  dropInBookings: [],
   sessions: [],
   records: [],
   beatOutEntries: [],
@@ -96,6 +97,7 @@ const participantForm = document.querySelector("#participantForm");
 const participantFormNotice = document.querySelector("#participantFormNotice");
 const openBookingPanelBtn = document.querySelector("#openBookingPanelBtn");
 const trialForm = document.querySelector("#trialForm");
+const dropInForm = document.querySelector("#dropInForm");
 const inviteOutput = document.querySelector("#inviteOutput");
 const inviteOutputCode = document.querySelector("#inviteOutputCode");
 const inviteOutputLink = document.querySelector("#inviteOutputLink");
@@ -127,9 +129,11 @@ const moveParticipantSubmitBtn = document.querySelector("#moveParticipantSubmitB
 const closeMoveParticipantModalBtn = document.querySelector("#closeMoveParticipantModalBtn");
 const cancelMoveParticipantBtn = document.querySelector("#cancelMoveParticipantBtn");
 const trialCourseSelect = document.querySelector("#trialCourseSelect");
+const dropInSessionSelect = document.querySelector("#dropInSessionSelect");
 const inviteList = document.querySelector("#inviteList");
 const courseList = document.querySelector("#courseList");
 const trialCards = document.querySelector("#trialCards");
+const dropInCards = document.querySelector("#dropInCards");
 const planningPreview = document.querySelector("#planningPreview");
 const planNextBtn = document.querySelector("#planNextBtn");
 const planMonthBtn = document.querySelector("#planMonthBtn");
@@ -220,6 +224,7 @@ openBookingPanelBtn?.addEventListener("click", () => {
   render();
 });
 trialForm?.addEventListener("submit", handleTrialCreate);
+dropInForm?.addEventListener("submit", handleDropInCreate);
 moveParticipantForm?.addEventListener("submit", handleMoveParticipantSubmit);
 closeMoveParticipantModalBtn?.addEventListener("click", closeMoveParticipantModal);
 cancelMoveParticipantBtn?.addEventListener("click", closeMoveParticipantModal);
@@ -487,7 +492,15 @@ async function fetchSupportData() {
       .order("created_at", { ascending: false })
     : Promise.resolve({ data: [], error: null });
 
-  const [seasonResult, seasonBookingResult, trainerResult, trainerDirectoryResult, inviteResult, participantResult, sessionResult, trialResult] = await Promise.all([
+  const dropInQuery = courseIds.length
+    ? state.supabase
+      .from("drop_in_bookings")
+      .select("id, course_id, attendance_session_id, full_name, email, phone, status, notes, created_at")
+      .in("course_id", courseIds)
+      .order("created_at", { ascending: false })
+    : Promise.resolve({ data: [], error: null });
+
+  const [seasonResult, seasonBookingResult, trainerResult, trainerDirectoryResult, inviteResult, participantResult, sessionResult, trialResult, dropInResult] = await Promise.all([
     seasonsQuery,
     seasonBookingsQuery,
     trainerQuery,
@@ -496,6 +509,7 @@ async function fetchSupportData() {
     participantsQuery,
     sessionsQuery,
     trialsQuery,
+    dropInQuery,
   ]);
 
   if (seasonResult.error) {
@@ -521,6 +535,9 @@ async function fetchSupportData() {
   }
   if (trialResult.error) {
     notify(trialResult.error.message, true);
+  }
+  if (dropInResult.error) {
+    notify(dropInResult.error.message, true);
   }
 
   if (!seasonResult.error) {
@@ -568,6 +585,9 @@ async function fetchSupportData() {
   }
   if (!trialResult.error) {
     state.trialRequests = trialResult.data || [];
+  }
+  if (!dropInResult.error) {
+    state.dropInBookings = dropInResult.data || [];
   }
 
   const bookingIds = state.seasonBookings.map((booking) => booking.id);
@@ -1210,6 +1230,7 @@ async function handleCourseDelete() {
     state.sessions = state.sessions.filter((session) => session.course_id !== course.id);
     state.records = state.records.filter((record) => !linkedParticipantIds.includes(record.participant_id) && !linkedSessionIds.includes(record.session_id));
     state.trialRequests = state.trialRequests.filter((trial) => trial.course_id !== course.id);
+    state.dropInBookings = state.dropInBookings.filter((entry) => entry.course_id !== course.id);
     state.beatOutEntries = state.beatOutEntries.filter((entry) => !linkedSessionIds.includes(entry.session_id) && !linkedParticipantIds.includes(entry.participant_id));
     if (state.selectedCourseId === course.id) {
       state.selectedCourseId = state.courses[0]?.id || null;
@@ -2323,6 +2344,43 @@ async function handleTrialCreate(event) {
   notify("Probetraining angelegt.");
 }
 
+async function handleDropInCreate(event) {
+  event.preventDefault();
+
+  if (!state.supabase) {
+    return;
+  }
+
+  const formData = new FormData(dropInForm);
+  const sessionId = normalizeOptionalId(formData.get("sessionId"));
+  const selectedSession = sessionId ? state.sessions.find((entry) => entry.id === sessionId) : null;
+  if (!selectedSession) {
+    notify("Bitte zuerst einen gueltigen Season-Termin fuer den DROP-IN auswaehlen.", true);
+    return;
+  }
+
+  const { error } = await state.supabase
+    .from("drop_in_bookings")
+    .insert({
+      course_id: selectedSession.course_id,
+      attendance_session_id: selectedSession.id,
+      full_name: String(formData.get("fullName")).trim(),
+      email: String(formData.get("email")).trim(),
+      phone: String(formData.get("phone")).trim(),
+      status: "gebucht",
+    });
+
+  if (error) {
+    notify(error.message, true);
+    return;
+  }
+
+  dropInForm.reset();
+  await fetchSupportData();
+  render();
+  notify("DROP-IN angelegt.");
+}
+
 function render() {
   const connected = Boolean(state.supabase);
   const loggedIn = Boolean(state.session && state.profile);
@@ -2379,8 +2437,10 @@ function render() {
   renderTrainerSelect();
   renderTrainerDirectory();
   renderTrialCourseSelect();
+  renderDropInSessionSelect();
   renderInvites();
   renderTrials();
+  renderDropIns();
   renderTodayDashboard();
   renderCourseList();
   renderPlanning();
@@ -2815,6 +2875,22 @@ function openTrialInAttendance(trial) {
     : null;
   if (trial?.course_id) {
     state.selectedCourseId = trial.course_id;
+  }
+  if (session?.season_id) {
+    state.attendanceSeasonId = session.season_id;
+  }
+  if (session?.session_date && attendanceDate) {
+    attendanceDate.value = session.session_date;
+  }
+  setActiveSection("#attendancePanel");
+}
+
+function openDropInInAttendance(dropIn) {
+  const session = dropIn?.attendance_session_id
+    ? state.sessions.find((entry) => entry.id === dropIn.attendance_session_id) || null
+    : null;
+  if (dropIn?.course_id) {
+    state.selectedCourseId = dropIn.course_id;
   }
   if (session?.season_id) {
     state.attendanceSeasonId = session.season_id;
@@ -3355,7 +3431,18 @@ function renderInvites() {
 }
 
 function renderTrialCourseSelect() {
-  trialCourseSelect.innerHTML = "";
+  renderSingleSessionSelect(trialCourseSelect);
+}
+
+function renderDropInSessionSelect() {
+  renderSingleSessionSelect(dropInSessionSelect);
+}
+
+function renderSingleSessionSelect(selectElement) {
+  if (!selectElement) {
+    return;
+  }
+  selectElement.innerHTML = "";
   const preferredSeasonId = getPreferredTrialSeasonId();
   const sessionOptions = preferredSeasonId
     ? getSeasonSessions(preferredSeasonId)
@@ -3367,7 +3454,7 @@ function renderTrialCourseSelect() {
     option.textContent = preferredSeasonId
       ? "Keine Termine in der gewaehlten Season"
       : "Keine kommenden Termine verfuegbar";
-    trialCourseSelect.appendChild(option);
+    selectElement.appendChild(option);
     return;
   }
 
@@ -3400,7 +3487,7 @@ function renderTrialCourseSelect() {
     });
 
     if (container.childElementCount) {
-      trialCourseSelect.appendChild(container);
+      selectElement.appendChild(container);
     }
   });
 }
@@ -3461,6 +3548,49 @@ function renderTrials() {
   });
 }
 
+function renderDropIns() {
+  dropInCards.innerHTML = "";
+
+  if (!state.dropInBookings.length) {
+    dropInCards.appendChild(emptyStateTemplate.content.cloneNode(true));
+    return;
+  }
+
+  state.dropInBookings.forEach((dropIn) => {
+    const pipelineMeta = getDropInPipelineMeta(dropIn);
+    const card = document.createElement("article");
+    card.className = "stat-card";
+    card.innerHTML = `
+      <h3>${escapeHtml(dropIn.full_name)}</h3>
+      <p class="stat-meta">${escapeHtml(formatDropInSessionLabel(dropIn))}</p>
+      <p class="stat-meta">${dropIn.email ? escapeHtml(dropIn.email) : "Keine E-Mail"}</p>
+      <p class="stat-meta">${dropIn.phone ? escapeHtml(dropIn.phone) : "Keine Telefonnummer"}</p>
+      <p class="stat-meta">Status: ${escapeHtml(dropIn.status)}</p>
+      <div class="trial-pipeline">
+        <span class="status-pill ${escapeHtml(pipelineMeta.tone)}">${escapeHtml(pipelineMeta.label)}</span>
+        <span class="stat-meta">${escapeHtml(pipelineMeta.meta)}</span>
+      </div>
+      <div class="trial-actions">
+        <button type="button" class="ghost" data-dropin-action="attended">Teilgenommen</button>
+        <button type="button" class="ghost" data-dropin-action="open">Zum Kurs</button>
+        <button type="button" class="danger" data-dropin-action="cancel">Stornieren</button>
+      </div>
+    `;
+
+    card.querySelector('[data-dropin-action="attended"]').addEventListener("click", async () => {
+      await updateDropInStatus(dropIn.id, "teilgenommen");
+    });
+    card.querySelector('[data-dropin-action="open"]').addEventListener("click", () => {
+      openDropInInAttendance(dropIn);
+    });
+    card.querySelector('[data-dropin-action="cancel"]').addEventListener("click", async () => {
+      await handleDropInDelete(dropIn);
+    });
+
+    dropInCards.appendChild(card);
+  });
+}
+
 function showInviteOutput(code) {
   const link = buildInviteLink(code);
   inviteOutput.classList.remove("hidden");
@@ -3499,6 +3629,46 @@ async function updateTrialStatus(trialId, status) {
   await fetchSupportData();
   render();
   notify(`Probetraining auf "${status}" gesetzt.`);
+}
+
+async function updateDropInStatus(dropInId, status) {
+  const { error } = await state.supabase
+    .from("drop_in_bookings")
+    .update({ status })
+    .eq("id", dropInId);
+
+  if (error) {
+    notify(error.message, true);
+    return;
+  }
+
+  await fetchSupportData();
+  render();
+  notify(`DROP-IN auf "${status}" gesetzt.`);
+}
+
+async function handleDropInDelete(dropIn) {
+  if (!dropIn) {
+    return;
+  }
+  const shouldDelete = window.confirm(`DROP-IN von ${dropIn.full_name} wirklich stornieren?`);
+  if (!shouldDelete) {
+    return;
+  }
+
+  const { error } = await state.supabase
+    .from("drop_in_bookings")
+    .delete()
+    .eq("id", dropIn.id);
+
+  if (error) {
+    notify(error.message, true);
+    return;
+  }
+
+  await fetchSupportData();
+  render();
+  notify("DROP-IN wurde entfernt.");
 }
 
 async function convertTrialToParticipant(trial) {
@@ -3662,130 +3832,188 @@ function renderParticipants() {
 
   sessionParticipants.forEach((participant) => {
     const isTrialParticipant = Boolean(participant.is_trial);
+    const isDropInParticipant = Boolean(participant.is_dropin);
     const record = records.find((entry) => entry.participant_id === participant.id);
-    const isPresent = Boolean(record?.present);
+    const isPresent = isDropInParticipant
+      ? participant.drop_in_status === "teilgenommen"
+      : Boolean(record?.present);
     const booking = getParticipantSeasonBooking(participant);
     const beatOutEntry = getBeatOutEntryForParticipantSession(participant.id, session?.id);
     const bookingUsage = getBeatOutUsageForBooking(booking?.id);
-    const rate = isTrialParticipant ? "Probe" : calculateAttendanceRate(course.id, participant.id);
-    const rateBadge = isTrialParticipant ? "Probe" : `${rate}%`;
+    const rate = isTrialParticipant
+      ? "Probe"
+      : isDropInParticipant
+        ? "Drop-In"
+        : calculateAttendanceRate(course.id, participant.id);
+    const rateBadge = isTrialParticipant
+      ? "Probe"
+      : isDropInParticipant
+        ? "Drop-In"
+        : `${rate}%`;
     const targetOverride = session?.id ? getSessionOverrideForTarget(participant.id, session.id) : null;
     const overrideMeta = targetOverride ? getSessionOverrideLabel(targetOverride) : "";
     const overrideBadge = targetOverride
       ? `<div class="participant-override"><span class="status-pill status-pill-info">Ersatztermin</span><span class="participant-override-text">${escapeHtml(overrideMeta)}</span></div>`
       : "";
     const trialBadge = isTrialParticipant ? '<div class="participant-override"><span class="status-pill status-pill-info">Probetraining</span></div>' : "";
+    const dropInBadge = isDropInParticipant ? '<div class="participant-override"><span class="status-pill status-pill-warn">DROP-IN</span></div>' : "";
+
     const row = document.createElement("tr");
     row.className = [
       targetOverride ? "participant-row-override" : "",
       isTrialParticipant ? "participant-row-trial" : "",
+      isDropInParticipant ? "participant-row-dropin" : "",
     ].filter(Boolean).join(" ");
     row.innerHTML = `
-      <td>${isTrialParticipant ? escapeHtml(participant.full_name) : `<button type="button" class="link-button participant-profile-btn">${escapeHtml(participant.full_name)}</button>`}</td>
+      <td>${isTrialParticipant || isDropInParticipant ? escapeHtml(participant.full_name) : `<button type="button" class="link-button participant-profile-btn">${escapeHtml(participant.full_name)}</button>`}</td>
       <td>
         <div class="participant-meta-stack">
           <div>${participant.phone ? escapeHtml(participant.phone) : '<span class="muted">-</span>'}</div>
           ${booking ? `<div class="stat-meta beatout-meta">BEAT-OUT ${bookingUsage.used}/${bookingUsage.limit}</div>` : ""}
           ${trialBadge}
+          ${dropInBadge}
           ${overrideBadge}
         </div>
       </td>
       <td><button type="button" class="attendance-toggle${isPresent ? " is-present" : ""}" aria-label="Anwesenheit umschalten"></button></td>
       <td><span class="badge">${rateBadge}</span></td>
-        <td>
-          <div class="mini-actions table-actions">
-            <button type="button" class="ghost participant-beatout-btn${beatOutEntry ? " is-active" : ""}">${beatOutEntry ? "BEAT-OUT aktiv" : "BEAT-OUT"}</button>
-            <button type="button" class="ghost participant-move-btn">${targetOverride ? "Terminwechsel aufheben" : booking ? "Termin umbuchen" : "Umbuchen"}</button>
-            <button type="button" class="danger participant-delete-btn">${booking ? "Entfernen" : "Loeschen"}</button>
-          </div>
-        </td>
-      `;
-
-    const toggleButton = row.querySelector(".attendance-toggle");
-    toggleButton.disabled = !canEditCourse(course) || isTrialParticipant;
-    if (!isTrialParticipant) {
-      toggleButton.addEventListener("click", async () => {
-        await toggleAttendance(course.id, participant.id);
-      });
-    }
-    const moveButton = row.querySelector(".participant-move-btn");
-    moveButton.disabled = !canEditCourse(course) || isTrialParticipant;
-    if (!isTrialParticipant) {
-      moveButton.addEventListener("click", async () => {
-        await handleParticipantMove(participant, course);
-      });
-    }
-      const beatOutButton = row.querySelector(".participant-beatout-btn");
-      beatOutButton.disabled = !canEditCourse(course) || !booking || isTrialParticipant;
-      if (!isTrialParticipant) {
-        beatOutButton.addEventListener("click", async () => {
-          await toggleBeatOut(course.id, participant.id);
-        });
-      }
-      const deleteButton = row.querySelector(".participant-delete-btn");
-      deleteButton.disabled = !canEditCourse(course) || isTrialParticipant;
-      if (!isTrialParticipant) {
-        deleteButton.addEventListener("click", async () => {
-          await handleParticipantDelete(participant, course);
-        });
-        row.querySelector(".participant-profile-btn").addEventListener("click", () => {
-          openParticipantProfile(participant.id, booking?.id || participant.season_booking_id);
-        });
-      }
-    participantTableBody.appendChild(row);
-
-    const card = document.createElement("article");
-    card.className = `participant-card${targetOverride ? " participant-card-override" : ""}${isTrialParticipant ? " participant-card-trial" : ""}`;
-    card.innerHTML = `
-      <div class="participant-card-head">
-        <div>
-          <h3>${isTrialParticipant ? escapeHtml(participant.full_name) : `<button type="button" class="link-button participant-profile-btn">${escapeHtml(participant.full_name)}</button>`}</h3>
-          <p class="stat-meta">${participant.phone ? escapeHtml(participant.phone) : "Keine Telefonnummer"}</p>
-            ${booking ? `<p class="stat-meta beatout-meta">BEAT-OUT ${bookingUsage.used}/${bookingUsage.limit}</p>` : ""}
-            ${trialBadge}
-            ${overrideBadge}
-        </div>
-        <span class="badge">${rateBadge}</span>
-      </div>
-        <div class="participant-card-actions">
-          <button type="button" class="attendance-toggle${isPresent ? " is-present" : ""}" aria-label="Anwesenheit umschalten"></button>
+      <td>
+        <div class="mini-actions table-actions">
           <button type="button" class="ghost participant-beatout-btn${beatOutEntry ? " is-active" : ""}">${beatOutEntry ? "BEAT-OUT aktiv" : "BEAT-OUT"}</button>
           <button type="button" class="ghost participant-move-btn">${targetOverride ? "Terminwechsel aufheben" : booking ? "Termin umbuchen" : "Umbuchen"}</button>
           <button type="button" class="danger participant-delete-btn">${booking ? "Entfernen" : "Loeschen"}</button>
         </div>
-      `;
+      </td>
+    `;
+
+    const toggleButton = row.querySelector(".attendance-toggle");
+    toggleButton.disabled = !canEditCourse(course) || isTrialParticipant;
+    if (!isTrialParticipant && !isDropInParticipant) {
+      toggleButton.addEventListener("click", async () => {
+        await toggleAttendance(course.id, participant.id);
+      });
+    } else if (isDropInParticipant) {
+      toggleButton.addEventListener("click", async () => {
+        await updateDropInStatus(
+          participant.drop_in_booking_id,
+          participant.drop_in_status === "teilgenommen" ? "gebucht" : "teilgenommen",
+        );
+      });
+    }
+
+    const moveButton = row.querySelector(".participant-move-btn");
+    moveButton.disabled = !canEditCourse(course) || isTrialParticipant || isDropInParticipant;
+    if (!isTrialParticipant && !isDropInParticipant) {
+      moveButton.addEventListener("click", async () => {
+        await handleParticipantMove(participant, course);
+      });
+    }
+
+    const beatOutButton = row.querySelector(".participant-beatout-btn");
+    beatOutButton.disabled = !canEditCourse(course) || !booking || isTrialParticipant || isDropInParticipant;
+    if (!isTrialParticipant && !isDropInParticipant) {
+      beatOutButton.addEventListener("click", async () => {
+        await toggleBeatOut(course.id, participant.id);
+      });
+    }
+
+    const deleteButton = row.querySelector(".participant-delete-btn");
+    deleteButton.disabled = !canEditCourse(course) || isTrialParticipant;
+    if (!isTrialParticipant && !isDropInParticipant) {
+      deleteButton.addEventListener("click", async () => {
+        await handleParticipantDelete(participant, course);
+      });
+      row.querySelector(".participant-profile-btn").addEventListener("click", () => {
+        openParticipantProfile(participant.id, booking?.id || participant.season_booking_id);
+      });
+    } else if (isDropInParticipant) {
+      deleteButton.addEventListener("click", async () => {
+        const dropIn = state.dropInBookings.find((entry) => entry.id === participant.drop_in_booking_id) || null;
+        await handleDropInDelete(dropIn);
+      });
+    }
+
+    if (isDropInParticipant) {
+      moveButton.textContent = "Einzelstunde";
+      deleteButton.textContent = "Stornieren";
+    }
+
+    participantTableBody.appendChild(row);
+
+    const card = document.createElement("article");
+    card.className = `participant-card${targetOverride ? " participant-card-override" : ""}${isTrialParticipant ? " participant-card-trial" : ""}${isDropInParticipant ? " participant-card-dropin" : ""}`;
+    card.innerHTML = `
+      <div class="participant-card-head">
+        <div>
+          <h3>${isTrialParticipant || isDropInParticipant ? escapeHtml(participant.full_name) : `<button type="button" class="link-button participant-profile-btn">${escapeHtml(participant.full_name)}</button>`}</h3>
+          <p class="stat-meta">${participant.phone ? escapeHtml(participant.phone) : "Keine Telefonnummer"}</p>
+          ${booking ? `<p class="stat-meta beatout-meta">BEAT-OUT ${bookingUsage.used}/${bookingUsage.limit}</p>` : ""}
+          ${trialBadge}
+          ${dropInBadge}
+          ${overrideBadge}
+        </div>
+        <span class="badge">${rateBadge}</span>
+      </div>
+      <div class="participant-card-actions">
+        <button type="button" class="attendance-toggle${isPresent ? " is-present" : ""}" aria-label="Anwesenheit umschalten"></button>
+        <button type="button" class="ghost participant-beatout-btn${beatOutEntry ? " is-active" : ""}">${beatOutEntry ? "BEAT-OUT aktiv" : "BEAT-OUT"}</button>
+        <button type="button" class="ghost participant-move-btn">${targetOverride ? "Terminwechsel aufheben" : booking ? "Termin umbuchen" : "Umbuchen"}</button>
+        <button type="button" class="danger participant-delete-btn">${booking ? "Entfernen" : "Loeschen"}</button>
+      </div>
+    `;
 
     const mobileToggle = card.querySelector(".attendance-toggle");
     mobileToggle.disabled = !canEditCourse(course) || isTrialParticipant;
-    if (!isTrialParticipant) {
+    if (!isTrialParticipant && !isDropInParticipant) {
       mobileToggle.addEventListener("click", async () => {
         await toggleAttendance(course.id, participant.id);
       });
+    } else if (isDropInParticipant) {
+      mobileToggle.addEventListener("click", async () => {
+        await updateDropInStatus(
+          participant.drop_in_booking_id,
+          participant.drop_in_status === "teilgenommen" ? "gebucht" : "teilgenommen",
+        );
+      });
     }
+
     const mobileMoveButton = card.querySelector(".participant-move-btn");
-    mobileMoveButton.disabled = !canEditCourse(course) || isTrialParticipant;
-    if (!isTrialParticipant) {
+    mobileMoveButton.disabled = !canEditCourse(course) || isTrialParticipant || isDropInParticipant;
+    if (!isTrialParticipant && !isDropInParticipant) {
       mobileMoveButton.addEventListener("click", async () => {
         await handleParticipantMove(participant, course);
       });
     }
-      const mobileBeatOutButton = card.querySelector(".participant-beatout-btn");
-      mobileBeatOutButton.disabled = !canEditCourse(course) || !booking || isTrialParticipant;
-      if (!isTrialParticipant) {
-        mobileBeatOutButton.addEventListener("click", async () => {
-          await toggleBeatOut(course.id, participant.id);
-        });
-      }
-      const mobileDeleteButton = card.querySelector(".participant-delete-btn");
-      mobileDeleteButton.disabled = !canEditCourse(course) || isTrialParticipant;
-      if (!isTrialParticipant) {
-        mobileDeleteButton.addEventListener("click", async () => {
-          await handleParticipantDelete(participant, course);
-        });
-        card.querySelector(".participant-profile-btn").addEventListener("click", () => {
-          openParticipantProfile(participant.id, booking?.id || participant.season_booking_id);
-        });
-      }
+
+    const mobileBeatOutButton = card.querySelector(".participant-beatout-btn");
+    mobileBeatOutButton.disabled = !canEditCourse(course) || !booking || isTrialParticipant || isDropInParticipant;
+    if (!isTrialParticipant && !isDropInParticipant) {
+      mobileBeatOutButton.addEventListener("click", async () => {
+        await toggleBeatOut(course.id, participant.id);
+      });
+    }
+
+    const mobileDeleteButton = card.querySelector(".participant-delete-btn");
+    mobileDeleteButton.disabled = !canEditCourse(course) || isTrialParticipant;
+    if (!isTrialParticipant && !isDropInParticipant) {
+      mobileDeleteButton.addEventListener("click", async () => {
+        await handleParticipantDelete(participant, course);
+      });
+      card.querySelector(".participant-profile-btn").addEventListener("click", () => {
+        openParticipantProfile(participant.id, booking?.id || participant.season_booking_id);
+      });
+    } else if (isDropInParticipant) {
+      mobileDeleteButton.addEventListener("click", async () => {
+        const dropIn = state.dropInBookings.find((entry) => entry.id === participant.drop_in_booking_id) || null;
+        await handleDropInDelete(dropIn);
+      });
+    }
+
+    if (isDropInParticipant) {
+      mobileMoveButton.textContent = "Einzelstunde";
+      mobileDeleteButton.textContent = "Stornieren";
+    }
+
     participantCards.appendChild(card);
   });
 }
@@ -4694,6 +4922,28 @@ function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
     }
   });
 
+  const dropInRoster = state.dropInBookings
+    .filter((entry) => entry.status !== "abgesagt" && entry.attendance_session_id === sessionId)
+    .map((entry) => ({
+      id: `dropin-${entry.id}`,
+      course_id: entry.course_id,
+      season_id: state.sessions.find((session) => session.id === entry.attendance_session_id)?.season_id || null,
+      season_booking_id: null,
+      full_name: `${entry.full_name} (DROP-IN)`,
+      phone: entry.phone || "",
+      email: entry.email || "",
+      is_dropin: true,
+      drop_in_booking_id: entry.id,
+      drop_in_status: entry.status,
+    }));
+
+  dropInRoster.forEach((participant) => {
+    if (!rosterIds.has(participant.id)) {
+      roster.push(participant);
+      rosterIds.add(participant.id);
+    }
+  });
+
   return roster.sort((left, right) => String(left.full_name || "").localeCompare(String(right.full_name || "")));
 }
 
@@ -4762,12 +5012,53 @@ function getTrialPipelineMeta(trial) {
   };
 }
 
+function getDropInPipelineMeta(dropIn) {
+  const status = dropIn?.status || "gebucht";
+  if (status === "gebucht") {
+    return {
+      label: "Einzelstunde gebucht",
+      meta: "nur fuer diesen einen Termin aktiv",
+      tone: "status-pill-info",
+    };
+  }
+  if (status === "teilgenommen") {
+    return {
+      label: "Teilgenommen",
+      meta: "DROP-IN wurde wahrgenommen",
+      tone: "status-pill-info",
+    };
+  }
+  return {
+    label: "Storniert",
+    meta: "kein weiterer Schritt noetig",
+    tone: "status-pill-critical",
+  };
+}
+
 function formatTrialSessionLabel(trial) {
   const session = trial.attendance_session_id
     ? state.sessions.find((entry) => entry.id === trial.attendance_session_id) || null
     : null;
   const course = trial.course_id
     ? state.courses.find((entry) => entry.id === trial.course_id) || null
+    : null;
+  const season = session?.season_id
+    ? state.seasons.find((entry) => entry.id === session.season_id) || null
+    : null;
+  const base = session
+    ? `${formatDateLabel(session.session_date)} | ${course ? course.name : "Kein Kurs"}`
+    : course
+      ? course.name
+      : "Kein Termin";
+  return season ? `${base} | ${season.name}` : base;
+}
+
+function formatDropInSessionLabel(dropIn) {
+  const session = dropIn.attendance_session_id
+    ? state.sessions.find((entry) => entry.id === dropIn.attendance_session_id) || null
+    : null;
+  const course = dropIn.course_id
+    ? state.courses.find((entry) => entry.id === dropIn.course_id) || null
     : null;
   const season = session?.season_id
     ? state.seasons.find((entry) => entry.id === session.season_id) || null
@@ -5420,6 +5711,7 @@ function resetProtectedState() {
   state.invites = [];
   state.participants = [];
   state.trialRequests = [];
+  state.dropInBookings = [];
   state.sessions = [];
   state.records = [];
   state.beatOutEntries = [];

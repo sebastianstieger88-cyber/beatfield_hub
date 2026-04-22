@@ -400,7 +400,7 @@
         <div class="panel-heading">
           <div>
             <p class="eyebrow">Version 3</p>
-            <h2>Probetraining & Conversion</h2>
+            <h2>Probetraining, Drop-In & Conversion</h2>
           </div>
         </div>
         <form id="trialForm" class="stack inline-form trial-form">
@@ -423,6 +423,26 @@
           <button type="submit" class="primary">Probetraining anlegen</button>
         </form>
         <div id="trialCards" class="stats-grid"></div>
+        <form id="dropInForm" class="stack inline-form trial-form">
+          <label>
+            <span>Name</span>
+            <input name="fullName" type="text" placeholder="Vor- und Nachname" required>
+          </label>
+          <label>
+            <span>E-Mail</span>
+            <input name="email" type="email" placeholder="optional">
+          </label>
+          <label>
+            <span>Telefon</span>
+            <input name="phone" type="tel" placeholder="Optional">
+          </label>
+          <label>
+            <span>Season-Termin</span>
+            <select name="sessionId" id="dropInSessionSelect"></select>
+          </label>
+          <button type="submit" class="primary">DROP-IN anlegen</button>
+        </form>
+        <div id="dropInCards" class="stats-grid"></div>
       </section>
 
       <section class="panel hidden" id="courseListPanel">

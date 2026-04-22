@@ -110,6 +110,18 @@ create table if not exists public.trial_requests (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.drop_in_bookings (
+  id uuid primary key default gen_random_uuid(),
+  course_id uuid not null references public.courses(id) on delete cascade,
+  attendance_session_id uuid,
+  full_name text not null,
+  email text,
+  phone text,
+  status text not null default 'gebucht' check (status in ('gebucht', 'teilgenommen', 'abgesagt')),
+  notes text,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.attendance_sessions (
   id uuid primary key default gen_random_uuid(),
   course_id uuid not null references public.courses(id) on delete cascade,
@@ -129,6 +141,22 @@ begin
   ) then
     alter table public.trial_requests
       add constraint trial_requests_attendance_session_id_fkey
+      foreign key (attendance_session_id)
+      references public.attendance_sessions(id)
+      on delete set null;
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'drop_in_bookings_attendance_session_id_fkey'
+  ) then
+    alter table public.drop_in_bookings
+      add constraint drop_in_bookings_attendance_session_id_fkey
       foreign key (attendance_session_id)
       references public.attendance_sessions(id)
       on delete set null;
@@ -265,6 +293,7 @@ alter table public.seasons enable row level security;
 alter table public.season_bookings enable row level security;
 alter table public.participants enable row level security;
 alter table public.trial_requests enable row level security;
+alter table public.drop_in_bookings enable row level security;
 alter table public.attendance_sessions enable row level security;
 alter table public.attendance_records enable row level security;
 alter table public.beat_out_entries enable row level security;
@@ -427,6 +456,42 @@ with check (
     select 1
     from public.courses
     where courses.id = trial_requests.course_id
+      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+  )
+);
+
+drop policy if exists "drop-ins visible to course owners" on public.drop_in_bookings;
+create policy "drop-ins visible to course owners"
+on public.drop_in_bookings
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.courses
+    where courses.id = drop_in_bookings.course_id
+      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+  )
+);
+
+drop policy if exists "drop-ins managed by course owners" on public.drop_in_bookings;
+create policy "drop-ins managed by course owners"
+on public.drop_in_bookings
+for all
+to authenticated
+using (
+  exists (
+    select 1
+    from public.courses
+    where courses.id = drop_in_bookings.course_id
+      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.courses
+    where courses.id = drop_in_bookings.course_id
       and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
   )
 );
