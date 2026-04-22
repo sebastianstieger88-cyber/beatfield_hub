@@ -2756,6 +2756,23 @@ function renderTodayDashboard() {
     openTrialRequests.forEach((trial) => {
       const row = document.createElement("div");
       row.className = "list-row trial-reminder-row";
+      row.role = "button";
+      row.tabIndex = 0;
+      const openTrialCourse = () => {
+        const session = trial.attendance_session_id
+          ? state.sessions.find((entry) => entry.id === trial.attendance_session_id) || null
+          : null;
+        if (trial.course_id) {
+          state.selectedCourseId = trial.course_id;
+        }
+        if (session?.season_id) {
+          state.attendanceSeasonId = session.season_id;
+        }
+        if (session?.session_date && attendanceDate) {
+          attendanceDate.value = session.session_date;
+        }
+        setActiveSection("#attendancePanel");
+      };
       row.innerHTML = `
         <div>
           <strong>${escapeHtml(trial.full_name)}</strong>
@@ -2768,7 +2785,23 @@ function renderTodayDashboard() {
       statusPill.className = `status-pill ${trial.status === "teilgenommen" ? "status-pill-warn" : "status-pill-info"}`;
       statusPill.textContent = trial.status === "teilgenommen" ? "Conversion offen" : escapeHtml(trial.status);
       rowActions.appendChild(statusPill);
+      const openBtn = document.createElement("button");
+      openBtn.type = "button";
+      openBtn.className = "ghost";
+      openBtn.textContent = "Zum Kurs";
+      openBtn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openTrialCourse();
+      });
+      rowActions.appendChild(openBtn);
       row.appendChild(rowActions);
+      row.addEventListener("click", openTrialCourse);
+      row.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openTrialCourse();
+        }
+      });
       trialReminderList.appendChild(row);
     });
   } else {
