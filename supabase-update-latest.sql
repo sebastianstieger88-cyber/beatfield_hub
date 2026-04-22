@@ -106,6 +106,9 @@ create table if not exists public.drop_in_bookings (
   created_at timestamptz not null default now()
 );
 
+alter table public.drop_in_bookings
+  add column if not exists archived_at timestamptz;
+
 create table if not exists public.session_overrides (
   id uuid primary key default gen_random_uuid(),
   season_booking_id uuid not null references public.season_bookings(id) on delete cascade,

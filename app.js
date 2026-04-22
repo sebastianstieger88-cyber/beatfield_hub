@@ -21,6 +21,7 @@ const state = {
   participants: [],
   trialRequests: [],
   dropInBookings: [],
+  showArchivedDropIns: false,
   sessions: [],
   records: [],
   beatOutEntries: [],
@@ -98,6 +99,7 @@ const participantFormNotice = document.querySelector("#participantFormNotice");
 const openBookingPanelBtn = document.querySelector("#openBookingPanelBtn");
 const trialForm = document.querySelector("#trialForm");
 const dropInForm = document.querySelector("#dropInForm");
+const toggleArchivedDropInsBtn = document.querySelector("#toggleArchivedDropInsBtn");
 const inviteOutput = document.querySelector("#inviteOutput");
 const inviteOutputCode = document.querySelector("#inviteOutputCode");
 const inviteOutputLink = document.querySelector("#inviteOutputLink");
@@ -225,6 +227,10 @@ openBookingPanelBtn?.addEventListener("click", () => {
 });
 trialForm?.addEventListener("submit", handleTrialCreate);
 dropInForm?.addEventListener("submit", handleDropInCreate);
+toggleArchivedDropInsBtn?.addEventListener("click", () => {
+  state.showArchivedDropIns = !state.showArchivedDropIns;
+  renderDropIns();
+});
 moveParticipantForm?.addEventListener("submit", handleMoveParticipantSubmit);
 closeMoveParticipantModalBtn?.addEventListener("click", closeMoveParticipantModal);
 cancelMoveParticipantBtn?.addEventListener("click", closeMoveParticipantModal);
@@ -492,12 +498,12 @@ async function fetchSupportData() {
       .order("created_at", { ascending: false })
     : Promise.resolve({ data: [], error: null });
 
-  const dropInQuery = courseIds.length
-    ? state.supabase
-      .from("drop_in_bookings")
-      .select("id, course_id, attendance_session_id, full_name, email, phone, status, notes, created_at")
-      .in("course_id", courseIds)
-      .order("created_at", { ascending: false })
+    const dropInQuery = courseIds.length
+      ? state.supabase
+        .from("drop_in_bookings")
+        .select("id, course_id, attendance_session_id, full_name, email, phone, status, notes, archived_at, created_at")
+        .in("course_id", courseIds)
+        .order("created_at", { ascending: false })
     : Promise.resolve({ data: [], error: null });
 
   const [seasonResult, seasonBookingResult, trainerResult, trainerDirectoryResult, inviteResult, participantResult, sessionResult, trialResult, dropInResult] = await Promise.all([
@@ -3685,13 +3691,26 @@ function renderTrials() {
 function renderDropIns() {
   dropInCards.innerHTML = "";
 
-  if (!state.dropInBookings.length) {
+  if (toggleArchivedDropInsBtn) {
+    toggleArchivedDropInsBtn.textContent = state.showArchivedDropIns ? "Archiv ausblenden" : "Archiv anzeigen";
+  }
+
+  const visibleDropIns = state.showArchivedDropIns
+    ? state.dropInBookings
+    : state.dropInBookings.filter((entry) => !entry.archived_at);
+
+  if (!visibleDropIns.length) {
     dropInCards.appendChild(emptyStateTemplate.content.cloneNode(true));
     return;
   }
 
-  state.dropInBookings.forEach((dropIn) => {
+  visibleDropIns.forEach((dropIn) => {
     const pipelineMeta = getDropInPipelineMeta(dropIn);
+    const session = dropIn.attendance_session_id
+      ? state.sessions.find((entry) => entry.id === dropIn.attendance_session_id) || null
+      : null;
+    const isPast = Boolean(session?.session_date && session.session_date < getToday());
+    const isArchived = Boolean(dropIn.archived_at);
     const card = document.createElement("article");
     card.className = "stat-card";
     card.innerHTML = `
@@ -3702,11 +3721,12 @@ function renderDropIns() {
       <p class="stat-meta">Status: ${escapeHtml(dropIn.status)}</p>
       <div class="trial-pipeline">
         <span class="status-pill ${escapeHtml(pipelineMeta.tone)}">${escapeHtml(pipelineMeta.label)}</span>
-        <span class="stat-meta">${escapeHtml(pipelineMeta.meta)}</span>
+        <span class="stat-meta">${escapeHtml(isArchived ? "Archiviert" : pipelineMeta.meta)}</span>
       </div>
       <div class="trial-actions">
         <button type="button" class="ghost" data-dropin-action="attended">Teilgenommen</button>
         <button type="button" class="ghost" data-dropin-action="open">Zum Kurs</button>
+        <button type="button" class="ghost" data-dropin-action="archive">${isArchived ? "Wiederherstellen" : "Archivieren"}</button>
         <button type="button" class="danger" data-dropin-action="cancel">Loeschen</button>
       </div>
     `;
@@ -3716,6 +3736,11 @@ function renderDropIns() {
     });
     card.querySelector('[data-dropin-action="open"]').addEventListener("click", () => {
       openDropInInAttendance(dropIn);
+    });
+    const archiveButton = card.querySelector('[data-dropin-action="archive"]');
+    archiveButton.disabled = !isArchived && !isPast;
+    archiveButton.addEventListener("click", async () => {
+      await handleDropInArchive(dropIn, !isArchived);
     });
     card.querySelector('[data-dropin-action="cancel"]').addEventListener("click", async () => {
       await handleDropInDelete(dropIn);
@@ -3804,6 +3829,30 @@ async function updateDropInStatus(dropInId, status) {
   await fetchSupportData();
   render();
   notify(`DROP-IN auf "${status}" gesetzt.`);
+}
+
+async function handleDropInArchive(dropIn, shouldArchive = true) {
+  if (!dropIn) {
+    return;
+  }
+
+  const updateResult = await state.supabase
+    .from("drop_in_bookings")
+    .update({ archived_at: shouldArchive ? new Date().toISOString() : null })
+    .eq("id", dropIn.id);
+
+  if (updateResult.error) {
+    notify(getFriendlySupabaseMessage(updateResult.error, "DROP-IN konnte nicht archiviert werden."), true);
+    return;
+  }
+
+  state.dropInBookings = state.dropInBookings.map((entry) => {
+    return entry.id === dropIn.id
+      ? { ...entry, archived_at: shouldArchive ? new Date().toISOString() : null }
+      : entry;
+  });
+  renderDropIns();
+  notify(shouldArchive ? "DROP-IN wurde archiviert." : "DROP-IN wurde wiederhergestellt.");
 }
 
 async function handleDropInDelete(dropIn) {
