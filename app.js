@@ -3238,15 +3238,37 @@ function renderTrialCourseSelect() {
     return;
   }
 
+  const groupedSessions = new Map();
   sessionOptions.forEach((session) => {
-    const course = state.courses.find((entry) => entry.id === session.course_id);
-    if (!course) {
-      return;
+    const season = session.season_id
+      ? state.seasons.find((entry) => entry.id === session.season_id) || null
+      : null;
+    const key = season?.id || "no-season";
+    const label = season?.name || "Weitere Termine";
+    if (!groupedSessions.has(key)) {
+      groupedSessions.set(key, { label, sessions: [] });
     }
-    const option = document.createElement("option");
-    option.value = session.id;
-    option.textContent = `${formatDateLabel(session.session_date)} | ${course.name} (${course.weekday}${course.time ? `, ${course.time} Uhr` : ""})`;
-    trialCourseSelect.appendChild(option);
+    groupedSessions.get(key).sessions.push(session);
+  });
+
+  Array.from(groupedSessions.values()).forEach((group) => {
+    const container = document.createElement("optgroup");
+    container.label = group.label;
+
+    group.sessions.forEach((session) => {
+      const course = state.courses.find((entry) => entry.id === session.course_id);
+      if (!course) {
+        return;
+      }
+      const option = document.createElement("option");
+      option.value = session.id;
+      option.textContent = `${formatDateLabel(session.session_date)} | ${course.name} (${course.weekday}${course.time ? `, ${course.time} Uhr` : ""})`;
+      container.appendChild(option);
+    });
+
+    if (container.childElementCount) {
+      trialCourseSelect.appendChild(container);
+    }
   });
 }
 
