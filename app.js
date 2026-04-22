@@ -3661,6 +3661,7 @@ function renderTrials() {
         <button type="button" class="ghost" data-trial-action="booked">Gebucht</button>
         <button type="button" class="ghost" data-trial-action="attended">Teilgenommen</button>
         <button type="button" class="primary" data-trial-action="convert">Konvertieren</button>
+        <button type="button" class="danger" data-trial-action="delete">Loeschen</button>
       </div>
     `;
 
@@ -3672,6 +3673,9 @@ function renderTrials() {
     });
     card.querySelector('[data-trial-action="convert"]').addEventListener("click", async () => {
       await convertTrialToParticipant(trial);
+    });
+    card.querySelector('[data-trial-action="delete"]').addEventListener("click", async () => {
+      await handleTrialDelete(trial);
     });
 
     trialCards.appendChild(card);
@@ -3703,7 +3707,7 @@ function renderDropIns() {
       <div class="trial-actions">
         <button type="button" class="ghost" data-dropin-action="attended">Teilgenommen</button>
         <button type="button" class="ghost" data-dropin-action="open">Zum Kurs</button>
-        <button type="button" class="danger" data-dropin-action="cancel">Stornieren</button>
+        <button type="button" class="danger" data-dropin-action="cancel">Loeschen</button>
       </div>
     `;
 
@@ -3759,6 +3763,31 @@ async function updateTrialStatus(trialId, status) {
   await fetchSupportData();
   render();
   notify(`Probetraining auf "${status}" gesetzt.`);
+}
+
+async function handleTrialDelete(trial) {
+  if (!trial) {
+    return;
+  }
+
+  const shouldDelete = window.confirm(`Probetraining von ${trial.full_name} wirklich loeschen?`);
+  if (!shouldDelete) {
+    return;
+  }
+
+  const { error } = await state.supabase
+    .from("trial_requests")
+    .delete()
+    .eq("id", trial.id);
+
+  if (error) {
+    notify(getFriendlySupabaseMessage(error, "Probetraining konnte nicht geloescht werden."), true);
+    return;
+  }
+
+  state.trialRequests = state.trialRequests.filter((entry) => entry.id !== trial.id);
+  render();
+  notify("Probetraining wurde geloescht.");
 }
 
 async function updateDropInStatus(dropInId, status) {
