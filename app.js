@@ -3675,38 +3675,98 @@ async function convertTrialToParticipant(trial) {
   const session = trial.attendance_session_id
     ? state.sessions.find((entry) => entry.id === trial.attendance_session_id) || null
     : null;
-  const { data, error } = await state.supabase
-    .from("participants")
-    .insert({
-      course_id: trial.course_id,
-      season_id: session?.season_id || null,
-      full_name: trial.full_name,
-      phone: trial.phone || "",
-    })
-    .select("id")
-    .single();
+  const course = trial.course_id
+    ? state.courses.find((entry) => entry.id === trial.course_id) || null
+    : null;
 
-  if (error) {
-    notify(error.message, true);
-    return;
+  let convertedParticipantId = null;
+
+  if (session?.season_id && course) {
+    const selectedDay = normalizeWeekdayLabel(course.weekday);
+    const relevantCourses = resolveRelevantCoursesForDays([selectedDay]);
+    if (!relevantCourses.ok) {
+      notify(relevantCourses.message, true);
+      return;
+    }
+
+    const bookingInsertResult = await state.supabase
+      .from("season_bookings")
+      .insert({
+        season_id: session.season_id,
+        full_name: trial.full_name,
+        phone: trial.phone || null,
+        package_type: "1x TRAIN",
+        selected_days: [selectedDay],
+      })
+      .select("id, season_id, full_name, phone, package_type, selected_days, created_at")
+      .single();
+
+    if (bookingInsertResult.error) {
+      notify(getFriendlySupabaseMessage(bookingInsertResult.error, "Probetraining konnte nicht in eine Buchung uebernommen werden."), true);
+      return;
+    }
+
+    const participantSyncResult = await syncSeasonBookingParticipants({
+      bookingId: bookingInsertResult.data.id,
+      seasonId: session.season_id,
+      fullName: trial.full_name,
+      phone: trial.phone || "",
+      selectedDays: [selectedDay],
+      relevantCourses: relevantCourses.data,
+    });
+
+    if (!participantSyncResult.ok) {
+      notify(participantSyncResult.message, true);
+      await refreshVisibleData({ context: "Trial convert participant refresh", silent: true });
+      return;
+    }
+
+    state.seasonBookings = [
+      bookingInsertResult.data,
+      ...state.seasonBookings.filter((entry) => entry.id !== bookingInsertResult.data.id),
+    ].sort((left, right) => String(right.created_at || "").localeCompare(String(left.created_at || "")));
+
+    convertedParticipantId = state.participants.find((entry) => entry.season_booking_id === bookingInsertResult.data.id)?.id || null;
+  } else {
+    const { data, error } = await state.supabase
+      .from("participants")
+      .insert({
+        course_id: trial.course_id,
+        season_id: session?.season_id || null,
+        full_name: trial.full_name,
+        phone: trial.phone || "",
+      })
+      .select("id, course_id, full_name, phone, created_at, season_id, season_booking_id")
+      .single();
+
+    if (error) {
+      notify(getFriendlySupabaseMessage(error, "Probetraining konnte nicht als Teilnehmer angelegt werden."), true);
+      return;
+    }
+
+    state.participants = [
+      data,
+      ...state.participants.filter((entry) => entry.id !== data.id),
+    ].sort((left, right) => String(left.full_name || "").localeCompare(String(right.full_name || "")));
+    convertedParticipantId = data.id;
   }
 
   const updateResult = await state.supabase
     .from("trial_requests")
     .update({
       status: "konvertiert",
-      converted_participant_id: data.id,
+      converted_participant_id: convertedParticipantId,
     })
     .eq("id", trial.id);
 
   if (updateResult.error) {
-    notify(updateResult.error.message, true);
+    notify(getFriendlySupabaseMessage(updateResult.error, "Probetraining konnte nicht als konvertiert markiert werden."), true);
     return;
   }
 
   await fetchSupportData();
   render();
-  notify("Probetraining wurde in Teilnehmer uebernommen.");
+  notify("Probetraining wurde als regulaerer Teilnehmer uebernommen.");
 }
 
 function handleJumpToToday() {
