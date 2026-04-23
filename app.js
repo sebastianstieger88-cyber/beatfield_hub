@@ -324,7 +324,7 @@ async function initialize() {
     setupNotice.classList.remove("hidden");
     statusHeadline.textContent = "Setup erforderlich";
     statusText.textContent = "Bitte zuerst Supabase in config.js konfigurieren.";
-    backendStatus.textContent = "config.js unvollstaendig";
+    backendStatus.textContent = "config.js unvollständig";
     render();
     return;
   }
@@ -742,7 +742,7 @@ async function handleSignup(event) {
   }
 
   signupForm.reset();
-  notify("Konto angelegt. Bitte E-Mail bestaetigen, falls Supabase Confirmation aktiv ist.");
+  notify("Konto angelegt. Bitte E-Mail bestätigen, falls Supabase Confirmation aktiv ist.");
 }
 
 async function handleReset(event) {
@@ -932,7 +932,7 @@ async function handleTrainerDirectoryCreate(event) {
     }
     render();
     notify(inviteCode && email
-      ? `Trainer eingetragen und Zugang vorbereitet fuer ${email}. Du kannst jetzt "E-Mail vorbereiten" nutzen.`
+      ? `Trainer eingetragen und Zugang vorbereitet für ${email}. Du kannst jetzt "E-Mail vorbereiten" nutzen.`
       : "Trainer wurde eingetragen.");
 
     await refreshVisibleData({ context: "Trainer refresh", silent: true });
@@ -966,7 +966,7 @@ async function handleTrainerInviteRegenerate(entry) {
   await fetchSupportData();
   showInviteOutput(inviteCode);
   render();
-  notify(`Neuer Trainerzugang fuer ${entry.email} wurde vorbereitet. Du kannst jetzt "E-Mail vorbereiten" nutzen.`);
+  notify(`Neuer Trainerzugang für ${entry.email} wurde vorbereitet. Du kannst jetzt "E-Mail vorbereiten" nutzen.`);
 }
 
 async function handleCourseCreate(event) {
@@ -1045,13 +1045,13 @@ async function handleSeasonCreate(event) {
   const endDate = calculateSeasonEndDate(startDate);
 
   if (seasonDatesInput && !explicitSeasonDates.length) {
-    notify("Bitte gueltige Season-Termine eingeben, z. B. 04.04.2026, 06.04.2026, 08.04.2026.", true);
+    notify("Bitte gültige Season-Termine eingeben, z. B. 04.04.2026, 06.04.2026, 08.04.2026.", true);
     return;
   }
 
   const unmappedDates = getSeasonDatesWithoutMatchingCourse(explicitSeasonDates);
   if (unmappedDates.length) {
-    notify(`Fuer diese Season-Termine fehlt noch ein passender Kurs: ${unmappedDates.map((date) => formatDateLabel(date)).join(", ")}.`, true);
+    notify(`Für diese Season-Termine fehlt noch ein passender Kurs: ${unmappedDates.map((date) => formatDateLabel(date)).join(", ")}.`, true);
     return;
   }
 
@@ -1078,7 +1078,7 @@ async function handleSeasonCreate(event) {
       .insert(sessionPayload);
 
     if (sessionResult.error && !String(sessionResult.error.message).toLowerCase().includes("duplicate")) {
-      notify(getFriendlySupabaseMessage(sessionResult.error, "Season wurde angelegt, aber die Termine konnten nicht vollstaendig erzeugt werden."), true);
+      notify(getFriendlySupabaseMessage(sessionResult.error, "Season wurde angelegt, aber die Termine konnten nicht vollständig erzeugt werden."), true);
     }
   }
 
@@ -1110,13 +1110,13 @@ async function handleSeasonBookingCreate(event) {
       : formData.getAll("selectedDays").map((value) => String(value));
 
     if (!seasonId) {
-      notify("Bitte zuerst eine Season auswaehlen.", true);
+      notify("Bitte zuerst eine Season auswählen.", true);
       return;
     }
 
     const expectedCount = getExpectedDayCount(packageType);
     if (selectedDays.length !== expectedCount) {
-      notify(`Fuer ${packageType} muessen genau ${expectedCount} Trainingstage gewaehlt werden.`, true);
+      notify(`Für ${packageType} müssen genau ${expectedCount} Trainingstage gewählt werden.`, true);
       return;
     }
 
@@ -1210,7 +1210,7 @@ async function handleSeasonBookingCreate(event) {
     await refreshVisibleData({ context: "Booking refresh", silent: true });
     notify(bookingId
       ? `${fullName} wurde in der Buchung aktualisiert.`
-      : `${fullName} wurde fuer ${packageType} eingebucht.`);
+      : `${fullName} wurde für ${packageType} eingebucht.`);
   } catch (error) {
     console.error("Season booking save failed", error);
     notify(`Buchung konnte nicht gespeichert werden: ${error?.message || "Unerwarteter Fehler"}`, true);
@@ -1225,16 +1225,16 @@ async function handleCourseDelete() {
 
     const course = getSelectedCourse();
     if (!course) {
-      notify("Bitte zuerst einen Kurs auswaehlen.", true);
+      notify("Bitte zuerst einen Kurs auswählen.", true);
       return;
     }
 
     if (state.isOffline) {
-      notify("Kurse koennen nur online geloescht werden.", true);
+      notify("Kurse können nur online gelöscht werden.", true);
       return;
     }
 
-    const confirmed = window.confirm(`Soll der Kurs "${course.name}" wirklich geloescht werden? Teilnehmer, Termine und Anwesenheiten dieses Kurses gehen dabei verloren.`);
+    const confirmed = window.confirm(`Soll der Kurs "${course.name}" wirklich gelöscht werden? Teilnehmer, Termine und Anwesenheiten dieses Kurses gehen dabei verloren.`);
     if (!confirmed) {
       return;
     }
@@ -1253,7 +1253,7 @@ async function handleCourseDelete() {
         .in("session_id", linkedSessionIds);
 
       if (beatOutDeleteResult.error) {
-        notify(getFriendlySupabaseMessage(beatOutDeleteResult.error, "BEAT-OUTs des Kurses konnten nicht geloescht werden."), true);
+        notify(getFriendlySupabaseMessage(beatOutDeleteResult.error, "BEAT-OUTs des Kurses konnten nicht gelöscht werden."), true);
         return;
       }
     }
@@ -1264,7 +1264,7 @@ async function handleCourseDelete() {
       .eq("id", course.id);
 
     if (deleteResult.error) {
-      notify(getFriendlySupabaseMessage(deleteResult.error, "Kurs konnte nicht geloescht werden."), true);
+      notify(getFriendlySupabaseMessage(deleteResult.error, "Kurs konnte nicht gelöscht werden."), true);
       return;
     }
 
@@ -1289,10 +1289,10 @@ async function handleCourseDelete() {
     state.acceptEmptyFetch.courses = true;
     state.acceptEmptyFetch.participants = true;
     await refreshVisibleData({ includeCourses: true, context: "Course delete refresh", silent: true });
-    notify(`Kurs "${course.name}" wurde geloescht.`);
+    notify(`Kurs "${course.name}" wurde gelöscht.`);
   } catch (error) {
     console.error("Course delete failed", error);
-    notify(`Kurs konnte nicht geloescht werden: ${error?.message || "Unerwarteter Fehler"}`, true);
+    notify(`Kurs konnte nicht gelöscht werden: ${error?.message || "Unerwarteter Fehler"}`, true);
   }
 }
 
@@ -1331,7 +1331,7 @@ async function handleSeasonDuplicate(sourceSeason, carryOverBookings = false) {
       .insert(sessionPayload);
 
     if (sessionResult.error && !String(sessionResult.error.message).toLowerCase().includes("duplicate")) {
-      notify(getFriendlySupabaseMessage(sessionResult.error, "Season wurde dupliziert, aber die Termine konnten nicht vollstaendig erzeugt werden."), true);
+      notify(getFriendlySupabaseMessage(sessionResult.error, "Season wurde dupliziert, aber die Termine konnten nicht vollständig erzeugt werden."), true);
     }
   }
 
@@ -1351,7 +1351,7 @@ async function handleSeasonDuplicate(sourceSeason, carryOverBookings = false) {
         .single();
 
       if (bookingInsertResult.error) {
-        notify(getFriendlySupabaseMessage(bookingInsertResult.error, `Season wurde dupliziert, aber ${booking.full_name} konnte nicht uebernommen werden.`), true);
+        notify(getFriendlySupabaseMessage(bookingInsertResult.error, `Season wurde dupliziert, aber ${booking.full_name} konnte nicht übernommen werden.`), true);
         continue;
       }
 
@@ -1393,8 +1393,8 @@ async function handleSeasonStatusUpdate(season, status) {
 
   const labels = {
     aktiv: "aktivieren",
-    abgeschlossen: "abschliessen",
-    geplant: "zur Planung zuruecksetzen",
+    abgeschlossen: "abschließen",
+    geplant: "zur Planung zurücksetzen",
   };
 
   const confirmed = window.confirm(`Soll die Season "${season.name}" wirklich auf "${status}" gesetzt werden?`);
@@ -1426,7 +1426,7 @@ async function handleSeasonDelete(season) {
     return;
   }
 
-  const confirmed = window.confirm(`Soll die Season "${season.name}" wirklich komplett geloescht werden? Alle Buchungen, verknuepften Teilnehmer und Season-Termine werden dabei entfernt.`);
+  const confirmed = window.confirm(`Soll die Season "${season.name}" wirklich komplett gelöscht werden? Alle Buchungen, verknüpften Teilnehmer und Season-Termine werden dabei entfernt.`);
   if (!confirmed) {
     return;
   }
@@ -1446,7 +1446,7 @@ async function handleSeasonDelete(season) {
       .in("id", sessionIds);
 
     if (sessionDeleteResult.error) {
-      notify(getFriendlySupabaseMessage(sessionDeleteResult.error, "Season-Termine konnten nicht geloescht werden."), true);
+      notify(getFriendlySupabaseMessage(sessionDeleteResult.error, "Season-Termine konnten nicht gelöscht werden."), true);
       return;
     }
   }
@@ -1457,7 +1457,7 @@ async function handleSeasonDelete(season) {
     .eq("id", season.id);
 
   if (seasonDeleteResult.error) {
-    notify(getFriendlySupabaseMessage(seasonDeleteResult.error, "Season konnte nicht geloescht werden."), true);
+    notify(getFriendlySupabaseMessage(seasonDeleteResult.error, "Season konnte nicht gelöscht werden."), true);
     return;
   }
 
@@ -1486,7 +1486,7 @@ async function handleSeasonDelete(season) {
   state.acceptEmptyFetch.beatOutEntries = true;
 
   render();
-  notify(`Season "${season.name}" wurde geloescht.`);
+  notify(`Season "${season.name}" wurde gelöscht.`);
   await refreshVisibleData({ context: "Season delete refresh", silent: true });
 }
 
@@ -1538,7 +1538,7 @@ async function cloneBookingIntoSeason(booking, targetSeason) {
   if (bookingInsertResult.error) {
     return {
       ok: false,
-      message: getFriendlySupabaseMessage(bookingInsertResult.error, `${booking.full_name} konnte nicht in die Folge-Season uebernommen werden.`),
+      message: getFriendlySupabaseMessage(bookingInsertResult.error, `${booking.full_name} konnte nicht in die Folge-Season übernommen werden.`),
     };
   }
 
@@ -1587,7 +1587,7 @@ async function handleCarryOverBookingToNextSeason(booking, sourceSeason) {
   await fetchSupportData();
   persistOfflineCache();
   render();
-  notify(`${booking.full_name} wurde in ${targetSeason.name} uebernommen.`);
+  notify(`${booking.full_name} wurde in ${targetSeason.name} übernommen.`);
 }
 
 async function handleBookingDelete(booking) {
@@ -1595,7 +1595,7 @@ async function handleBookingDelete(booking) {
     return;
   }
 
-  const confirmed = window.confirm(`Soll die Buchung von "${booking.full_name}" wirklich geloescht werden? Alle zugehoerigen Season-Teilnehmer werden dabei entfernt.`);
+  const confirmed = window.confirm(`Soll die Buchung von "${booking.full_name}" wirklich gelöscht werden? Alle zugehörigen Season-Teilnehmer werden dabei entfernt.`);
   if (!confirmed) {
     return;
   }
@@ -1610,7 +1610,7 @@ async function handleBookingDelete(booking) {
       .eq("season_booking_id", booking.id);
 
     if (beatOutDeleteResult.error) {
-      notify(getFriendlySupabaseMessage(beatOutDeleteResult.error, "BEAT-OUTs der Buchung konnten nicht geloescht werden."), true);
+      notify(getFriendlySupabaseMessage(beatOutDeleteResult.error, "BEAT-OUTs der Buchung konnten nicht gelöscht werden."), true);
       return;
     }
   }
@@ -1621,7 +1621,7 @@ async function handleBookingDelete(booking) {
     .eq("season_booking_id", booking.id);
 
   if (participantDeleteResult.error) {
-    notify(getFriendlySupabaseMessage(participantDeleteResult.error, "Season-Teilnehmer konnten nicht geloescht werden."), true);
+    notify(getFriendlySupabaseMessage(participantDeleteResult.error, "Season-Teilnehmer konnten nicht gelöscht werden."), true);
     return;
   }
 
@@ -1631,7 +1631,7 @@ async function handleBookingDelete(booking) {
     .eq("id", booking.id);
 
   if (bookingDeleteResult.error) {
-    notify(getFriendlySupabaseMessage(bookingDeleteResult.error, "Buchung konnte nicht geloescht werden."), true);
+    notify(getFriendlySupabaseMessage(bookingDeleteResult.error, "Buchung konnte nicht gelöscht werden."), true);
     return;
   }
 
@@ -1659,7 +1659,7 @@ async function handleBookingDelete(booking) {
   await fetchSupportData();
   persistOfflineCache();
   render();
-  notify(`Buchung von ${booking.full_name} wurde geloescht.`);
+  notify(`Buchung von ${booking.full_name} wurde gelöscht.`);
 }
 
 async function handleTrainerDirectoryDelete(entry) {
@@ -1669,11 +1669,11 @@ async function handleTrainerDirectoryDelete(entry) {
     }
 
     if (state.isOffline) {
-      notify("Trainer koennen nur online geloescht werden.", true);
+      notify("Trainer können nur online gelöscht werden.", true);
       return;
     }
 
-    const confirmed = window.confirm(`Soll der Trainer "${entry.full_name}" wirklich geloescht werden? Kurszuweisungen dieses manuellen Eintrags werden dabei entfernt.`);
+    const confirmed = window.confirm(`Soll der Trainer "${entry.full_name}" wirklich gelöscht werden? Kurszuweisungen dieses manuellen Eintrags werden dabei entfernt.`);
     if (!confirmed) {
       return;
     }
@@ -1684,7 +1684,7 @@ async function handleTrainerDirectoryDelete(entry) {
       .eq("trainer_directory_id", entry.id);
 
     if (courseUnassignResult.error) {
-      notify(getFriendlySupabaseMessage(courseUnassignResult.error, "Trainer konnte nicht aus den Kursen geloest werden."), true);
+      notify(getFriendlySupabaseMessage(courseUnassignResult.error, "Trainer konnte nicht aus den Kursen gelöst werden."), true);
       return;
     }
 
@@ -1694,7 +1694,7 @@ async function handleTrainerDirectoryDelete(entry) {
       .eq("trainer_directory_id", entry.id);
 
     if (inviteDeleteResult.error) {
-      notify(getFriendlySupabaseMessage(inviteDeleteResult.error, "Trainer-Einladungen konnten nicht geloescht werden."), true);
+      notify(getFriendlySupabaseMessage(inviteDeleteResult.error, "Trainer-Einladungen konnten nicht gelöscht werden."), true);
       return;
     }
 
@@ -1704,7 +1704,7 @@ async function handleTrainerDirectoryDelete(entry) {
       .eq("id", entry.id);
 
     if (deleteResult.error) {
-      notify(getFriendlySupabaseMessage(deleteResult.error, "Trainer konnte nicht geloescht werden."), true);
+      notify(getFriendlySupabaseMessage(deleteResult.error, "Trainer konnte nicht gelöscht werden."), true);
       return;
     }
 
@@ -1733,10 +1733,10 @@ async function handleTrainerDirectoryDelete(entry) {
     state.acceptEmptyFetch.invites = true;
     state.acceptEmptyFetch.courses = true;
     await refreshVisibleData({ includeCourses: true, context: "Trainer delete refresh", silent: true });
-    notify(`Trainer "${entry.full_name}" wurde geloescht.`);
+    notify(`Trainer "${entry.full_name}" wurde gelöscht.`);
   } catch (error) {
     console.error("Trainer delete failed", error);
-    notify(`Trainer konnte nicht geloescht werden: ${error?.message || "Unerwarteter Fehler"}`, true);
+    notify(`Trainer konnte nicht gelöscht werden: ${error?.message || "Unerwarteter Fehler"}`, true);
   }
 }
 
@@ -1766,7 +1766,7 @@ async function updateBookingContactStatus(booking, nextStatus = null, { silent =
 
   if (!silent) {
     render();
-    notify(`Kontaktstatus fuer ${booking.full_name}: ${resolvedStatus}.`);
+    notify(`Kontaktstatus für ${booking.full_name}: ${resolvedStatus}.`);
   }
 }
 
@@ -1777,7 +1777,7 @@ async function redeemFreeSeasonForBooking(booking) {
 
   const rewardStatus = getFreeSeasonRewardStatus(booking);
   if (rewardStatus.availableRewards <= 0) {
-    notify("Fuer diese Buchung ist aktuell keine Gratis-Season verfuegbar.", true);
+    notify("Für diese Buchung ist aktuell keine Gratis-Season verfügbar.", true);
     return;
   }
 
@@ -1788,7 +1788,7 @@ async function redeemFreeSeasonForBooking(booking) {
     .eq("id", booking.id);
 
   if (updateResult.error) {
-    notify(getFriendlySupabaseMessage(updateResult.error, "Gratis-Season konnte nicht eingeloest werden."), true);
+    notify(getFriendlySupabaseMessage(updateResult.error, "Gratis-Season konnte nicht eingelöst werden."), true);
     return;
   }
 
@@ -1798,7 +1798,7 @@ async function redeemFreeSeasonForBooking(booking) {
       : entry;
   });
   render();
-  notify(`Gratis-Season fuer ${booking.full_name} wurde eingeloest.`);
+  notify(`Gratis-Season für ${booking.full_name} wurde eingelöst.`);
 }
 
 async function handleParticipantCreate(event) {
@@ -1848,7 +1848,7 @@ async function handleParticipantCreate(event) {
         const refreshOk = await refreshVisibleData({ context: "Trainer participant refresh", silent: false });
         const participantPersisted = state.participants.some((entry) => entry.id === participantInsertResult.data.id);
         if (!refreshOk || !participantPersisted) {
-          notify("Teilnehmer konnte nicht dauerhaft in Supabase bestaetigt werden. Bitte Kursliste pruefen.", true);
+          notify("Teilnehmer konnte nicht dauerhaft in Supabase bestätigt werden. Bitte Kursliste prüfen.", true);
           return;
         }
 
@@ -1860,7 +1860,7 @@ async function handleParticipantCreate(event) {
       }
 
       if (!preferredSeasonId) {
-        notify("Bitte zuerst eine Season anlegen, damit Teilnehmer sauber als TRAIN, BEAT oder REPEAT gebucht werden koennen.", true);
+        notify("Bitte zuerst eine Season anlegen, damit Teilnehmer sauber als TRAIN, BEAT oder REPEAT gebucht werden können.", true);
         state.activeSection = "#seasonPanel";
         render();
         return;
@@ -1914,7 +1914,7 @@ async function handleParticipantCreate(event) {
       const participantPersisted = state.participants.some((entry) => entry.season_booking_id === optimisticBooking.id);
 
       if (!refreshOk || !bookingPersisted || !participantPersisted) {
-        notify("Teilnehmer konnte nicht dauerhaft in Supabase bestaetigt werden. Bitte Buchungen und Teilnehmerliste pruefen.", true);
+        notify("Teilnehmer konnte nicht dauerhaft in Supabase bestätigt werden. Bitte Buchungen und Teilnehmerliste prüfen.", true);
         return;
       }
 
@@ -1941,7 +1941,7 @@ async function handleParticipantDelete(participant, course) {
     }
 
     if (state.isOffline) {
-      notify("Teilnehmer koennen nur online geloescht werden.", true);
+      notify("Teilnehmer können nur online gelöscht werden.", true);
       return;
     }
 
@@ -1952,7 +1952,7 @@ async function handleParticipantDelete(participant, course) {
 
       if (!remainingDays.length) {
         const confirmedDeleteBooking = window.confirm(
-          `${participant.full_name} ist ueber eine Season-Buchung in diesem Kurs. Soll die gesamte Buchung geloescht werden?`,
+          `${participant.full_name} ist über eine Season-Buchung in diesem Kurs. Soll die gesamte Buchung gelöscht werden?`,
         );
         if (!confirmedDeleteBooking) {
           return;
@@ -1963,7 +1963,7 @@ async function handleParticipantDelete(participant, course) {
 
       const nextPackageType = getPackageTypeForDayCount(remainingDays.length);
       if (!nextPackageType) {
-        notify("Die Season-Buchung konnte nicht auf ein gueltiges Paket umgestellt werden.", true);
+        notify("Die Season-Buchung konnte nicht auf ein gültiges Paket umgestellt werden.", true);
         return;
       }
 
@@ -2027,7 +2027,7 @@ async function handleParticipantDelete(participant, course) {
         return;
     }
 
-    const confirmed = window.confirm(`Soll ${participant.full_name} wirklich aus ${course.name} geloescht werden?`);
+    const confirmed = window.confirm(`Soll ${participant.full_name} wirklich aus ${course.name} gelöscht werden?`);
     if (!confirmed) {
       return;
     }
@@ -2038,7 +2038,7 @@ async function handleParticipantDelete(participant, course) {
       .eq("participant_id", participant.id);
 
     if (beatOutDeleteResult.error) {
-      notify(getFriendlySupabaseMessage(beatOutDeleteResult.error, "BEAT-OUTs des Teilnehmers konnten nicht geloescht werden."), true);
+      notify(getFriendlySupabaseMessage(beatOutDeleteResult.error, "BEAT-OUTs des Teilnehmers konnten nicht gelöscht werden."), true);
       return;
     }
 
@@ -2048,7 +2048,7 @@ async function handleParticipantDelete(participant, course) {
       .eq("participant_id", participant.id);
 
     if (recordDeleteResult.error) {
-      notify(getFriendlySupabaseMessage(recordDeleteResult.error, "Anwesenheiten des Teilnehmers konnten nicht geloescht werden."), true);
+      notify(getFriendlySupabaseMessage(recordDeleteResult.error, "Anwesenheiten des Teilnehmers konnten nicht gelöscht werden."), true);
       return;
     }
 
@@ -2058,7 +2058,7 @@ async function handleParticipantDelete(participant, course) {
       .eq("id", participant.id);
 
     if (participantDeleteResult.error) {
-      notify(getFriendlySupabaseMessage(participantDeleteResult.error, "Teilnehmer konnte nicht geloescht werden."), true);
+      notify(getFriendlySupabaseMessage(participantDeleteResult.error, "Teilnehmer konnte nicht gelöscht werden."), true);
       return;
     }
 
@@ -2073,11 +2073,11 @@ async function handleParticipantDelete(participant, course) {
       state.acceptEmptyFetch.beatOutEntries = true;
       persistOfflineCache();
       render();
-      notify(`${participant.full_name} wurde geloescht.`);
+      notify(`${participant.full_name} wurde gelöscht.`);
       await refreshVisibleData({ context: "Participant delete refresh", silent: true });
   } catch (error) {
     console.error("Participant delete failed", error);
-    notify(`Teilnehmer konnte nicht geloescht werden: ${error?.message || "Unerwarteter Fehler"}`, true);
+    notify(`Teilnehmer konnte nicht gelöscht werden: ${error?.message || "Unerwarteter Fehler"}`, true);
   }
 }
 
@@ -2158,7 +2158,7 @@ async function syncSeasonBookingParticipants({ bookingId, seasonId, fullName, ph
       if (insertResult.error) {
         return {
           ok: false,
-          message: getFriendlySupabaseMessage(insertResult.error, "Teilnehmer konnten nicht fuer die Buchung angelegt werden."),
+          message: getFriendlySupabaseMessage(insertResult.error, "Teilnehmer konnten nicht für die Buchung angelegt werden."),
         };
       }
 
@@ -2222,12 +2222,12 @@ async function handleParticipantMove(participant, currentCourse) {
   }
 
   if (state.isOffline) {
-    notify("Umbuchungen sind nur online moeglich.", true);
+    notify("Umbuchungen sind nur online möglich.", true);
     return;
   }
 
   if (!moveParticipantModal || !moveParticipantTargetCourse || !moveParticipantText) {
-    notify("Umbuchungsfenster konnte nicht geoeffnet werden.", true);
+    notify("Umbuchungsfenster konnte nicht geöffnet werden.", true);
     return;
   }
 
@@ -2237,7 +2237,7 @@ async function handleParticipantMove(participant, currentCourse) {
   const incomingOverride = activeSession ? getSessionOverrideForTarget(participant.id, activeSession.id) : null;
 
   if (incomingOverride) {
-    const removeConfirmed = window.confirm(`Soll die Einzeltermin-Umbuchung fuer ${participant.full_name} wieder aufgehoben werden?`);
+    const removeConfirmed = window.confirm(`Soll die Einzeltermin-Umbuchung für ${participant.full_name} wieder aufgehoben werden?`);
     if (!removeConfirmed) {
       return;
     }
@@ -2248,7 +2248,7 @@ async function handleParticipantMove(participant, currentCourse) {
   if (booking) {
     const bookingSeason = state.seasons.find((entry) => entry.id === booking.season_id);
     if (bookingSeason && (sessionDate < bookingSeason.start_date || sessionDate > bookingSeason.end_date)) {
-      notify(`Termin-Umbuchungen sind nur innerhalb der Season ${bookingSeason.name} moeglich.`, true);
+      notify(`Termin-Umbuchungen sind nur innerhalb der Season ${bookingSeason.name} möglich.`, true);
       return;
     }
 
@@ -2264,7 +2264,7 @@ async function handleParticipantMove(participant, currentCourse) {
 
     const availableSessions = getAvailableSessionMoveTargets(participant, booking, sourceSessionId);
     if (!availableSessions.length) {
-      notify("Fuer diese Buchung gibt es in der Season aktuell keinen passenden Ausweichtermin auf einem anderen Trainingstag.", true);
+      notify("Für diese Buchung gibt es in der Season aktuell keinen passenden Ausweichtermin auf einem anderen Trainingstag.", true);
       return;
     }
 
@@ -2286,7 +2286,7 @@ async function handleParticipantMove(participant, currentCourse) {
     if (moveParticipantSubmitBtn) {
       moveParticipantSubmitBtn.textContent = "Termin-Umbuchung speichern";
     }
-    moveParticipantText.textContent = `${participant.full_name} wird nur fuer den Termin am ${formatDateLabel(sessionDate)} auf einen konkreten Ersatztermin umgebucht. Die Season-Buchung bleibt dabei unveraendert.`;
+    moveParticipantText.textContent = `${participant.full_name} wird nur für den Termin am ${formatDateLabel(sessionDate)} auf einen konkreten Ersatztermin umgebucht. Die Season-Buchung bleibt dabei unverändert.`;
     moveParticipantTargetCourse.innerHTML = "";
     availableSessions.forEach(({ session, course }) => {
       const option = document.createElement("option");
@@ -2398,7 +2398,7 @@ async function handleMoveParticipantSubmit(event) {
     state.selectedCourseId = targetCourse.id;
     closeMoveParticipantModal();
     render();
-    notify(`${participant.full_name} wurde fuer ${formatDateLabel(targetSession.session_date)} nach ${targetCourse.name} umgebucht.`);
+    notify(`${participant.full_name} wurde für ${formatDateLabel(targetSession.session_date)} nach ${targetCourse.name} umgebucht.`);
     await refreshVisibleData({ context: "Session override refresh", silent: true });
     return;
   }
@@ -2470,7 +2470,7 @@ async function handleTrialCreate(event) {
   const sessionId = normalizeOptionalId(formData.get("sessionId"));
   const selectedSession = sessionId ? state.sessions.find((entry) => entry.id === sessionId) : null;
   if (!selectedSession) {
-    notify("Bitte zuerst einen gueltigen Season-Termin fuer das Probetraining auswaehlen.", true);
+    notify("Bitte zuerst einen gültigen Season-Termin für das Probetraining auswählen.", true);
     return;
   }
   const { error } = await state.supabase
@@ -2506,7 +2506,7 @@ async function handleDropInCreate(event) {
   const sessionId = normalizeOptionalId(formData.get("sessionId"));
   const selectedSession = sessionId ? state.sessions.find((entry) => entry.id === sessionId) : null;
   if (!selectedSession) {
-    notify("Bitte zuerst einen gueltigen Season-Termin fuer den DROP-IN auswaehlen.", true);
+    notify("Bitte zuerst einen gültigen Season-Termin für den DROP-IN auswählen.", true);
     return;
   }
 
@@ -2554,20 +2554,20 @@ function render() {
       ? "Freigabe ausstehend"
       : recoveryMode
         ? "Passwort aktualisieren"
-        : "Bereit fuer den Einsatz"
+        : "Bereit für den Einsatz"
     : connected
       ? "Bitte anmelden"
       : "Setup erforderlich";
   statusText.textContent = loggedIn
     ? state.profile.role === "pending"
-      ? "Konto angelegt, aber noch ohne gueltige Einladung freigeschaltet."
+      ? "Konto angelegt, aber noch ohne gültige Einladung freigeschaltet."
       : `${state.profile.full_name} ist angemeldet`
     : connected
       ? "Supabase ist verbunden. Bitte einloggen oder Konto anlegen."
       : "Bitte config.js und Supabase-Schema einrichten.";
   if (statusMeta && !statusMeta.dataset.locked) {
     statusMeta.textContent = loggedIn
-      ? "Bereit fuer den Tagesbetrieb"
+      ? "Bereit für den Tagesbetrieb"
       : connected
         ? "Warte auf Anmeldung"
         : "Setup offen";
@@ -2671,7 +2671,7 @@ function renderTodayDashboard() {
         : null,
     },
     {
-      title: "Naechster Fokus",
+      title: "Nächster Fokus",
       value: nextCourse ? nextCourse.name : "Kein weiterer Kurs heute",
       meta: nextCourse?.time ? `${nextCourse.time} Uhr` : "kein Termin geplant",
     },
@@ -2701,6 +2701,68 @@ function renderTodayDashboard() {
   });
 
   if (!todayInsights) {
+    return;
+  }
+
+  if (!isAdmin()) {
+    const nextCourseCard = document.createElement("article");
+    nextCourseCard.className = "stat-card dashboard-card dashboard-card-ok";
+    const nextCourseSnapshot = nextCourse ? getCourseStatusSnapshot(nextCourse) : null;
+    nextCourseCard.innerHTML = `
+      <h3>Nächster eigener Termin</h3>
+      <p class="hero-stat">${escapeHtml(nextCourse ? nextCourse.name : "Heute nichts mehr geplant")}</p>
+      <p class="stat-meta">${escapeHtml(nextCourse?.time ? `${nextCourse.time} Uhr` : "kein weiterer Termin heute")}</p>
+      ${nextCourseSnapshot?.session ? `<p class="dashboard-detail-line">${escapeHtml(formatDateLabel(nextCourseSnapshot.session.session_date))} | ${nextCourseSnapshot.participants.length} Teilnehmende</p>` : ""}
+    `;
+    if (nextCourse) {
+      const nextCourseActions = document.createElement("div");
+      nextCourseActions.className = "stat-card-actions mini-actions";
+      const openBtn = document.createElement("button");
+      openBtn.type = "button";
+      openBtn.className = "primary";
+      openBtn.textContent = "Termin öffnen";
+      openBtn.addEventListener("click", () => {
+        state.selectedCourseId = nextCourse.id;
+        if (nextCourseSnapshot?.session && attendanceDate) {
+          attendanceDate.value = nextCourseSnapshot.session.session_date;
+        }
+        setActiveSection("#attendancePanel");
+      });
+      nextCourseActions.appendChild(openBtn);
+      nextCourseCard.appendChild(nextCourseActions);
+    }
+    todayInsights.appendChild(nextCourseCard);
+
+    const taskCard = document.createElement("article");
+    taskCard.className = "stat-card dashboard-card dashboard-card-neutral";
+    taskCard.innerHTML = `
+      <h3>Heute nur meine Aufgaben</h3>
+      <p class="stat-meta">Offene Check-ins, Probetrainings, DROP-Ins und Umbuchungen für heute.</p>
+    `;
+    const taskList = document.createElement("div");
+    taskList.className = "stack";
+    const trainerTasks = getTrainerTodayTaskRows();
+    if (trainerTasks.length) {
+      trainerTasks.forEach((task) => {
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = `list-row trainer-task-row trainer-task-row-${task.tone || "neutral"}`;
+        row.innerHTML = `
+          <div>
+            <strong>${escapeHtml(task.title)}</strong>
+            <div class="stat-meta">${escapeHtml(task.meta)}</div>
+            <div class="dashboard-detail-line">${escapeHtml(task.detail)}</div>
+          </div>
+          <span class="status-pill ${task.tone === "warn" ? "status-pill-warn" : task.tone === "info" ? "status-pill-info" : "status-pill-ok"}">Öffnen</span>
+        `;
+        row.addEventListener("click", task.action);
+        taskList.appendChild(row);
+      });
+    } else {
+      taskList.innerHTML = '<p class="stat-meta">Heute sind aktuell keine offenen Trainer-Aufgaben vorhanden.</p>';
+    }
+    taskCard.appendChild(taskList);
+    todayInsights.appendChild(taskCard);
     return;
   }
 
@@ -2739,9 +2801,9 @@ function renderTodayDashboard() {
       tone: "ok",
     },
     {
-      title: "Verlaengerung",
+      title: "Verlängerung",
       value: nextSeason ? nextSeason.name : "Noch keine Folge-Season",
-      meta: nextSeason ? "Verlaengerung moeglich" : "am besten jetzt duplizieren",
+      meta: nextSeason ? "Verlängerung möglich" : "am besten jetzt duplizieren",
       tone: nextSeason ? "ok" : "warn",
     },
     {
@@ -2782,15 +2844,15 @@ function renderTodayDashboard() {
   const renewalCard = document.createElement("article");
   renewalCard.className = `stat-card dashboard-card ${nextSeason ? "dashboard-card-ok" : "dashboard-card-warn"}`;
   renewalCard.innerHTML = `
-    <h3>Naechste Verlaengerungen</h3>
-    <p class="stat-meta">${escapeHtml(activeSeason.name)} laeuft bis ${escapeHtml(formatDateLabel(activeSeason.end_date))}</p>
+    <h3>Nächste Verlängerungen</h3>
+    <p class="stat-meta">${escapeHtml(activeSeason.name)} läuft bis ${escapeHtml(formatDateLabel(activeSeason.end_date))}</p>
   `;
   const renewalActions = document.createElement("div");
   renewalActions.className = "stat-card-actions mini-actions";
   const prepareNextSeasonBtn = document.createElement("button");
   prepareNextSeasonBtn.type = "button";
   prepareNextSeasonBtn.className = "ghost";
-  prepareNextSeasonBtn.textContent = nextSeason ? "Folge-Season oeffnen" : "Folge-Season vorbereiten";
+  prepareNextSeasonBtn.textContent = nextSeason ? "Folge-Season öffnen" : "Folge-Season vorbereiten";
   prepareNextSeasonBtn.addEventListener("click", async () => {
     if (nextSeason) {
       state.selectedSeasonId = nextSeason.id;
@@ -2847,8 +2909,8 @@ function renderTodayDashboard() {
   const recoveryCard = document.createElement("article");
   recoveryCard.className = `stat-card dashboard-card ${renewalCandidates.length ? "dashboard-card-critical" : "dashboard-card-ok"}`;
   recoveryCard.innerHTML = `
-    <h3>Rueckhol-Workflow</h3>
-    <p class="stat-meta">Personen mit Luft nach oben fuer die naechste Season.</p>
+    <h3>Rückhol-Workflow</h3>
+    <p class="stat-meta">Personen mit Luft nach oben für die nächste Season.</p>
   `;
   const recoveryList = document.createElement("div");
   recoveryList.className = "stack";
@@ -2889,7 +2951,7 @@ function renderTodayDashboard() {
       const carryBtn = document.createElement("button");
       carryBtn.type = "button";
       carryBtn.className = "primary";
-      carryBtn.textContent = "Verlaengern";
+      carryBtn.textContent = "Verlängern";
       carryBtn.addEventListener("click", async () => {
         await handleCarryOverBookingToNextSeason(candidate, activeSeason);
       });
@@ -2929,17 +2991,17 @@ function renderTodayDashboard() {
   beatOutCard.className = `stat-card dashboard-card ${bookingsWithBeatOutPressure.some((entry) => entry.reward.availableRewards > 0 || entry.reward.remainingToNext <= 1) ? "dashboard-card-warn" : "dashboard-card-ok"}`;
   beatOutCard.innerHTML = `
     <h3>BEAT-OUT & Gratis-Seasons</h3>
-    <p class="stat-meta">Wer viel gesammelt hat, kurz vor der naechsten Freistufe steht oder bereits eine Gratis-Season erreicht hat.</p>
+    <p class="stat-meta">Wer viel gesammelt hat, kurz vor der nächsten Freistufe steht oder bereits eine Gratis-Season erreicht hat.</p>
   `;
   const beatOutList = document.createElement("div");
   beatOutList.className = "stack";
   if (bookingsWithBeatOutPressure.length) {
     bookingsWithBeatOutPressure.slice(0, 5).forEach((entry) => {
       const nextRewardMeta = entry.reward.availableRewards > 0
-        ? `${entry.reward.total} BEAT-OUTs gesamt | ${entry.reward.availableRewards} Gratis-Season${entry.reward.availableRewards > 1 ? "s" : ""} einloesbar`
+        ? `${entry.reward.total} BEAT-OUTs gesamt | ${entry.reward.availableRewards} Gratis-Season${entry.reward.availableRewards > 1 ? "s" : ""} einlösbar`
         : entry.reward.nextMilestone
           ? `${entry.reward.total} BEAT-OUTs gesamt | noch ${entry.reward.remainingToNext} bis ${entry.reward.nextMilestone}`
-          : `${entry.reward.total} BEAT-OUTs gesamt | hoechste Freistufe erreicht`;
+          : `${entry.reward.total} BEAT-OUTs gesamt | höchste Freistufe erreicht`;
       const row = document.createElement("div");
       row.className = "list-row";
       row.innerHTML = `
@@ -2963,7 +3025,7 @@ function renderTodayDashboard() {
         const redeemBtn = document.createElement("button");
         redeemBtn.type = "button";
         redeemBtn.className = "ghost";
-        redeemBtn.textContent = "Einloesen";
+        redeemBtn.textContent = "Einlösen";
         redeemBtn.addEventListener("click", async () => {
           await redeemFreeSeasonForBooking(entry.booking);
         });
@@ -2987,14 +3049,14 @@ function renderTodayDashboard() {
   trialReminderCard.className = `stat-card dashboard-card ${openTrialRequests.length ? "dashboard-card-warn" : "dashboard-card-ok"}`;
   trialReminderCard.innerHTML = `
     <h3>Probetraining im Blick</h3>
-    <p class="stat-meta">Offene Probetrainings und anstehende Conversion-Faelle.</p>
+    <p class="stat-meta">Offene Probetrainings und anstehende Conversion-Fälle.</p>
   `;
   const trialReminderActions = document.createElement("div");
   trialReminderActions.className = "stat-card-actions mini-actions";
   const openTrialsBtn = document.createElement("button");
   openTrialsBtn.type = "button";
   openTrialsBtn.className = "ghost";
-  openTrialsBtn.textContent = "Probetrainings oeffnen";
+  openTrialsBtn.textContent = "Probetrainings öffnen";
   openTrialsBtn.addEventListener("click", () => {
     setActiveSection("#trialsPanel");
   });
@@ -3100,7 +3162,7 @@ function renderPlanning() {
     card.className = "stat-card";
     card.innerHTML = `
       <h3>${escapeHtml(course.name)}</h3>
-      <p class="stat-meta">Bitte Wochentag im Kurs pflegen, damit Termine geplant werden koennen.</p>
+      <p class="stat-meta">Bitte Wochentag im Kurs pflegen, damit Termine geplant werden können.</p>
     `;
     planningPreview.appendChild(card);
     return;
@@ -3281,7 +3343,7 @@ function renderSeasons() {
     const carryOverBtn = document.createElement("button");
     carryOverBtn.type = "button";
     carryOverBtn.className = "primary";
-    carryOverBtn.textContent = "Teilnehmer uebernehmen";
+    carryOverBtn.textContent = "Teilnehmer übernehmen";
     carryOverBtn.addEventListener("click", async () => {
       await handleSeasonDuplicate(season, true);
     });
@@ -3302,7 +3364,7 @@ function renderSeasons() {
       const archiveBtn = document.createElement("button");
       archiveBtn.type = "button";
       archiveBtn.className = "danger";
-      archiveBtn.textContent = "Season abschliessen";
+      archiveBtn.textContent = "Season abschließen";
       archiveBtn.addEventListener("click", async () => {
         await handleSeasonArchive(season);
       });
@@ -3312,7 +3374,7 @@ function renderSeasons() {
     const deleteBtn = document.createElement("button");
     deleteBtn.type = "button";
     deleteBtn.className = "danger";
-    deleteBtn.textContent = "Season loeschen";
+    deleteBtn.textContent = "Season löschen";
     deleteBtn.addEventListener("click", async () => {
       await handleSeasonDelete(season);
     });
@@ -3445,11 +3507,11 @@ function renderSeasonBookings() {
       <p class="stat-meta">Paket: ${escapeHtml(booking.package_type)}</p>
       <p class="stat-meta">Tage: ${escapeHtml(formatSelectedDays(booking.selected_days))}</p>
       <p class="stat-meta">BEAT-OUTS: ${beatOutUsage.used}/${beatOutUsage.limit}</p>
-      <p class="stat-meta">Gratis-Season: ${rewardStatus.availableRewards} verfuegbar | ${rewardStatus.redeemedRewards} eingeloest</p>
+      <p class="stat-meta">Gratis-Season: ${rewardStatus.availableRewards} verfügbar | ${rewardStatus.redeemedRewards} eingelöst</p>
       <p class="stat-meta">${booking.phone ? escapeHtml(booking.phone) : "Keine Telefonnummer"}</p>
       <div class="trial-pipeline">
         <span class="status-pill ${escapeHtml(contactMeta.tone)}">${escapeHtml(contactMeta.label)}</span>
-        <span class="stat-meta">${rewardStatus.nextMilestone ? `Noch ${rewardStatus.remainingToNext} bis ${rewardStatus.nextMilestone}` : "Hoechste Freistufe erreicht"}</span>
+        <span class="stat-meta">${rewardStatus.nextMilestone ? `Noch ${rewardStatus.remainingToNext} bis ${rewardStatus.nextMilestone}` : "Höchste Freistufe erreicht"}</span>
       </div>
     `;
     const actions = document.createElement("div");
@@ -3485,7 +3547,7 @@ function renderSeasonBookings() {
     const carryBtn = document.createElement("button");
     carryBtn.type = "button";
     carryBtn.className = "ghost";
-    carryBtn.textContent = "Verlaengern";
+    carryBtn.textContent = "Verlängern";
     carryBtn.addEventListener("click", async () => {
       if (season) {
         await handleCarryOverBookingToNextSeason(booking, season);
@@ -3496,7 +3558,7 @@ function renderSeasonBookings() {
     const redeemBtn = document.createElement("button");
     redeemBtn.type = "button";
     redeemBtn.className = rewardStatus.availableRewards > 0 ? "primary" : "ghost";
-    redeemBtn.textContent = rewardStatus.availableRewards > 0 ? "Gratis-Season einloesen" : "Keine Gratis-Season";
+    redeemBtn.textContent = rewardStatus.availableRewards > 0 ? "Gratis-Season einlösen" : "Keine Gratis-Season";
     redeemBtn.disabled = rewardStatus.availableRewards <= 0;
     redeemBtn.addEventListener("click", async () => {
       await redeemFreeSeasonForBooking(booking);
@@ -3506,7 +3568,7 @@ function renderSeasonBookings() {
     const deleteBtn = document.createElement("button");
     deleteBtn.type = "button";
     deleteBtn.className = "danger";
-    deleteBtn.textContent = "Buchung loeschen";
+    deleteBtn.textContent = "Buchung löschen";
     deleteBtn.addEventListener("click", async () => {
       await handleBookingDelete(booking);
     });
@@ -3605,7 +3667,7 @@ function renderTrainerDirectory() {
       const deleteBtn = document.createElement("button");
       deleteBtn.type = "button";
       deleteBtn.className = "danger";
-      deleteBtn.textContent = "Trainer loeschen";
+      deleteBtn.textContent = "Trainer löschen";
       deleteBtn.addEventListener("click", async () => {
         await handleTrainerDirectoryDelete(entry);
       });
@@ -3617,7 +3679,7 @@ function renderTrainerDirectory() {
       const deleteBtn = document.createElement("button");
       deleteBtn.type = "button";
       deleteBtn.className = "danger";
-      deleteBtn.textContent = "Trainer loeschen";
+      deleteBtn.textContent = "Trainer löschen";
       deleteBtn.addEventListener("click", async () => {
         await handleTrainerDirectoryDelete(entry);
       });
@@ -3676,8 +3738,8 @@ function renderSingleSessionSelect(selectElement) {
     const option = document.createElement("option");
     option.value = "";
     option.textContent = preferredSeasonId
-      ? "Keine Termine in der gewaehlten Season"
-      : "Keine kommenden Termine verfuegbar";
+      ? "Keine Termine in der gewählten Season"
+      : "Keine kommenden Termine verfügbar";
     selectElement.appendChild(option);
     return;
   }
@@ -3755,7 +3817,7 @@ function renderTrials() {
         <button type="button" class="ghost" data-trial-action="booked">Gebucht</button>
         <button type="button" class="ghost" data-trial-action="attended">Teilgenommen</button>
         <button type="button" class="primary" data-trial-action="convert">Konvertieren</button>
-        <button type="button" class="danger" data-trial-action="delete">Loeschen</button>
+        <button type="button" class="danger" data-trial-action="delete">Löschen</button>
       </div>
     `;
 
@@ -3815,7 +3877,7 @@ function renderDropIns() {
         <button type="button" class="ghost" data-dropin-action="attended">Teilgenommen</button>
         <button type="button" class="ghost" data-dropin-action="open">Zum Kurs</button>
         ${isPast || isArchived ? `<button type="button" class="ghost" data-dropin-action="archive">${isArchived ? "Wiederherstellen" : "Archivieren"}</button>` : ""}
-        <button type="button" class="danger" data-dropin-action="cancel">Loeschen</button>
+        <button type="button" class="danger" data-dropin-action="cancel">Löschen</button>
       </div>
     `;
 
@@ -3849,7 +3911,7 @@ function showInviteOutput(code) {
 async function handleCopyInviteLink() {
   const link = copyInviteLinkBtn.dataset.inviteLink;
   if (!link) {
-    notify("Es gibt noch keinen Einladunglink zum Kopieren.", true);
+    notify("Es gibt noch keinen Einladungslink zum Kopieren.", true);
     return;
   }
 
@@ -3882,7 +3944,7 @@ async function handleTrialDelete(trial) {
     return;
   }
 
-  const shouldDelete = window.confirm(`Probetraining von ${trial.full_name} wirklich loeschen?`);
+  const shouldDelete = window.confirm(`Probetraining von ${trial.full_name} wirklich löschen?`);
   if (!shouldDelete) {
     return;
   }
@@ -3893,13 +3955,13 @@ async function handleTrialDelete(trial) {
     .eq("id", trial.id);
 
   if (error) {
-    notify(getFriendlySupabaseMessage(error, "Probetraining konnte nicht geloescht werden."), true);
+    notify(getFriendlySupabaseMessage(error, "Probetraining konnte nicht gelöscht werden."), true);
     return;
   }
 
   state.trialRequests = state.trialRequests.filter((entry) => entry.id !== trial.id);
   render();
-  notify("Probetraining wurde geloescht.");
+  notify("Probetraining wurde gelöscht.");
 }
 
 async function updateDropInStatus(dropInId, status) {
@@ -4097,17 +4159,30 @@ function renderCourseList() {
 
   state.courses.forEach((course) => {
     const trainer = getCourseTrainerName(course);
+    const snapshot = getCourseStatusSnapshot(course);
+    const nextSessionLabel = snapshot.session
+      ? `${formatDateLabel(snapshot.session.session_date)}${course.time ? ` | ${course.time} Uhr` : ""}`
+      : "Noch kein genauer Termin";
     const card = document.createElement("article");
     card.className = `course-card${course.id === state.selectedCourseId ? " active" : ""}`;
     card.tabIndex = 0;
     card.innerHTML = `
-      <div class="course-card-body">
-        <h3>${escapeHtml(course.name)}</h3>
-        <p class="course-meta">${escapeHtml(course.weekday)}${course.time ? ` - ${escapeHtml(course.time)} Uhr` : ""}</p>
-        <p class="course-meta">${course.location ? escapeHtml(course.location) : "Ort noch nicht eingetragen"}</p>
-        <p class="course-meta">Trainer: ${escapeHtml(trainer)}</p>
-      </div>
-    `;
+        <div class="course-card-body">
+          <h3>${escapeHtml(course.name)}</h3>
+          <p class="course-meta">${escapeHtml(course.weekday)}${course.time ? ` - ${escapeHtml(course.time)} Uhr` : ""}</p>
+          <p class="course-meta">${course.location ? escapeHtml(course.location) : "Ort noch nicht eingetragen"}</p>
+          <p class="course-meta">Trainer: ${escapeHtml(trainer)}</p>
+          <p class="course-meta">${escapeHtml(nextSessionLabel)}</p>
+          <div class="course-status-grid">
+            <span class="course-status-pill">${snapshot.participants.length} Teiln.</span>
+            <span class="course-status-pill">${snapshot.presentCount} anwesend</span>
+            <span class="course-status-pill">${snapshot.openCount} offen</span>
+            ${snapshot.trialCount ? `<span class="course-status-pill course-status-pill-info">${snapshot.trialCount} Probe</span>` : ""}
+            ${snapshot.dropInCount ? `<span class="course-status-pill course-status-pill-info">${snapshot.dropInCount} DROP-IN</span>` : ""}
+            ${snapshot.overrideCount ? `<span class="course-status-pill course-status-pill-warn">${snapshot.overrideCount} Umb.</span>` : ""}
+          </div>
+        </div>
+      `;
 
     const openCourse = () => {
       state.selectedCourseId = course.id;
@@ -4126,7 +4201,7 @@ function renderCourseList() {
     const selectBtn = document.createElement("button");
     selectBtn.type = "button";
     selectBtn.className = "ghost";
-    selectBtn.textContent = "Kurs oeffnen";
+    selectBtn.textContent = "Kurs öffnen";
     selectBtn.addEventListener("click", (event) => {
       event.stopPropagation();
       openCourse();
@@ -4140,7 +4215,7 @@ function renderCourseList() {
       const deleteBtn = document.createElement("button");
       deleteBtn.type = "button";
       deleteBtn.className = "danger";
-      deleteBtn.textContent = "Kurs loeschen";
+      deleteBtn.textContent = "Kurs löschen";
       deleteBtn.addEventListener("click", async (event) => {
         event.stopPropagation();
         state.selectedCourseId = course.id;
@@ -4161,7 +4236,7 @@ function renderParticipants() {
   participantCards.innerHTML = "";
 
   if (!course) {
-    participantSectionTitle.textContent = "Bitte zuerst einen Kurs auswaehlen";
+    participantSectionTitle.textContent = "Bitte zuerst einen Kurs auswählen";
     courseActions.classList.add("hidden");
     return;
   }
@@ -4177,11 +4252,41 @@ function renderParticipants() {
   const sessionDate = getEffectiveAttendanceDate();
   const session = getSessionForCourseAndDate(course.id, sessionDate);
   const records = getRecordsForSession(session?.id);
-  const sessionParticipants = getFilteredParticipants(course.id, session?.id);
+  const rawSessionParticipants = getFilteredParticipants(course.id, session?.id);
+  const sessionParticipants = isAdmin()
+    ? rawSessionParticipants
+    : [...rawSessionParticipants].sort((left, right) => {
+        const leftRecord = records.find((entry) => entry.participant_id === left.id);
+        const rightRecord = records.find((entry) => entry.participant_id === right.id);
+        const leftPresent = left.is_dropin ? left.drop_in_status === "teilgenommen" : Boolean(leftRecord?.present);
+        const rightPresent = right.is_dropin ? right.drop_in_status === "teilgenommen" : Boolean(rightRecord?.present);
+        const leftBeatOut = getBeatOutEntryForParticipantSession(left.id, session?.id);
+        const rightBeatOut = getBeatOutEntryForParticipantSession(right.id, session?.id);
+        const leftOverride = session?.id ? getSessionOverrideForTarget(left.id, session.id) : null;
+        const rightOverride = session?.id ? getSessionOverrideForTarget(right.id, session.id) : null;
+        const leftWeight = getTrainerChecklistWeight({
+          participant: left,
+          isPresent: leftPresent,
+          beatOutEntry: leftBeatOut,
+          targetOverride: leftOverride,
+        });
+        const rightWeight = getTrainerChecklistWeight({
+          participant: right,
+          isPresent: rightPresent,
+          beatOutEntry: rightBeatOut,
+          targetOverride: rightOverride,
+        });
+
+        if (leftWeight !== rightWeight) {
+          return leftWeight - rightWeight;
+        }
+
+        return String(left.full_name || "").localeCompare(String(right.full_name || ""));
+      });
 
   if (!sessionParticipants.length) {
     const row = document.createElement("tr");
-    row.innerHTML = `<td colspan="5"><div class="empty-state"><p>Keine Teilnehmer fuer die aktuelle Suche gefunden.</p></div></td>`;
+      row.innerHTML = `<td colspan="5"><div class="empty-state"><p>Keine Teilnehmer für die aktuelle Suche gefunden.</p></div></td>`;
     participantTableBody.appendChild(row);
     participantCards.appendChild(emptyStateTemplate.content.cloneNode(true));
     return;
@@ -4209,18 +4314,20 @@ function renderParticipants() {
         : `${rate}%`;
     const targetOverride = session?.id ? getSessionOverrideForTarget(participant.id, session.id) : null;
     const overrideMeta = targetOverride ? getSessionOverrideLabel(targetOverride) : "";
-    const overrideBadge = targetOverride
-      ? `<div class="participant-override"><span class="status-pill status-pill-info">Ersatztermin</span><span class="participant-override-text">${escapeHtml(overrideMeta)}</span></div>`
-      : "";
-    const trialBadge = isTrialParticipant ? '<div class="participant-override"><span class="status-pill status-pill-info">Probetraining</span></div>' : "";
-    const dropInBadge = isDropInParticipant ? '<div class="participant-override"><span class="status-pill status-pill-warn">DROP-IN</span></div>' : "";
+      const overrideBadge = targetOverride
+        ? `<div class="participant-override"><span class="status-pill status-pill-info">Ersatztermin</span><span class="participant-override-text">${escapeHtml(overrideMeta)}</span></div>`
+        : "";
+      const trialBadge = isTrialParticipant ? '<div class="participant-override"><span class="status-pill status-pill-info">Probetraining</span></div>' : "";
+      const dropInBadge = isDropInParticipant ? '<div class="participant-override"><span class="status-pill status-pill-warn">DROP-IN</span></div>' : "";
+      const isCompletedForChecklist = !isTrialParticipant && (isPresent || Boolean(beatOutEntry));
 
-    const row = document.createElement("tr");
-    row.className = [
-      targetOverride ? "participant-row-override" : "",
-      isTrialParticipant ? "participant-row-trial" : "",
-      isDropInParticipant ? "participant-row-dropin" : "",
-    ].filter(Boolean).join(" ");
+      const row = document.createElement("tr");
+      row.className = [
+        targetOverride ? "participant-row-override" : "",
+        isTrialParticipant ? "participant-row-trial" : "",
+        isDropInParticipant ? "participant-row-dropin" : "",
+        !isAdmin() && isCompletedForChecklist ? "participant-row-complete" : "",
+      ].filter(Boolean).join(" ");
     row.innerHTML = `
       <td>${isTrialParticipant || isDropInParticipant ? escapeHtml(participant.full_name) : `<button type="button" class="link-button participant-profile-btn">${escapeHtml(participant.full_name)}</button>`}</td>
       <td>
@@ -4238,7 +4345,7 @@ function renderParticipants() {
         <div class="mini-actions table-actions">
           <button type="button" class="ghost participant-beatout-btn${beatOutEntry ? " is-active" : ""}">${beatOutEntry ? "BEAT-OUT aktiv" : "BEAT-OUT"}</button>
           <button type="button" class="ghost participant-move-btn">${targetOverride ? "Terminwechsel aufheben" : booking ? "Termin umbuchen" : "Umbuchen"}</button>
-          <button type="button" class="danger participant-delete-btn">${booking ? "Entfernen" : "Loeschen"}</button>
+          <button type="button" class="danger participant-delete-btn">${booking ? "Entfernen" : "Löschen"}</button>
         </div>
       </td>
     `;
@@ -4306,13 +4413,13 @@ function renderParticipants() {
           : beatOutEntry
             ? "BEAT-OUT aktiv"
             : "Noch offen";
-    const card = document.createElement("article");
-    card.className = `participant-card${targetOverride ? " participant-card-override" : ""}${isTrialParticipant ? " participant-card-trial" : ""}${isDropInParticipant ? " participant-card-dropin" : ""}`;
-    card.innerHTML = `
-      <div class="participant-card-head">
-        <div>
-          <h3>${isTrialParticipant || isDropInParticipant ? escapeHtml(participant.full_name) : `<button type="button" class="link-button participant-profile-btn">${escapeHtml(participant.full_name)}</button>`}</h3>
-          <p class="stat-meta">${participant.phone ? escapeHtml(participant.phone) : "Keine Telefonnummer"}</p>
+      const card = document.createElement("article");
+      card.className = `participant-card${targetOverride ? " participant-card-override" : ""}${isTrialParticipant ? " participant-card-trial" : ""}${isDropInParticipant ? " participant-card-dropin" : ""}${!isAdmin() && isCompletedForChecklist ? " participant-card-complete" : ""}`;
+      card.innerHTML = `
+        <div class="participant-card-head">
+          <div>
+            <h3>${isTrialParticipant || isDropInParticipant ? escapeHtml(participant.full_name) : `<button type="button" class="link-button participant-profile-btn">${escapeHtml(participant.full_name)}</button>`}</h3>
+            <p class="stat-meta">${participant.phone ? escapeHtml(participant.phone) : "Keine Telefonnummer"}</p>
           ${booking ? `<p class="stat-meta beatout-meta">BEAT-OUT ${bookingUsage.used}/${bookingUsage.limit}</p>` : ""}
           ${trialBadge}
           ${dropInBadge}
@@ -4320,42 +4427,57 @@ function renderParticipants() {
         </div>
         <span class="badge">${rateBadge}</span>
       </div>
-      <div class="participant-card-status-row">
-        <div class="participant-card-status-copy">
-          <span class="participant-card-section-label">Anwesenheit</span>
-          <strong>${escapeHtml(mobileStatusLabel)}</strong>
+        <div class="participant-card-status-row">
+          <div class="participant-card-status-copy">
+            <span class="participant-card-section-label">Anwesenheit</span>
+            <strong>${escapeHtml(mobileStatusLabel)}</strong>
+            <span class="participant-card-status-hint">${isTrialParticipant ? "Nur Ansicht" : isDropInParticipant ? "Tippen für Teilnahme" : "Tippen für schnellen Check-in"}</span>
+          </div>
+          <button type="button" class="attendance-toggle${isPresent ? " is-present" : ""}" aria-label="Anwesenheit umschalten"></button>
         </div>
-        <button type="button" class="attendance-toggle${isPresent ? " is-present" : ""}" aria-label="Anwesenheit umschalten"></button>
-      </div>
       <div class="participant-card-actions participant-card-actions-secondary">
         <button type="button" class="ghost participant-beatout-btn${beatOutEntry ? " is-active" : ""}">${beatOutEntry ? "BEAT-OUT aktiv" : "BEAT-OUT"}</button>
         <button type="button" class="ghost participant-move-btn">${targetOverride ? "Terminwechsel aufheben" : booking ? "Termin umbuchen" : "Umbuchen"}</button>
-        <button type="button" class="danger participant-delete-btn">${booking ? "Entfernen" : "Loeschen"}</button>
+        <button type="button" class="danger participant-delete-btn">${booking ? "Entfernen" : "Löschen"}</button>
       </div>
     `;
 
-    const mobileToggle = card.querySelector(".attendance-toggle");
-    mobileToggle.disabled = !canEditCourse(course) || isTrialParticipant;
-    if (!isTrialParticipant && !isDropInParticipant) {
-      mobileToggle.addEventListener("click", async () => {
-        await toggleAttendance(course.id, participant.id);
-      });
-    } else if (isDropInParticipant) {
-      mobileToggle.addEventListener("click", async () => {
-        await updateDropInStatus(
-          participant.drop_in_booking_id,
-          participant.drop_in_status === "teilgenommen" ? "gebucht" : "teilgenommen",
-        );
-      });
-    }
+      const mobileToggle = card.querySelector(".attendance-toggle");
+      const mobileStatusRow = card.querySelector(".participant-card-status-row");
+      mobileToggle.disabled = !canEditCourse(course) || isTrialParticipant;
+      if (!isTrialParticipant && !isDropInParticipant) {
+        mobileStatusRow.classList.add("participant-card-status-row-clickable");
+        mobileStatusRow.addEventListener("click", async () => {
+          await toggleAttendance(course.id, participant.id);
+        });
+        mobileToggle.addEventListener("click", async (event) => {
+          event.stopPropagation();
+          await toggleAttendance(course.id, participant.id);
+        });
+      } else if (isDropInParticipant) {
+        mobileStatusRow.classList.add("participant-card-status-row-clickable");
+        mobileStatusRow.addEventListener("click", async () => {
+          await updateDropInStatus(
+            participant.drop_in_booking_id,
+            participant.drop_in_status === "teilgenommen" ? "gebucht" : "teilgenommen",
+          );
+        });
+        mobileToggle.addEventListener("click", async (event) => {
+          event.stopPropagation();
+          await updateDropInStatus(
+            participant.drop_in_booking_id,
+            participant.drop_in_status === "teilgenommen" ? "gebucht" : "teilgenommen",
+          );
+        });
+      }
 
-    const mobileMoveButton = card.querySelector(".participant-move-btn");
-    mobileMoveButton.disabled = !canEditCourse(course) || isTrialParticipant || isDropInParticipant;
-    if (!isTrialParticipant && !isDropInParticipant) {
-      mobileMoveButton.addEventListener("click", async () => {
-        await handleParticipantMove(participant, course);
-      });
-    }
+      const mobileMoveButton = card.querySelector(".participant-move-btn");
+      mobileMoveButton.disabled = !canEditCourse(course) || isTrialParticipant || isDropInParticipant;
+      if (!isTrialParticipant && !isDropInParticipant) {
+        mobileMoveButton.addEventListener("click", async () => {
+          await handleParticipantMove(participant, course);
+        });
+      }
 
     const mobileBeatOutButton = card.querySelector(".participant-beatout-btn");
     mobileBeatOutButton.disabled = !canEditCourse(course) || !booking || isTrialParticipant || isDropInParticipant;
@@ -4450,17 +4572,17 @@ function renderParticipantProfile(fallbackBookingId = null) {
       <article class="stat-card">
         <h3>BEAT-OUTS</h3>
         <p class="hero-stat">${booking ? `${beatOutUsage.used}/${beatOutUsage.limit}` : "-"}</p>
-        <p class="stat-meta">${booking ? `${beatOutUsage.remaining} verbleibend in dieser Season` : "Nur bei Season-Buchung verfuegbar"}</p>
+        <p class="stat-meta">${booking ? `${beatOutUsage.remaining} verbleibend in dieser Season` : "Nur bei Season-Buchung verfügbar"}</p>
       </article>
       <article class="stat-card">
         <h3>Gratis-Season Status</h3>
         <p class="hero-stat">${rewardStatus.availableRewards}</p>
-        <p class="stat-meta">${rewardStatus.redeemedRewards} eingeloest | ${rewardStatus.nextMilestone ? `Naechste Schwelle bei ${rewardStatus.nextMilestone} BEAT-OUTs` : "12 BEAT-OUTs erreicht"}</p>
+        <p class="stat-meta">${rewardStatus.redeemedRewards} eingelöst | ${rewardStatus.nextMilestone ? `Nächste Schwelle bei ${rewardStatus.nextMilestone} BEAT-OUTs` : "12 BEAT-OUTs erreicht"}</p>
       </article>
       <article class="stat-card">
         <h3>Kontaktstatus</h3>
         <p class="hero-stat">${escapeHtml(contactMeta.label)}</p>
-        <p class="stat-meta">Verlaengerung und Follow-up im Blick behalten</p>
+        <p class="stat-meta">Verlängerung und Follow-up im Blick behalten</p>
       </article>
     </div>
     <article class="stat-card">
@@ -4500,15 +4622,16 @@ function renderMobileSessionSummary() {
 
   mobileSessionSummary.classList.remove("hidden");
   mobileSessionSummary.innerHTML = `
-    <h3>${escapeHtml(course.name)}</h3>
-    <p class="hero-stat">${presentCount}/${participants.length}</p>
-    <p class="stat-meta">${escapeHtml(course.weekday)}${course.time ? ` | ${escapeHtml(course.time)} Uhr` : ""}</p>
-    <p class="stat-meta">Termin: ${escapeHtml(sessionDate)}</p>
-    <div class="mobile-session-summary-grid">
-      <div><strong>${presentCount}</strong><span>Anwesend</span></div>
-      <div><strong>${beatOutCount}</strong><span>BEAT-OUT</span></div>
-      <div><strong>${openCount}</strong><span>Offen</span></div>
-    </div>
+      <h3>${escapeHtml(course.name)}</h3>
+      <p class="hero-stat">${presentCount}/${participants.length}</p>
+      <p class="stat-meta">${escapeHtml(course.weekday)}${course.time ? ` | ${escapeHtml(course.time)} Uhr` : ""}</p>
+      <p class="stat-meta">Termin: ${escapeHtml(sessionDate)}</p>
+      ${!isAdmin() ? '<p class="stat-meta">Checklistenmodus: offene Personen stehen oben.</p>' : ""}
+      <div class="mobile-session-summary-grid">
+        <div><strong>${presentCount}</strong><span>Anwesend</span></div>
+        <div><strong>${beatOutCount}</strong><span>BEAT-OUT</span></div>
+        <div><strong>${openCount}</strong><span>Offen</span></div>
+      </div>
   `;
 }
 
@@ -4607,12 +4730,12 @@ function renderBusinessDashboard() {
 
   const insightCards = [
     {
-      title: "Staerkster Kurs",
+      title: "Stärkster Kurs",
       value: topCourse ? `${topCourse.name} (${topCourse.rate}%)` : "Noch keine Daten",
       meta: "beste Anwesenheitsquote",
     },
     {
-      title: "Staerkster Trainer",
+      title: "Stärkster Trainer",
       value: topTrainer ? `${topTrainer.name} (${topTrainer.rate}%)` : "Noch keine Daten",
       meta: "durchschnittliche Anwesenheit",
     },
@@ -4623,7 +4746,7 @@ function renderBusinessDashboard() {
     },
     {
       title: "Handlungsbedarf",
-      value: weakestCourse ? `${weakestCourse.name} (${weakestCourse.rate}%)` : "Kein Ausreisser",
+      value: weakestCourse ? `${weakestCourse.name} (${weakestCourse.rate}%)` : "Kein Ausreißer",
       meta: "niedrigste Anwesenheitsquote",
     },
   ];
@@ -4668,7 +4791,7 @@ function renderBusinessDashboard() {
       trialSeasonList.appendChild(row);
     });
   } else {
-    trialSeasonList.innerHTML = '<p class="stat-meta">Noch keine Probetrainings mit Season-Bezug im gewaehlten Monat.</p>';
+    trialSeasonList.innerHTML = '<p class="stat-meta">Noch keine Probetrainings mit Season-Bezug im gewählten Monat.</p>';
   }
   trialSeasonCard.appendChild(trialSeasonList);
   businessInsights.appendChild(trialSeasonCard);
@@ -4911,7 +5034,7 @@ function renderReportPreview() {
     {
       title: "Suchfilter",
       value: state.participantSearch || "Kein Filter",
-      meta: "fuer Teilnehmerlisten und Ranking",
+      meta: "für Teilnehmerlisten und Ranking",
     },
     {
       title: "Aufmerksamkeiten",
@@ -4969,7 +5092,7 @@ async function toggleAttendance(courseId, participantId) {
 
   persistOfflineCache();
   render();
-  notify(nextPresent ? "Anwesenheit bestaetigt." : "Anwesenheit entfernt.");
+  notify(nextPresent ? "Anwesenheit bestätigt." : "Anwesenheit entfernt.");
 
   await refreshVisibleData({ context: "Attendance refresh", silent: true });
 }
@@ -4982,13 +5105,13 @@ async function toggleBeatOut(courseId, participantId) {
   }
 
   if (state.isOffline) {
-    notify("BEAT-OUTs koennen aktuell nur online eingetragen werden.", true);
+    notify("BEAT-OUTs können aktuell nur online eingetragen werden.", true);
     return;
   }
 
   const booking = getParticipantSeasonBooking(participant);
   if (!booking) {
-    notify("BEAT-OUT ist nur fuer Season-Buchungen verfuegbar.", true);
+    notify("BEAT-OUT ist nur für Season-Buchungen verfügbar.", true);
     return;
   }
 
@@ -5022,7 +5145,7 @@ async function toggleBeatOut(courseId, participantId) {
     state.acceptEmptyFetch.beatOutEntries = false;
     persistOfflineCache();
     render();
-    notify(`BEAT-OUT fuer ${participant.full_name} wurde entfernt.`);
+    notify(`BEAT-OUT für ${participant.full_name} wurde entfernt.`);
     await refreshVisibleData({ context: "Beat-out refresh", silent: true });
     return;
   }
@@ -5064,7 +5187,7 @@ async function toggleBeatOut(courseId, participantId) {
   state.acceptEmptyFetch.beatOutEntries = false;
   persistOfflineCache();
   render();
-  notify(`BEAT-OUT fuer ${participant.full_name} wurde eingetragen.`);
+  notify(`BEAT-OUT für ${participant.full_name} wurde eingetragen.`);
   await refreshVisibleData({ context: "Beat-out refresh", silent: true });
 }
 
@@ -5088,7 +5211,7 @@ async function setAttendanceForAll(value) {
     });
     persistOfflineCache();
     render();
-    notify("Sammelaenderung offline gespeichert.");
+    notify("Sammeländerung offline gespeichert.");
     return;
   }
 
@@ -5200,7 +5323,7 @@ async function createPlannedSessions(mode) {
     : getUpcomingCourseDates(course, 4);
 
   if (!dates.length) {
-    notify("Fuer diesen Kurs konnten keine Termine berechnet werden.", true);
+    notify("Für diesen Kurs konnten keine Termine berechnet werden.", true);
     return;
   }
 
@@ -5253,7 +5376,7 @@ async function createPlannedSessions(mode) {
 function exportSelectedCourseCsv() {
   const course = getSelectedCourse();
   if (!course) {
-    notify("Bitte zuerst einen Kurs auswaehlen.", true);
+    notify("Bitte zuerst einen Kurs auswählen.", true);
     return;
   }
 
@@ -5527,6 +5650,25 @@ function getFilteredParticipants(courseId, sessionId = null) {
   });
 }
 
+function getTrainerChecklistWeight({ participant, isPresent, beatOutEntry, targetOverride }) {
+  if (participant.is_trial) {
+    return 1;
+  }
+  if (participant.is_dropin) {
+    return isPresent ? 5 : 0;
+  }
+  if (targetOverride) {
+    return isPresent ? 4 : 1;
+  }
+  if (beatOutEntry) {
+    return 4;
+  }
+  if (isPresent) {
+    return 5;
+  }
+  return 0;
+}
+
 function getOpenTrialRequests() {
   return state.trialRequests
     .filter((trial) => trial.status !== "konvertiert" && trial.status !== "abgesagt")
@@ -5548,7 +5690,7 @@ function getTrialPipelineMeta(trial) {
   if (status === "angefragt") {
     return {
       label: "Anfrage offen",
-      meta: "Termin bestaetigen oder rueckmelden",
+      meta: "Termin bestätigen oder rückmelden",
       tone: "status-pill-info",
     };
   }
@@ -5562,20 +5704,20 @@ function getTrialPipelineMeta(trial) {
   if (status === "teilgenommen") {
     return {
       label: "Conversion offen",
-      meta: "Nachfassen und in Teilnehmer uebernehmen",
+      meta: "Nachfassen und in Teilnehmer übernehmen",
       tone: "status-pill-warn",
     };
   }
   if (status === "konvertiert") {
     return {
       label: "Konvertiert",
-      meta: "bereits in Teilnehmer uebernommen",
+      meta: "bereits in Teilnehmer übernommen",
       tone: "status-pill-info",
     };
   }
   return {
     label: "Abgesagt",
-    meta: "kein weiterer Schritt noetig",
+      meta: "kein weiterer Schritt nötig",
     tone: "status-pill-critical",
   };
 }
@@ -5585,7 +5727,7 @@ function getDropInPipelineMeta(dropIn) {
   if (status === "gebucht") {
     return {
       label: "Einzelstunde gebucht",
-      meta: "nur fuer diesen einen Termin aktiv",
+      meta: "nur für diesen einen Termin aktiv",
       tone: "status-pill-info",
     };
   }
@@ -5598,7 +5740,7 @@ function getDropInPipelineMeta(dropIn) {
   }
   return {
     label: "Storniert",
-    meta: "kein weiterer Schritt noetig",
+    meta: "kein weiterer Schritt nötig",
     tone: "status-pill-critical",
   };
 }
@@ -5819,7 +5961,7 @@ function getSessionOverrideLabel(override) {
     return "Einzeltermin umgebucht";
   }
 
-  return `Ersatz fuer ${sourceCourse.weekday} ${formatDateLabel(sourceSession.session_date)}`;
+  return `Ersatz für ${sourceCourse.weekday} ${formatDateLabel(sourceSession.session_date)}`;
 }
 
 function getBeatOutLimitForPackage(packageType) {
@@ -6078,7 +6220,7 @@ function getLatestInviteForTrainer(entry) {
 
 function openTrainerInviteEmailDraft(entry, invite) {
   if (!entry?.email || !invite?.code) {
-    notify("Fuer diesen Trainer ist aktuell keine Einladung mit Link verfuegbar.", true);
+    notify("Für diesen Trainer ist aktuell keine Einladung mit Link verfügbar.", true);
     return;
   }
 
@@ -6088,19 +6230,19 @@ function openTrainerInviteEmailDraft(entry, invite) {
   const body = encodeURIComponent([
     trainerName ? `Hallo ${trainerName},` : "Hallo,",
     "",
-    "dein Trainerzugang fuer BEATFIELD wurde vorbereitet.",
+    "dein Trainerzugang für BEATFIELD wurde vorbereitet.",
     "",
     "Nutze bitte diesen Einladungslink, um deinen Zugang abzuschliessen:",
     inviteLink,
     "",
-    `Falls du den Code lieber manuell eingeben moechtest: ${invite.code}`,
+    `Falls du den Code lieber manuell eingeben möchtest: ${invite.code}`,
     "",
     "Bis gleich bei BEATFIELD.",
   ].join("\n"));
   const recipient = encodeURIComponent(String(entry.email).trim());
 
   window.location.href = `mailto:${recipient}?subject=${subject}&body=${body}`;
-  notify(`E-Mail fuer ${entry.email} wurde vorbereitet.`);
+  notify(`E-Mail für ${entry.email} wurde vorbereitet.`);
 }
 
 function getTrainerAccessState(entry) {
@@ -6323,6 +6465,122 @@ function getNextCourseForToday() {
 
   const nowMinutes = getCurrentMinutes();
   return todayCourses.find((course) => getTimeInMinutes(course.time) >= nowMinutes) || todayCourses[0];
+}
+
+function getUpcomingSessionForCourse(courseId) {
+  const today = getToday();
+  const upcomingSessions = state.sessions
+    .filter((session) => session.course_id === courseId)
+    .sort((left, right) => String(left.session_date || "").localeCompare(String(right.session_date || "")));
+
+  return upcomingSessions.find((session) => String(session.session_date || "") >= today) || upcomingSessions[0] || null;
+}
+
+function getCourseStatusSnapshot(course) {
+  const session = getUpcomingSessionForCourse(course.id);
+  const participants = getAttendanceParticipantsForCourse(course.id, session?.id);
+  const records = getRecordsForSession(session?.id);
+  const presentCount = participants.filter((participant) => {
+    if (participant.is_dropin) {
+      return participant.drop_in_status === "teilgenommen";
+    }
+    return records.some((record) => record.participant_id === participant.id && record.present);
+  }).length;
+  const beatOutCount = participants.filter((participant) => getBeatOutEntryForParticipantSession(participant.id, session?.id)).length;
+  const trialCount = participants.filter((participant) => participant.is_trial).length;
+  const dropInCount = participants.filter((participant) => participant.is_dropin).length;
+  const overrideCount = participants.filter((participant) => getSessionOverrideForTarget(participant.id, session?.id)).length;
+  const openCount = Math.max(participants.length - presentCount - beatOutCount, 0);
+
+  return {
+    session,
+    participants,
+    presentCount,
+    beatOutCount,
+    trialCount,
+    dropInCount,
+    overrideCount,
+    openCount,
+  };
+}
+
+function getTrainerTodayTaskRows() {
+  const today = getToday();
+  const todaySessions = state.sessions
+    .filter((session) => session.session_date === today)
+    .sort((left, right) => String(left.course_id || "").localeCompare(String(right.course_id || "")));
+  const tasks = [];
+
+  todaySessions.forEach((session) => {
+    const course = state.courses.find((entry) => entry.id === session.course_id);
+    if (!course) {
+      return;
+    }
+
+    const participants = getAttendanceParticipantsForCourse(course.id, session.id);
+    const records = getRecordsForSession(session.id);
+    const presentCount = participants.filter((participant) => {
+      if (participant.is_dropin) {
+        return participant.drop_in_status === "teilgenommen";
+      }
+      return records.some((record) => record.participant_id === participant.id && record.present);
+    }).length;
+    const beatOutCount = participants.filter((participant) => getBeatOutEntryForParticipantSession(participant.id, session.id)).length;
+    const openCount = Math.max(participants.length - presentCount - beatOutCount, 0);
+    const trialCount = participants.filter((participant) => participant.is_trial).length;
+    const dropInCount = participants.filter((participant) => participant.is_dropin).length;
+    const overrideCount = participants.filter((participant) => getSessionOverrideForTarget(participant.id, session.id)).length;
+
+    tasks.push({
+      session,
+      course,
+      title: course.name,
+      meta: `${course.time ? `${course.time} Uhr` : "heute"} | ${participants.length} Teilnehmende`,
+      detail: [
+        openCount ? `${openCount} offen` : null,
+        trialCount ? `${trialCount} Probetraining` : null,
+        dropInCount ? `${dropInCount} DROP-IN` : null,
+        overrideCount ? `${overrideCount} Umbuchung` : null,
+      ].filter(Boolean).join(" | ") || "Alles im Blick",
+      tone: openCount > 0 ? "warn" : "ok",
+      action: () => {
+        state.selectedCourseId = course.id;
+        if (attendanceDate) {
+          attendanceDate.value = session.session_date;
+        }
+        state.activeSection = "#attendancePanel";
+        render();
+      },
+    });
+  });
+
+  getOpenTrialRequests()
+    .filter((trial) => {
+      const session = trial.attendance_session_id
+        ? state.sessions.find((entry) => entry.id === trial.attendance_session_id) || null
+        : null;
+      return session?.session_date === today;
+    })
+    .forEach((trial) => {
+      const session = trial.attendance_session_id
+        ? state.sessions.find((entry) => entry.id === trial.attendance_session_id) || null
+        : null;
+      const course = session ? state.courses.find((entry) => entry.id === session.course_id) || null : null;
+      if (!session || !course) {
+        return;
+      }
+      tasks.push({
+        session,
+        course,
+        title: `${trial.full_name} | Probetraining`,
+        meta: `${course.name} | ${course.time ? `${course.time} Uhr` : formatDateLabel(session.session_date)}`,
+        detail: "Probeteilnehmer heute im Termin",
+        tone: "info",
+        action: () => openTrialInAttendance(trial),
+      });
+    });
+
+  return tasks;
 }
 
 function isAdmin() {
@@ -6815,7 +7073,7 @@ function notify(message, isError = false) {
       }
       delete statusMeta.dataset.locked;
       if (state.session && state.profile) {
-        statusMeta.textContent = "Bereit fuer den Tagesbetrieb";
+        statusMeta.textContent = "Bereit für den Tagesbetrieb";
       } else if (state.supabase) {
         statusMeta.textContent = "Warte auf Anmeldung";
       } else {
@@ -6844,7 +7102,7 @@ async function refreshVisibleData({ includeCourses = false, context = "Refresh",
   } catch (error) {
     console.error(`${context} failed`, error);
     if (!silent) {
-      notify("Daten konnten nicht vollstaendig aktualisiert werden.", true);
+      notify("Daten konnten nicht vollständig aktualisiert werden.", true);
     }
     return false;
   }
@@ -6952,11 +7210,11 @@ function getFriendlySupabaseMessage(error, fallback) {
     || normalized.includes("source_session_id")
     || normalized.includes("target_session_id")
   ) {
-    return "Die App braucht das neueste Supabase-Schema. Bitte `supabase-schema.sql` noch einmal komplett im SQL Editor ausfuehren.";
+    return "Die App braucht das neueste Supabase-Schema. Bitte `supabase-schema.sql` noch einmal komplett im SQL Editor ausführen.";
   }
 
   if (normalized.includes("relation") && normalized.includes("does not exist")) {
-    return "In Supabase fehlt noch mindestens eine Tabelle. Bitte `supabase-schema.sql` noch einmal komplett ausfuehren.";
+    return "In Supabase fehlt noch mindestens eine Tabelle. Bitte `supabase-schema.sql` noch einmal komplett ausführen.";
   }
 
   return message || fallback || "Aktion fehlgeschlagen.";
@@ -7132,20 +7390,20 @@ function handleGenerateSeasonDates() {
 
   const startDate = String(new FormData(seasonForm).get("startDate") || "").trim();
   if (!startDate) {
-    notify("Bitte zuerst ein Startdatum fuer die Season setzen.", true);
+    notify("Bitte zuerst ein Startdatum für die Season setzen.", true);
     return;
   }
 
   const endDate = calculateSeasonEndDate(startDate);
   state.seasonDraftDates = getGeneratedSeasonDates(startDate, endDate);
   renderSeasonDateEditor();
-  notify(`${state.seasonDraftDates.length} Standardtermine fuer die Season geladen.`);
+  notify(`${state.seasonDraftDates.length} Standardtermine für die Season geladen.`);
 }
 
 function handleAddSeasonDraftDate() {
   const dateValue = String(seasonDateDraftInput?.value || "").trim();
   if (!dateValue) {
-    notify("Bitte zuerst ein Datum fuer den Season-Termin waehlen.", true);
+    notify("Bitte zuerst ein Datum für den Season-Termin wählen.", true);
     return;
   }
 
@@ -7228,7 +7486,7 @@ function resolveRelevantCoursesForDays(selectedDays) {
   if (missingWeekdays.length) {
     return {
       ok: false,
-      message: `Fuer diese Trainingstage fehlt noch ein Kurs: ${missingWeekdays.join(", ")}.`,
+      message: `Für diese Trainingstage fehlt noch ein Kurs: ${missingWeekdays.join(", ")}.`,
     };
   }
 
@@ -7236,7 +7494,7 @@ function resolveRelevantCoursesForDays(selectedDays) {
   if (ambiguousWeekdays.length) {
     return {
       ok: false,
-      message: `Bitte pro Trainingstag genau einen Kurs pflegen. Mehrfach gefunden fuer: ${ambiguousWeekdays.join(", ")}.`,
+      message: `Bitte pro Trainingstag genau einen Kurs pflegen. Mehrfach gefunden für: ${ambiguousWeekdays.join(", ")}.`,
     };
   }
 
@@ -7301,7 +7559,7 @@ async function removeSessionOverride(override, participantName = "Teilnehmer") {
 
   state.sessionOverrides = state.sessionOverrides.filter((entry) => entry.id !== override.id);
   render();
-  notify(`Termin-Umbuchung fuer ${participantName} wurde aufgehoben.`);
+  notify(`Termin-Umbuchung für ${participantName} wurde aufgehoben.`);
   await refreshVisibleData({ context: "Session override delete refresh", silent: true });
 }
 
