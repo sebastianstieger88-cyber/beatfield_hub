@@ -1820,6 +1820,45 @@ async function handleParticipantCreate(event) {
       const preferredSeasonId = state.attendanceSeasonId || getDefaultSeasonId();
       const selectedDay = normalizeWeekdayLabel(course.weekday);
 
+      if (!isAdmin()) {
+        const participantInsertResult = await state.supabase
+          .from("participants")
+          .insert({
+            course_id: course.id,
+            full_name: fullName,
+            phone: phone || null,
+            season_id: preferredSeasonId || null,
+            season_booking_id: null,
+          })
+          .select("id, course_id, full_name, phone, created_at, season_id, season_booking_id")
+          .single();
+
+        if (participantInsertResult.error) {
+          notify(getFriendlySupabaseMessage(participantInsertResult.error, "Teilnehmer konnte nicht angelegt werden."), true);
+          return;
+        }
+
+        state.participants = [
+          participantInsertResult.data,
+          ...state.participants.filter((entry) => entry.id !== participantInsertResult.data.id),
+        ].sort((left, right) => String(left.full_name || "").localeCompare(String(right.full_name || "")));
+        markOptimisticVisibility("participants", 60000);
+        state.acceptEmptyFetch.participants = false;
+
+        const refreshOk = await refreshVisibleData({ context: "Trainer participant refresh", silent: false });
+        const participantPersisted = state.participants.some((entry) => entry.id === participantInsertResult.data.id);
+        if (!refreshOk || !participantPersisted) {
+          notify("Teilnehmer konnte nicht dauerhaft in Supabase bestaetigt werden. Bitte Kursliste pruefen.", true);
+          return;
+        }
+
+        participantForm.reset();
+        persistOfflineCache();
+        render();
+        notify("Teilnehmer wurde als optionaler Kursteilnehmer angelegt.");
+        return;
+      }
+
       if (!preferredSeasonId) {
         notify("Bitte zuerst eine Season anlegen, damit Teilnehmer sauber als TRAIN, BEAT oder REPEAT gebucht werden koennen.", true);
         state.activeSection = "#seasonPanel";
@@ -4130,7 +4169,7 @@ function renderParticipants() {
     ? `${course.name} | ${season.name}`
     : `${course.name} verwalten`;
   courseActions.classList.remove("hidden");
-  participantForm.classList.toggle("hidden", !canEditCourse(course));
+  participantForm.classList.toggle("hidden", !canEditCourse(course) || !isAdmin());
   participantFormNotice?.classList.toggle("hidden", true);
   markAllPresentBtn.disabled = !canEditCourse(course);
   markAllAbsentBtn.disabled = !canEditCourse(course);
