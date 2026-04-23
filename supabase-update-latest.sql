@@ -1,5 +1,18 @@
 create extension if not exists pgcrypto;
 
+create or replace function public.current_user_role()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select role
+  from public.profiles
+  where user_id = auth.uid()
+  limit 1
+$$;
+
 create table if not exists public.trainer_directory (
   id uuid primary key default gen_random_uuid(),
   full_name text not null,

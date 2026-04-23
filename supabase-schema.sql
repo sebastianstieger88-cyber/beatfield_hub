@@ -200,10 +200,13 @@ create or replace function public.current_user_role()
 returns text
 language sql
 stable
+security definer
+set search_path = public
 as $$
   select role
   from public.profiles
   where user_id = auth.uid()
+  limit 1
 $$;
 
 create or replace function public.handle_new_user()
