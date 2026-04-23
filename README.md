@@ -48,8 +48,11 @@ Das ist fuer bestehende Projekte die sicherere Update-Datei fuer:
 - Seasons und Buchungen
 - Teilnehmer-Verknuepfung zu Buchungen
 - BEAT-OUTs
+- aktuelle Trainer-/RLS-Fixes wie `current_user_role()` und Teilnehmerrechte fuer Trainer
 
 `supabase-schema.sql` bleibt die Datei fuer Neuaufsetzungen.
+
+Wenn nach einem Update ploetzlich Login, Traineransicht oder Teilnehmerrechte auffaellig werden, zuerst `supabase-update-latest.sql` erneut im SQL Editor ausfuehren, bevor einzelne Policy-Bloecke manuell nachgezogen werden.
 
 ## Rollenlogik
 

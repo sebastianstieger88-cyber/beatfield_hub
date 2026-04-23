@@ -1,3 +1,4 @@
+-- Basis und Rollenfunktion
 create extension if not exists pgcrypto;
 
 create or replace function public.current_user_role()
@@ -13,6 +14,7 @@ as $$
   limit 1
 $$;
 
+-- Trainerverzeichnis und manuelle Trainerzuordnung
 create table if not exists public.trainer_directory (
   id uuid primary key default gen_random_uuid(),
   full_name text not null,
@@ -47,6 +49,7 @@ $$;
 alter table public.courses
   add column if not exists trainer_directory_id uuid references public.trainer_directory(id) on delete set null;
 
+-- Seasons, Buchungen und Teilnehmerverknuepfung
 create table if not exists public.seasons (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -92,6 +95,7 @@ alter table public.participants
 alter table public.participants
   add column if not exists season_booking_id uuid references public.season_bookings(id) on delete set null;
 
+-- Session-, Trial- und Drop-In-Erweiterungen
 create table if not exists public.beat_out_entries (
   id uuid primary key default gen_random_uuid(),
   session_id uuid not null references public.attendance_sessions(id) on delete cascade,
@@ -216,6 +220,7 @@ create trigger on_auth_user_created
 after insert on auth.users
 for each row execute procedure public.handle_new_user();
 
+-- RLS / Policies
 alter table public.trainer_directory enable row level security;
 alter table public.seasons enable row level security;
 alter table public.season_bookings enable row level security;
