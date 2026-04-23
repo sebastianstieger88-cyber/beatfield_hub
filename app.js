@@ -548,6 +548,15 @@ async function fetchSupportData() {
   if (dropInResult.error) {
     notify(dropInResult.error.message, true);
   }
+  if (seasonResult.error) {
+    notify(getFriendlySupabaseMessage(seasonResult.error, "Seasons konnten nicht geladen werden."), true);
+  }
+  if (seasonBookingResult.error) {
+    notify(getFriendlySupabaseMessage(seasonBookingResult.error, "Buchungen konnten nicht geladen werden."), true);
+  }
+  if (participantResult.error) {
+    notify(getFriendlySupabaseMessage(participantResult.error, "Teilnehmer konnten nicht geladen werden."), true);
+  }
 
   if (!seasonResult.error) {
     state.seasons = seasonResult.data || [];
@@ -612,8 +621,12 @@ async function fetchSupportData() {
       ],
     );
 
-    state.seasonBookings = state.seasonBookings.filter((booking) => visibleParticipantBookingIds.has(booking.id));
-    state.seasons = state.seasons.filter((season) => visibleSeasonIds.has(season.id));
+    if (visibleParticipantBookingIds.size) {
+      state.seasonBookings = state.seasonBookings.filter((booking) => visibleParticipantBookingIds.has(booking.id));
+    }
+    if (visibleSeasonIds.size) {
+      state.seasons = state.seasons.filter((season) => visibleSeasonIds.has(season.id));
+    }
   }
 
   const bookingIds = state.seasonBookings.map((booking) => booking.id);
