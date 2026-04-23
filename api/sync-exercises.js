@@ -10,6 +10,7 @@ export default async function handler(req, res) {
     NOTION_TOKEN,
     NOTION_EXERCISE_DATABASE_ID,
     SUPABASE_URL,
+    SUPABASE_ANON_KEY,
     SUPABASE_SERVICE_ROLE_KEY,
     NOTION_EXERCISE_TITLE_FIELD,
     NOTION_EXERCISE_CATEGORY_FIELD,
@@ -23,7 +24,7 @@ export default async function handler(req, res) {
     NOTION_EXERCISE_TAGS_FIELD,
   } = process.env;
 
-  if (!NOTION_TOKEN || !NOTION_EXERCISE_DATABASE_ID || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  if (!NOTION_TOKEN || !NOTION_EXERCISE_DATABASE_ID || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
     return res.status(500).json({
       error: "Für den Übungs-Sync fehlen noch Umgebungsvariablen in Vercel.",
     });
@@ -35,7 +36,7 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: "Kein gültiger Login-Token übergeben." });
     }
 
-    const user = await getSupabaseUser(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, accessToken);
+    const user = await getSupabaseUser(SUPABASE_URL, SUPABASE_ANON_KEY, accessToken);
     const profile = await getSupabaseProfile(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, user.id);
     if (profile?.role !== "admin") {
       return res.status(403).json({ error: "Nur Admins dürfen den Notion-Sync auslösen." });
@@ -92,10 +93,10 @@ function getBearerToken(headerValue) {
   return value.slice(7).trim() || null;
 }
 
-async function getSupabaseUser(supabaseUrl, serviceRoleKey, accessToken) {
+async function getSupabaseUser(supabaseUrl, anonKey, accessToken) {
   const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
     headers: {
-      apikey: serviceRoleKey,
+      apikey: anonKey,
       Authorization: `Bearer ${accessToken}`,
     },
   });
