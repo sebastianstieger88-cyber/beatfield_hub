@@ -916,9 +916,22 @@ async function handleTrainerDirectoryCreate(event) {
       showInviteOutput(inviteCode);
     }
     render();
-    notify(inviteCode
-      ? `Trainer eingetragen und Zugang vorbereitet fuer ${email}.`
-      : "Trainer wurde eingetragen.");
+    let inviteEmailSent = false;
+    if (inviteCode && email) {
+      inviteEmailSent = await sendTrainerInviteEmail({
+        email,
+        inviteCode,
+        trainerName: fullName,
+      });
+    }
+
+    if (inviteCode && email) {
+      notify(inviteEmailSent
+        ? `Trainer eingetragen und Zugang vorbereitet. Einladung wurde an ${email} gesendet.`
+        : `Trainer eingetragen und Zugang vorbereitet fuer ${email}. Der Link ist in der App verfuegbar, aber die E-Mail konnte nicht automatisch gesendet werden.`);
+    } else {
+      notify("Trainer wurde eingetragen.");
+    }
 
     await refreshVisibleData({ context: "Trainer refresh", silent: true });
   } catch (error) {
@@ -951,7 +964,14 @@ async function handleTrainerInviteRegenerate(entry) {
   await fetchSupportData();
   showInviteOutput(inviteCode);
   render();
-  notify(`Neuer Trainerzugang fuer ${entry.email} wurde vorbereitet.`);
+  const inviteEmailSent = await sendTrainerInviteEmail({
+    email: String(entry.email).trim().toLowerCase(),
+    inviteCode,
+    trainerName: entry.full_name || entry.name || "",
+  });
+  notify(inviteEmailSent
+    ? `Neuer Trainerzugang fuer ${entry.email} wurde vorbereitet und per E-Mail gesendet.`
+    : `Neuer Trainerzugang fuer ${entry.email} wurde vorbereitet. Die E-Mail konnte nicht automatisch gesendet werden.`);
 }
 
 async function handleCourseCreate(event) {
@@ -3777,6 +3797,39 @@ function showInviteOutput(code) {
   inviteOutputLink.textContent = link;
   inviteOutputLink.href = link;
   copyInviteLinkBtn.dataset.inviteLink = link;
+}
+
+async function sendTrainerInviteEmail({ email, inviteCode, trainerName }) {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  if (!normalizedEmail || !inviteCode) {
+    return false;
+  }
+
+  try {
+    const response = await fetch("/api/send-trainer-invite", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: normalizedEmail,
+        inviteCode,
+        inviteLink: buildInviteLink(inviteCode),
+        trainerName: String(trainerName || "").trim(),
+      }),
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      console.warn("Trainer invite email failed", payload?.error || response.statusText);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.warn("Trainer invite email failed", error);
+    return false;
+  }
 }
 
 async function handleCopyInviteLink() {

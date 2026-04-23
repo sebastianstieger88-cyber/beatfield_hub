@@ -65,6 +65,19 @@ Das ist fuer bestehende Projekte die sicherere Update-Datei fuer:
 4. Nach dem ersten Deploy die Vercel-URL in Supabase als `Site URL` und Redirect URL eintragen
 5. Dieselbe URL in `config.js` als `siteUrl` setzen und erneut deployen
 
+## Trainer-Einladungen per E-Mail
+
+Trainer koennen beim manuellen Anlegen jetzt optional nicht nur einen Einladungscode bekommen, sondern auch direkt einen Einladungslink per E-Mail.
+
+Dafuer im Vercel-Projekt diese Umgebungsvariablen setzen:
+- `RESEND_API_KEY`
+- `INVITE_FROM_EMAIL`
+
+Beispiel fuer `INVITE_FROM_EMAIL`:
+- `BEATFIELD <noreply@deine-domain.de>`
+
+Wenn diese Variablen fehlen, wird der Trainerzugang trotzdem vorbereitet und der Link bleibt in der App sichtbar. Nur der automatische E-Mail-Versand faellt dann aus.
+
 ## Wichtige Hinweise
 
 - Diese Version ist bewusst buildless gehalten, damit ihr ohne Node-Setup starten koennt
