@@ -2880,9 +2880,19 @@ async function handleExerciseSync() {
       },
     });
 
-    const payload = await response.json().catch(() => ({}));
+    const rawText = await response.text();
+    let payload = {};
+    try {
+      payload = rawText ? JSON.parse(rawText) : {};
+    } catch (parseError) {
+      payload = { error: rawText || null };
+    }
     if (!response.ok) {
-      throw new Error(payload?.error || "Notion-Sync fehlgeschlagen.");
+      throw new Error(
+        payload?.error
+        || payload?.message
+        || `Notion-Sync fehlgeschlagen (${response.status}).`,
+      );
     }
 
     await refreshVisibleData({ context: "Exercise sync refresh", silent: true });
