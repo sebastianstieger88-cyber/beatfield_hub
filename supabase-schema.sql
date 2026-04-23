@@ -196,6 +196,27 @@ create table if not exists public.session_overrides (
   constraint session_overrides_distinct_sessions check (source_session_id <> target_session_id)
 );
 
+create table if not exists public.exercise_library (
+  id uuid primary key default gen_random_uuid(),
+  notion_page_id text not null unique,
+  title text not null,
+  category text,
+  focus text,
+  level text,
+  equipment text,
+  coaching_cues text,
+  description text,
+  video_url text,
+  source_url text,
+  tags text[] not null default '{}',
+  notion_last_edited_at timestamptz,
+  notion_archived boolean not null default false,
+  sync_source text not null default 'notion',
+  raw_properties jsonb,
+  synced_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
 create or replace function public.current_user_role()
 returns text
 language sql
@@ -403,6 +424,7 @@ alter table public.attendance_sessions enable row level security;
 alter table public.attendance_records enable row level security;
 alter table public.beat_out_entries enable row level security;
 alter table public.session_overrides enable row level security;
+alter table public.exercise_library enable row level security;
 
 create policy "profiles select own or admin"
 on public.profiles
@@ -479,6 +501,21 @@ using (public.user_can_access_season_booking(id));
 drop policy if exists "admins manage season bookings" on public.season_bookings;
 create policy "admins manage season bookings"
 on public.season_bookings
+for all
+to authenticated
+using (public.current_user_role() = 'admin')
+with check (public.current_user_role() = 'admin');
+
+drop policy if exists "authenticated can read exercise library" on public.exercise_library;
+create policy "authenticated can read exercise library"
+on public.exercise_library
+for select
+to authenticated
+using (public.current_user_role() in ('admin', 'trainer'));
+
+drop policy if exists "admins manage exercise library" on public.exercise_library;
+create policy "admins manage exercise library"
+on public.exercise_library
 for all
 to authenticated
 using (public.current_user_role() = 'admin')

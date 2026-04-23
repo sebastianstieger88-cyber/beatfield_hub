@@ -34,6 +34,7 @@
             <a href="#bookingPanel">Buchungen</a>
             <a href="#todayPanel">Heute</a>
             <a href="#trialsPanel">Probetraining / Drop-In</a>
+            <a href="#exercisePanel">Übungen</a>
             <a href="#coursePanel">Kurse</a>
             <a href="#courseListPanel">Kursliste</a>
             <a href="#planningPanel">Planung</a>
@@ -449,6 +450,54 @@
           <button id="toggleArchivedDropInsBtn" type="button" class="ghost">Archiv anzeigen</button>
         </div>
         <div id="dropInCards" class="stats-grid"></div>
+      </section>
+
+      <section class="panel wide hidden" id="exercisePanel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Übungen</p>
+            <h2>Übungsbibliothek aus Notion</h2>
+          </div>
+          <button id="exerciseSyncBtn" type="button" class="primary">Jetzt mit Notion synchronisieren</button>
+        </div>
+        <div class="exercise-toolbar">
+          <label>
+            <span>Suche</span>
+            <input id="exerciseSearch" type="search" placeholder="Name, Fokus, Coaching-Cues oder Tag">
+          </label>
+          <label>
+            <span>Kategorie</span>
+            <select id="exerciseCategoryFilter">
+              <option value="all">Alle Kategorien</option>
+            </select>
+          </label>
+          <label>
+            <span>Fokus</span>
+            <select id="exerciseFocusFilter">
+              <option value="all">Alle Fokusbereiche</option>
+            </select>
+          </label>
+          <label>
+            <span>Level</span>
+            <select id="exerciseLevelFilter">
+              <option value="all">Alle Levels</option>
+            </select>
+          </label>
+          <label>
+            <span>Equipment</span>
+            <select id="exerciseEquipmentFilter">
+              <option value="all">Alles Equipment</option>
+            </select>
+          </label>
+          <label>
+            <span>Tag</span>
+            <select id="exerciseTagFilter">
+              <option value="all">Alle Tags</option>
+            </select>
+          </label>
+        </div>
+        <div id="exerciseSyncMeta" class="stat-card exercise-sync-meta"></div>
+        <div id="exerciseCards" class="exercise-grid"></div>
       </section>
 
       <section class="panel hidden" id="courseListPanel">

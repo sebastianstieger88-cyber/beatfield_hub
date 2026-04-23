@@ -11,6 +11,7 @@ Produktionsnaehere Web-App fuer Outdoor-Fitnesskurse mit Supabase Auth und Verce
 - Admin kann Einladungscodes erzeugen und Kurse Trainern zuweisen
 - Trainer sieht nur eigene Kurse
 - Teilnehmer- und Anwesenheitsverwaltung mit CSV-Export
+- eigener Bereich `Übungen` mit Notion-Synchronisation
 
 ## Dateien
 
@@ -20,6 +21,7 @@ Produktionsnaehere Web-App fuer Outdoor-Fitnesskurse mit Supabase Auth und Verce
 - `supabase-schema.sql`: Tabellen, Trigger und RLS-Policies
 - `supabase-update-latest.sql`: sichere Nachzuege fuer bestehende Projekte
 - `vercel.json`: einfaches Vercel-Setup
+- `api/sync-exercises.js`: geschützter Notion -> Supabase Sync für die Übungsbibliothek
 
 ## Supabase einrichten
 
@@ -67,6 +69,62 @@ Wenn nach einem Update ploetzlich Login, Traineransicht oder Teilnehmerrechte au
 3. Root Directory auf diesen Ordner setzen
 4. Nach dem ersten Deploy die Vercel-URL in Supabase als `Site URL` und Redirect URL eintragen
 5. Dieselbe URL in `config.js` als `siteUrl` setzen und erneut deployen
+
+## Notion-Übungsdatenbank synchronisieren
+
+Die App kann eine Notion-Datenbank voll in den eigenen Bereich `Übungen` spiegeln.
+
+Der Ablauf ist bewusst einseitig:
+- Notion bleibt der Pflegeort
+- die App bleibt der Arbeitsort für Trainer und Admins
+
+### 1. In Supabase
+
+Für bestehende Projekte `supabase-update-latest.sql` ausführen.
+
+### 2. In Notion
+
+1. Eine Notion-Integration anlegen
+2. Die Übungsdatenbank mit dieser Integration teilen
+3. Die Datenbank-ID kopieren
+
+### 3. In Vercel Environment Variables
+
+Pflicht:
+- `NOTION_TOKEN`
+- `NOTION_EXERCISE_DATABASE_ID`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+Optional für exakte Feldzuordnung:
+- `NOTION_EXERCISE_TITLE_FIELD`
+- `NOTION_EXERCISE_CATEGORY_FIELD`
+- `NOTION_EXERCISE_FOCUS_FIELD`
+- `NOTION_EXERCISE_LEVEL_FIELD`
+- `NOTION_EXERCISE_EQUIPMENT_FIELD`
+- `NOTION_EXERCISE_COACHING_FIELD`
+- `NOTION_EXERCISE_DESCRIPTION_FIELD`
+- `NOTION_EXERCISE_VIDEO_FIELD`
+- `NOTION_EXERCISE_SOURCE_FIELD`
+- `NOTION_EXERCISE_TAGS_FIELD`
+
+Wenn die Feldnamen in Notion klar benannt sind, reichen oft schon die eingebauten Standardnamen wie:
+- `Übung`
+- `Kategorie`
+- `Fokus`
+- `Level`
+- `Equipment`
+- `Coaching`
+- `Beschreibung`
+- `Video`
+- `Link`
+- `Tags`
+
+### 4. In der App
+
+- Admin öffnet den Bereich `Übungen`
+- klickt `Jetzt mit Notion synchronisieren`
+- danach können Trainer und Admins die Bibliothek durchsuchen und filtern
 
 ## Trainer-Einladungen vorbereiten
 

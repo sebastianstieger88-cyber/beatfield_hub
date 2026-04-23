@@ -21,10 +21,20 @@ const state = {
   participants: [],
   trialRequests: [],
   dropInBookings: [],
+  exercises: [],
   showArchivedDropIns: false,
   sessions: [],
   records: [],
   beatOutEntries: [],
+  exerciseFilters: {
+    search: "",
+    category: "all",
+    focus: "all",
+    level: "all",
+    equipment: "all",
+    tag: "all",
+  },
+  exerciseSyncing: false,
   selectedCourseId: null,
   selectedSeasonId: null,
   attendanceSeasonId: null,
@@ -66,6 +76,7 @@ const seasonPanel = document.querySelector("#seasonPanel");
 const bookingPanel = document.querySelector("#bookingPanel");
 const todayPanel = document.querySelector("#todayPanel");
 const courseListPanel = document.querySelector("#courseListPanel");
+const exercisePanel = document.querySelector("#exercisePanel");
 const planningPanel = document.querySelector("#planningPanel");
 const attendancePanel = document.querySelector("#attendancePanel");
 const monthlyPanel = document.querySelector("#monthlyPanel");
@@ -137,6 +148,15 @@ const inviteList = document.querySelector("#inviteList");
 const courseList = document.querySelector("#courseList");
 const trialCards = document.querySelector("#trialCards");
 const dropInCards = document.querySelector("#dropInCards");
+const exerciseCards = document.querySelector("#exerciseCards");
+const exerciseSearch = document.querySelector("#exerciseSearch");
+const exerciseCategoryFilter = document.querySelector("#exerciseCategoryFilter");
+const exerciseFocusFilter = document.querySelector("#exerciseFocusFilter");
+const exerciseLevelFilter = document.querySelector("#exerciseLevelFilter");
+const exerciseEquipmentFilter = document.querySelector("#exerciseEquipmentFilter");
+const exerciseTagFilter = document.querySelector("#exerciseTagFilter");
+const exerciseSyncBtn = document.querySelector("#exerciseSyncBtn");
+const exerciseSyncMeta = document.querySelector("#exerciseSyncMeta");
 const planningPreview = document.querySelector("#planningPreview");
 const planNextBtn = document.querySelector("#planNextBtn");
 const planMonthBtn = document.querySelector("#planMonthBtn");
@@ -187,6 +207,7 @@ const contentPanels = [
   bookingPanel,
   todayPanel,
   trialsPanel,
+  exercisePanel,
   courseListPanel,
   planningPanel,
   attendancePanel,
@@ -230,6 +251,31 @@ openBookingPanelBtn?.addEventListener("click", () => {
 });
 trialForm?.addEventListener("submit", handleTrialCreate);
 dropInForm?.addEventListener("submit", handleDropInCreate);
+exerciseSearch?.addEventListener("input", () => {
+  state.exerciseFilters.search = exerciseSearch.value || "";
+  renderExercises();
+});
+exerciseCategoryFilter?.addEventListener("change", () => {
+  state.exerciseFilters.category = exerciseCategoryFilter.value || "all";
+  renderExercises();
+});
+exerciseFocusFilter?.addEventListener("change", () => {
+  state.exerciseFilters.focus = exerciseFocusFilter.value || "all";
+  renderExercises();
+});
+exerciseLevelFilter?.addEventListener("change", () => {
+  state.exerciseFilters.level = exerciseLevelFilter.value || "all";
+  renderExercises();
+});
+exerciseEquipmentFilter?.addEventListener("change", () => {
+  state.exerciseFilters.equipment = exerciseEquipmentFilter.value || "all";
+  renderExercises();
+});
+exerciseTagFilter?.addEventListener("change", () => {
+  state.exerciseFilters.tag = exerciseTagFilter.value || "all";
+  renderExercises();
+});
+exerciseSyncBtn?.addEventListener("click", handleExerciseSync);
 toggleArchivedDropInsBtn?.addEventListener("click", () => {
   state.showArchivedDropIns = !state.showArchivedDropIns;
   renderDropIns();
@@ -509,7 +555,12 @@ async function fetchSupportData() {
         .order("created_at", { ascending: false })
     : Promise.resolve({ data: [], error: null });
 
-  const [seasonResult, seasonBookingResult, trainerResult, trainerDirectoryResult, inviteResult, participantResult, sessionResult, trialResult, dropInResult] = await Promise.all([
+  const exerciseQuery = state.supabase
+    .from("exercise_library")
+    .select("id, notion_page_id, title, category, focus, level, equipment, coaching_cues, description, video_url, source_url, tags, notion_last_edited_at, notion_archived, synced_at")
+    .order("title");
+
+  const [seasonResult, seasonBookingResult, trainerResult, trainerDirectoryResult, inviteResult, participantResult, sessionResult, trialResult, dropInResult, exerciseResult] = await Promise.all([
     seasonsQuery,
     seasonBookingsQuery,
     trainerQuery,
@@ -519,6 +570,7 @@ async function fetchSupportData() {
     sessionsQuery,
     trialsQuery,
     dropInQuery,
+    exerciseQuery,
   ]);
 
   if (seasonResult.error) {
@@ -547,6 +599,9 @@ async function fetchSupportData() {
   }
   if (dropInResult.error) {
     notify(dropInResult.error.message, true);
+  }
+  if (exerciseResult.error) {
+    notify(getFriendlySupabaseMessage(exerciseResult.error, "Übungen konnten nicht geladen werden."), true);
   }
   if (seasonResult.error) {
     notify(getFriendlySupabaseMessage(seasonResult.error, "Seasons konnten nicht geladen werden."), true);
@@ -606,6 +661,9 @@ async function fetchSupportData() {
   }
   if (!dropInResult.error) {
     state.dropInBookings = dropInResult.data || [];
+  }
+  if (!exerciseResult.error) {
+    state.exercises = (exerciseResult.data || []).filter((exercise) => !exercise.notion_archived);
   }
 
   if (state.profile?.role === "trainer") {
@@ -2594,6 +2652,7 @@ function render() {
   renderInvites();
   renderTrials();
   renderDropIns();
+  renderExercises();
   renderTodayDashboard();
   renderCourseList();
   renderPlanning();
@@ -2627,6 +2686,212 @@ function applyRoleLanding() {
     setTimeout(() => {
       setActiveSection("#todayPanel");
     }, 0);
+  }
+}
+
+function formatDateTimeLabel(dateValue) {
+  if (!dateValue) {
+    return "-";
+  }
+
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) {
+    return String(dateValue);
+  }
+
+  return date.toLocaleString("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getExerciseFilterOptions(field) {
+  const values = new Set();
+
+  state.exercises.forEach((exercise) => {
+    if (field === "tag") {
+      (exercise.tags || []).forEach((tag) => {
+        if (tag) {
+          values.add(tag);
+        }
+      });
+      return;
+    }
+
+    const value = String(exercise[field] || "").trim();
+    if (value) {
+      values.add(value);
+    }
+  });
+
+  return Array.from(values).sort((left, right) => left.localeCompare(right, "de"));
+}
+
+function updateExerciseFilterSelect(select, values, allLabel, selectedValue) {
+  if (!select) {
+    return;
+  }
+
+  const current = String(selectedValue || "all");
+  select.innerHTML = `<option value="all">${escapeHtml(allLabel)}</option>${values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("")}`;
+  select.value = values.includes(current) ? current : "all";
+}
+
+function getFilteredExercises() {
+  const searchNeedle = String(state.exerciseFilters.search || "").trim().toLowerCase();
+
+  return state.exercises.filter((exercise) => {
+    if (state.exerciseFilters.category !== "all" && (exercise.category || "") !== state.exerciseFilters.category) {
+      return false;
+    }
+    if (state.exerciseFilters.focus !== "all" && (exercise.focus || "") !== state.exerciseFilters.focus) {
+      return false;
+    }
+    if (state.exerciseFilters.level !== "all" && (exercise.level || "") !== state.exerciseFilters.level) {
+      return false;
+    }
+    if (state.exerciseFilters.equipment !== "all" && (exercise.equipment || "") !== state.exerciseFilters.equipment) {
+      return false;
+    }
+    if (state.exerciseFilters.tag !== "all" && !(exercise.tags || []).includes(state.exerciseFilters.tag)) {
+      return false;
+    }
+
+    if (!searchNeedle) {
+      return true;
+    }
+
+    const haystack = [
+      exercise.title,
+      exercise.category,
+      exercise.focus,
+      exercise.level,
+      exercise.equipment,
+      exercise.coaching_cues,
+      exercise.description,
+      ...(exercise.tags || []),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return haystack.includes(searchNeedle);
+  });
+}
+
+function renderExercises() {
+  if (!exerciseCards || !exerciseSyncMeta) {
+    return;
+  }
+
+  updateExerciseFilterSelect(exerciseCategoryFilter, getExerciseFilterOptions("category"), "Alle Kategorien", state.exerciseFilters.category);
+  updateExerciseFilterSelect(exerciseFocusFilter, getExerciseFilterOptions("focus"), "Alle Fokusbereiche", state.exerciseFilters.focus);
+  updateExerciseFilterSelect(exerciseLevelFilter, getExerciseFilterOptions("level"), "Alle Levels", state.exerciseFilters.level);
+  updateExerciseFilterSelect(exerciseEquipmentFilter, getExerciseFilterOptions("equipment"), "Alles Equipment", state.exerciseFilters.equipment);
+  updateExerciseFilterSelect(exerciseTagFilter, getExerciseFilterOptions("tag"), "Alle Tags", state.exerciseFilters.tag);
+
+  if (exerciseSearch) {
+    exerciseSearch.value = state.exerciseFilters.search || "";
+  }
+
+  if (exerciseSyncBtn) {
+    exerciseSyncBtn.classList.toggle("hidden", !isAdmin());
+    exerciseSyncBtn.disabled = state.exerciseSyncing;
+    exerciseSyncBtn.textContent = state.exerciseSyncing ? "Synchronisiert..." : "Jetzt mit Notion synchronisieren";
+  }
+
+  const latestSync = state.exercises
+    .map((exercise) => exercise.synced_at)
+    .filter(Boolean)
+    .sort((left, right) => String(right).localeCompare(String(left)))[0] || null;
+
+  exerciseSyncMeta.innerHTML = `
+    <h3>Sync-Status</h3>
+    <p class="stat-meta">${state.exercises.length} aktive Übungen in der App.</p>
+    <p class="stat-meta">${latestSync ? `Zuletzt synchronisiert: ${escapeHtml(formatDateTimeLabel(latestSync))}` : "Noch kein Sync vorhanden."}</p>
+    <p class="stat-meta">${isAdmin() ? "Pflege läuft über Notion. Hier synchronisierst du und prüfst die Bibliothek." : "Pflege läuft über Notion. Hier kannst du dir Inspiration und Ideen holen."}</p>
+  `;
+
+  const exercises = getFilteredExercises();
+  if (!exercises.length) {
+    exerciseCards.innerHTML = `
+      <div class="empty-state">
+        <p>Noch keine Übungen sichtbar. Lege zuerst den Notion-Sync an oder passe die Filter an.</p>
+      </div>
+    `;
+    return;
+  }
+
+  exerciseCards.innerHTML = exercises.map((exercise) => {
+    const tags = (exercise.tags || []).map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("");
+    const links = [
+      exercise.video_url ? `<a class="ghost" href="${escapeHtml(exercise.video_url)}" target="_blank" rel="noreferrer">Video öffnen</a>` : "",
+      exercise.source_url ? `<a class="ghost" href="${escapeHtml(exercise.source_url)}" target="_blank" rel="noreferrer">Notion öffnen</a>` : "",
+    ].filter(Boolean).join("");
+
+    return `
+      <article class="exercise-card">
+        <div class="exercise-card-head">
+          <div>
+            <p class="eyebrow">Übung</p>
+            <h3>${escapeHtml(exercise.title)}</h3>
+          </div>
+          <div class="course-status-grid">
+            ${exercise.category ? `<span class="course-status-pill">${escapeHtml(exercise.category)}</span>` : ""}
+            ${exercise.level ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(exercise.level)}</span>` : ""}
+          </div>
+        </div>
+        <div class="exercise-meta-grid">
+          ${exercise.focus ? `<p><strong>Fokus</strong><span>${escapeHtml(exercise.focus)}</span></p>` : ""}
+          ${exercise.equipment ? `<p><strong>Equipment</strong><span>${escapeHtml(exercise.equipment)}</span></p>` : ""}
+        </div>
+        ${exercise.description ? `<p class="exercise-copy">${escapeHtml(exercise.description)}</p>` : ""}
+        ${exercise.coaching_cues ? `<p class="exercise-copy exercise-copy-muted"><strong>Coaching-Cues:</strong> ${escapeHtml(exercise.coaching_cues)}</p>` : ""}
+        ${tags ? `<div class="exercise-tag-row">${tags}</div>` : ""}
+        ${links ? `<div class="stat-card-actions exercise-actions">${links}</div>` : ""}
+      </article>
+    `;
+  }).join("");
+}
+
+async function handleExerciseSync() {
+  if (!isAdmin()) {
+    notify("Der Notion-Sync ist nur für Admins verfügbar.", true);
+    return;
+  }
+
+  if (!state.session?.access_token) {
+    notify("Bitte zuerst neu einloggen, damit der Sync autorisiert werden kann.", true);
+    return;
+  }
+
+  state.exerciseSyncing = true;
+  renderExercises();
+
+  try {
+    const response = await fetch("/api/sync-exercises", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${state.session.access_token}`,
+      },
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload?.error || "Notion-Sync fehlgeschlagen.");
+    }
+
+    await refreshVisibleData({ context: "Exercise sync refresh", silent: true });
+    notify(payload?.message || `${payload?.synced || 0} Übungen wurden synchronisiert.`);
+  } catch (error) {
+    notify(error.message || "Notion-Sync fehlgeschlagen.", true);
+  } finally {
+    state.exerciseSyncing = false;
+    renderExercises();
   }
 }
 
@@ -6698,6 +6963,7 @@ function getAvailableSections({ connected, loggedIn, appUnlocked }) {
       sections.push(
         "#todayPanel",
         "#trialsPanel",
+        "#exercisePanel",
         "#courseListPanel",
         "#planningPanel",
         "#attendancePanel",
@@ -6710,6 +6976,7 @@ function getAvailableSections({ connected, loggedIn, appUnlocked }) {
       sections.push(
         "#todayPanel",
         "#trialsPanel",
+        "#exercisePanel",
         "#courseListPanel",
         "#attendancePanel",
       );
@@ -6726,6 +6993,7 @@ function getNavigationSections(availableSections, { connected, loggedIn, appUnlo
 
   return availableSections.filter((sectionId) => [
     "#todayPanel",
+    "#exercisePanel",
     "#courseListPanel",
     "#attendancePanel",
     "#trialsPanel",
@@ -7209,6 +7477,8 @@ function getFriendlySupabaseMessage(error, fallback) {
     || normalized.includes("session_overrides")
     || normalized.includes("source_session_id")
     || normalized.includes("target_session_id")
+    || normalized.includes("exercise_library")
+    || normalized.includes("notion_page_id")
   ) {
     return "Die App braucht das neueste Supabase-Schema. Bitte `supabase-schema.sql` noch einmal komplett im SQL Editor ausführen.";
   }

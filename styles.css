@@ -1165,6 +1165,90 @@ button.danger {
   margin-bottom: 6px;
 }
 
+.exercise-toolbar {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.exercise-sync-meta {
+  margin-bottom: 16px;
+}
+
+.exercise-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.exercise-card {
+  border: 1px solid rgba(103, 193, 47, 0.1);
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(28, 28, 28, 0.98) 0%, rgba(17, 17, 17, 0.95) 100%);
+  padding: 16px 18px;
+  display: grid;
+  gap: 12px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+}
+
+.exercise-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.exercise-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.exercise-meta-grid p {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.exercise-meta-grid strong {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.exercise-copy {
+  margin: 0;
+  color: var(--text);
+}
+
+.exercise-copy-muted {
+  color: var(--muted);
+}
+
+.exercise-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.exercise-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(103, 193, 47, 0.08);
+  border: 1px solid rgba(103, 193, 47, 0.14);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.exercise-actions {
+  justify-content: flex-start;
+}
+
 .attendance-toolbar {
   display: flex;
   justify-content: space-between;
@@ -1378,6 +1462,10 @@ th {
     align-items: stretch;
   }
 
+  .exercise-toolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .toolbar-actions {
     width: 100%;
   }
@@ -1534,6 +1622,18 @@ th {
 
   .participant-card .attendance-toggle.is-present::after {
     transform: translateX(34px);
+  }
+
+  .exercise-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .exercise-card-head {
+    flex-direction: column;
+  }
+
+  .exercise-meta-grid {
+    grid-template-columns: 1fr;
   }
 
   h1 {
