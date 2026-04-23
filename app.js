@@ -916,22 +916,9 @@ async function handleTrainerDirectoryCreate(event) {
       showInviteOutput(inviteCode);
     }
     render();
-    let inviteEmailSent = false;
-    if (inviteCode && email) {
-      inviteEmailSent = await sendTrainerInviteEmail({
-        email,
-        inviteCode,
-        trainerName: fullName,
-      });
-    }
-
-    if (inviteCode && email) {
-      notify(inviteEmailSent
-        ? `Trainer eingetragen und Zugang vorbereitet. Einladung wurde an ${email} gesendet.`
-        : `Trainer eingetragen und Zugang vorbereitet fuer ${email}. Der Link ist in der App verfuegbar, aber die E-Mail konnte nicht automatisch gesendet werden.`);
-    } else {
-      notify("Trainer wurde eingetragen.");
-    }
+    notify(inviteCode && email
+      ? `Trainer eingetragen und Zugang vorbereitet fuer ${email}. Du kannst jetzt "E-Mail vorbereiten" nutzen.`
+      : "Trainer wurde eingetragen.");
 
     await refreshVisibleData({ context: "Trainer refresh", silent: true });
   } catch (error) {
@@ -964,14 +951,7 @@ async function handleTrainerInviteRegenerate(entry) {
   await fetchSupportData();
   showInviteOutput(inviteCode);
   render();
-  const inviteEmailSent = await sendTrainerInviteEmail({
-    email: String(entry.email).trim().toLowerCase(),
-    inviteCode,
-    trainerName: entry.full_name || entry.name || "",
-  });
-  notify(inviteEmailSent
-    ? `Neuer Trainerzugang fuer ${entry.email} wurde vorbereitet und per E-Mail gesendet.`
-    : `Neuer Trainerzugang fuer ${entry.email} wurde vorbereitet. Die E-Mail konnte nicht automatisch gesendet werden.`);
+  notify(`Neuer Trainerzugang fuer ${entry.email} wurde vorbereitet. Du kannst jetzt "E-Mail vorbereiten" nutzen.`);
 }
 
 async function handleCourseCreate(event) {
@@ -3533,6 +3513,7 @@ function renderTrainerDirectory() {
 
   state.trainerDirectory.forEach((entry) => {
     const accessState = getTrainerAccessState(entry);
+    const latestInvite = getLatestInviteForTrainer(entry);
     const card = document.createElement("article");
     card.className = "stat-card";
     card.innerHTML = `
@@ -3555,6 +3536,16 @@ function renderTrainerDirectory() {
       });
 
       actions.appendChild(regenerateBtn);
+      if (latestInvite?.active) {
+        const mailBtn = document.createElement("button");
+        mailBtn.type = "button";
+        mailBtn.className = "secondary";
+        mailBtn.textContent = "E-Mail vorbereiten";
+        mailBtn.addEventListener("click", () => {
+          openTrainerInviteEmailDraft(entry, latestInvite);
+        });
+        actions.appendChild(mailBtn);
+      }
       const deleteBtn = document.createElement("button");
       deleteBtn.type = "button";
       deleteBtn.className = "danger";
@@ -3797,39 +3788,6 @@ function showInviteOutput(code) {
   inviteOutputLink.textContent = link;
   inviteOutputLink.href = link;
   copyInviteLinkBtn.dataset.inviteLink = link;
-}
-
-async function sendTrainerInviteEmail({ email, inviteCode, trainerName }) {
-  const normalizedEmail = String(email || "").trim().toLowerCase();
-  if (!normalizedEmail || !inviteCode) {
-    return false;
-  }
-
-  try {
-    const response = await fetch("/api/send-trainer-invite", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: normalizedEmail,
-        inviteCode,
-        inviteLink: buildInviteLink(inviteCode),
-        trainerName: String(trainerName || "").trim(),
-      }),
-    });
-
-    if (!response.ok) {
-      const payload = await response.json().catch(() => null);
-      console.warn("Trainer invite email failed", payload?.error || response.statusText);
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.warn("Trainer invite email failed", error);
-    return false;
-  }
 }
 
 async function handleCopyInviteLink() {
@@ -6046,6 +6004,33 @@ function getLatestInviteForTrainer(entry) {
     return invite.trainer_directory_id === entry.id
       || (normalizedEmail && inviteEmail === normalizedEmail);
   }) || null;
+}
+
+function openTrainerInviteEmailDraft(entry, invite) {
+  if (!entry?.email || !invite?.code) {
+    notify("Fuer diesen Trainer ist aktuell keine Einladung mit Link verfuegbar.", true);
+    return;
+  }
+
+  const trainerName = String(entry.full_name || "").trim();
+  const inviteLink = buildInviteLink(invite.code);
+  const subject = encodeURIComponent("Dein BEATFIELD Trainerzugang");
+  const body = encodeURIComponent([
+    trainerName ? `Hallo ${trainerName},` : "Hallo,",
+    "",
+    "dein Trainerzugang fuer BEATFIELD wurde vorbereitet.",
+    "",
+    "Nutze bitte diesen Einladungslink, um deinen Zugang abzuschliessen:",
+    inviteLink,
+    "",
+    `Falls du den Code lieber manuell eingeben moechtest: ${invite.code}`,
+    "",
+    "Bis gleich bei BEATFIELD.",
+  ].join("\n"));
+  const recipient = encodeURIComponent(String(entry.email).trim());
+
+  window.location.href = `mailto:${recipient}?subject=${subject}&body=${body}`;
+  notify(`E-Mail fuer ${entry.email} wurde vorbereitet.`);
 }
 
 function getTrainerAccessState(entry) {
