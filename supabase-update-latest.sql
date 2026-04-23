@@ -255,6 +255,42 @@ to authenticated
 using (public.current_user_role() = 'admin')
 with check (public.current_user_role() = 'admin');
 
+drop policy if exists "participants visible to course owners" on public.participants;
+create policy "participants visible to course owners"
+on public.participants
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.courses
+    where courses.id = participants.course_id
+      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+  )
+);
+
+drop policy if exists "participants managed by course owners" on public.participants;
+create policy "participants managed by course owners"
+on public.participants
+for all
+to authenticated
+using (
+  exists (
+    select 1
+    from public.courses
+    where courses.id = participants.course_id
+      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.courses
+    where courses.id = participants.course_id
+      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+  )
+);
+
 drop policy if exists "drop-ins visible to course owners" on public.drop_in_bookings;
 create policy "drop-ins visible to course owners"
 on public.drop_in_bookings
