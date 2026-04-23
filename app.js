@@ -82,6 +82,7 @@ const signupForm = document.querySelector("#signupForm");
 const resetForm = document.querySelector("#resetForm");
 const updatePasswordForm = document.querySelector("#updatePasswordForm");
 const logoutBtn = document.querySelector("#logoutBtn");
+const heroLogoutBtn = document.querySelector("#heroLogoutBtn");
 const inviteForm = document.querySelector("#inviteForm");
 const trainerDirectoryForm = document.querySelector("#trainerDirectoryForm");
 const courseForm = document.querySelector("#courseForm");
@@ -208,6 +209,7 @@ signupForm?.addEventListener("submit", handleSignup);
 resetForm?.addEventListener("submit", handleReset);
 updatePasswordForm?.addEventListener("submit", handleUpdatePassword);
 logoutBtn?.addEventListener("click", handleLogout);
+heroLogoutBtn?.addEventListener("click", handleLogout);
 inviteForm?.addEventListener("submit", handleInviteCreate);
 trainerDirectoryForm?.addEventListener("submit", handleTrainerDirectoryCreate);
 courseForm?.addEventListener("submit", handleCourseCreate);
@@ -2517,6 +2519,7 @@ function render() {
         ? "Warte auf Anmeldung"
         : "Setup offen";
   }
+  heroLogoutBtn?.classList.toggle("hidden", !loggedIn);
   backendStatus.textContent = connected ? "Supabase verbunden" : "Nicht verbunden";
   offlineStatus.textContent = "Live-Daten aktiv";
   userStatus.textContent = loggedIn ? state.profile.full_name : "Niemand angemeldet";

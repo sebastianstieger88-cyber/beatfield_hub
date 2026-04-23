@@ -288,6 +288,12 @@ label span,
   letter-spacing: 0.12em;
 }
 
+.hero-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 14px;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
