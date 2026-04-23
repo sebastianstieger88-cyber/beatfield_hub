@@ -209,6 +209,105 @@ as $$
   limit 1
 $$;
 
+create or replace function public.user_owns_course(target_course_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.courses
+    left join public.trainer_directory on trainer_directory.id = courses.trainer_directory_id
+    where courses.id = target_course_id
+      and (
+        public.current_user_role() = 'admin'
+        or courses.trainer_id = auth.uid()
+        or trainer_directory.linked_user_id = auth.uid()
+      )
+  )
+$$;
+
+create or replace function public.user_can_access_season(target_season_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    public.current_user_role() = 'admin'
+    or exists (
+      select 1
+      from public.participants
+      join public.courses on courses.id = participants.course_id
+      left join public.trainer_directory on trainer_directory.id = courses.trainer_directory_id
+      where participants.season_id = target_season_id
+        and (
+          courses.trainer_id = auth.uid()
+          or trainer_directory.linked_user_id = auth.uid()
+        )
+    )
+    or exists (
+      select 1
+      from public.attendance_sessions
+      join public.courses on courses.id = attendance_sessions.course_id
+      left join public.trainer_directory on trainer_directory.id = courses.trainer_directory_id
+      where attendance_sessions.season_id = target_season_id
+        and (
+          courses.trainer_id = auth.uid()
+          or trainer_directory.linked_user_id = auth.uid()
+        )
+    )
+$$;
+
+create or replace function public.user_can_access_season_booking(target_booking_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    public.current_user_role() = 'admin'
+    or exists (
+      select 1
+      from public.participants
+      join public.courses on courses.id = participants.course_id
+      left join public.trainer_directory on trainer_directory.id = courses.trainer_directory_id
+      where participants.season_booking_id = target_booking_id
+        and (
+          courses.trainer_id = auth.uid()
+          or trainer_directory.linked_user_id = auth.uid()
+        )
+    )
+$$;
+
+create or replace function public.user_can_access_trainer_directory(target_trainer_directory_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    public.current_user_role() = 'admin'
+    or exists (
+      select 1
+      from public.trainer_directory
+      where id = target_trainer_directory_id
+        and linked_user_id = auth.uid()
+    )
+    or exists (
+      select 1
+      from public.courses
+      left join public.trainer_directory on trainer_directory.id = courses.trainer_directory_id
+      where trainer_directory.id = target_trainer_directory_id
+        and public.user_owns_course(courses.id)
+    )
+$$;
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -339,7 +438,7 @@ create policy "authenticated can read trainer directory"
 on public.trainer_directory
 for select
 to authenticated
-using (true);
+using (public.user_can_access_trainer_directory(id));
 
 drop policy if exists "admins manage trainer directory" on public.trainer_directory;
 create policy "admins manage trainer directory"
@@ -360,7 +459,7 @@ create policy "authenticated can read seasons"
 on public.seasons
 for select
 to authenticated
-using (true);
+using (public.user_can_access_season(id));
 
 drop policy if exists "admins manage seasons" on public.seasons;
 create policy "admins manage seasons"
@@ -375,7 +474,7 @@ create policy "authenticated can read season bookings"
 on public.season_bookings
 for select
 to authenticated
-using (true);
+using (public.user_can_access_season_booking(id));
 
 drop policy if exists "admins manage season bookings" on public.season_bookings;
 create policy "admins manage season bookings"
@@ -389,7 +488,7 @@ create policy "trainers see assigned courses"
 on public.courses
 for select
 to authenticated
-using (trainer_id = auth.uid());
+using (public.user_owns_course(id));
 
 create policy "admins manage courses"
 on public.courses
@@ -451,105 +550,42 @@ create policy "trials visible to course owners"
 on public.trial_requests
 for select
 to authenticated
-using (
-  exists (
-    select 1
-    from public.courses
-    where courses.id = trial_requests.course_id
-      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
-  )
-);
+using (public.user_owns_course(course_id));
 
 create policy "trials managed by course owners"
 on public.trial_requests
 for all
 to authenticated
-using (
-  exists (
-    select 1
-    from public.courses
-    where courses.id = trial_requests.course_id
-      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
-  )
-)
-with check (
-  exists (
-    select 1
-    from public.courses
-    where courses.id = trial_requests.course_id
-      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
-  )
-);
+using (public.user_owns_course(course_id))
+with check (public.user_owns_course(course_id));
 
 drop policy if exists "drop-ins visible to course owners" on public.drop_in_bookings;
 create policy "drop-ins visible to course owners"
 on public.drop_in_bookings
 for select
 to authenticated
-using (
-  exists (
-    select 1
-    from public.courses
-    where courses.id = drop_in_bookings.course_id
-      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
-  )
-);
+using (public.user_owns_course(course_id));
 
 drop policy if exists "drop-ins managed by course owners" on public.drop_in_bookings;
 create policy "drop-ins managed by course owners"
 on public.drop_in_bookings
 for all
 to authenticated
-using (
-  exists (
-    select 1
-    from public.courses
-    where courses.id = drop_in_bookings.course_id
-      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
-  )
-)
-with check (
-  exists (
-    select 1
-    from public.courses
-    where courses.id = drop_in_bookings.course_id
-      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
-  )
-);
+using (public.user_owns_course(course_id))
+with check (public.user_owns_course(course_id));
 
 create policy "sessions visible to course owners"
 on public.attendance_sessions
 for select
 to authenticated
-using (
-  exists (
-    select 1
-    from public.courses
-    where courses.id = attendance_sessions.course_id
-      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
-  )
-);
+using (public.user_owns_course(course_id));
 
 create policy "sessions managed by course owners"
 on public.attendance_sessions
 for all
 to authenticated
-using (
-  exists (
-    select 1
-    from public.courses
-    where courses.id = attendance_sessions.course_id
-      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
-  )
-)
-with check (
-  exists (
-    select 1
-    from public.courses
-    where courses.id = attendance_sessions.course_id
-      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
-  )
-);
+using (public.user_owns_course(course_id))
+with check (public.user_owns_course(course_id));
 
 create policy "records visible to course owners"
 on public.attendance_records
@@ -559,9 +595,8 @@ using (
   exists (
     select 1
     from public.attendance_sessions
-    join public.courses on courses.id = attendance_sessions.course_id
     where attendance_sessions.id = attendance_records.session_id
-      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+      and public.user_owns_course(attendance_sessions.course_id)
   )
 );
 
@@ -573,18 +608,16 @@ using (
   exists (
     select 1
     from public.attendance_sessions
-    join public.courses on courses.id = attendance_sessions.course_id
     where attendance_sessions.id = attendance_records.session_id
-      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+      and public.user_owns_course(attendance_sessions.course_id)
   )
 )
 with check (
   exists (
     select 1
     from public.attendance_sessions
-    join public.courses on courses.id = attendance_sessions.course_id
     where attendance_sessions.id = attendance_records.session_id
-      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+      and public.user_owns_course(attendance_sessions.course_id)
   )
 );
 
@@ -597,9 +630,8 @@ using (
   exists (
     select 1
     from public.attendance_sessions
-    join public.courses on courses.id = attendance_sessions.course_id
     where attendance_sessions.id = beat_out_entries.session_id
-      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+      and public.user_owns_course(attendance_sessions.course_id)
   )
 );
 
@@ -612,18 +644,16 @@ using (
   exists (
     select 1
     from public.attendance_sessions
-    join public.courses on courses.id = attendance_sessions.course_id
     where attendance_sessions.id = beat_out_entries.session_id
-      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+      and public.user_owns_course(attendance_sessions.course_id)
   )
 )
 with check (
   exists (
     select 1
     from public.attendance_sessions
-    join public.courses on courses.id = attendance_sessions.course_id
     where attendance_sessions.id = beat_out_entries.session_id
-      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+      and public.user_owns_course(attendance_sessions.course_id)
   )
 );
 
@@ -636,16 +666,14 @@ using (
   exists (
     select 1
     from public.attendance_sessions source_sessions
-    join public.courses source_courses on source_courses.id = source_sessions.course_id
     where source_sessions.id = session_overrides.source_session_id
-      and (source_courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+      and public.user_owns_course(source_sessions.course_id)
   )
   or exists (
     select 1
     from public.attendance_sessions target_sessions
-    join public.courses target_courses on target_courses.id = target_sessions.course_id
     where target_sessions.id = session_overrides.target_session_id
-      and (target_courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+      and public.user_owns_course(target_sessions.course_id)
   )
 );
 
@@ -658,31 +686,27 @@ using (
   exists (
     select 1
     from public.attendance_sessions source_sessions
-    join public.courses source_courses on source_courses.id = source_sessions.course_id
     where source_sessions.id = session_overrides.source_session_id
-      and (source_courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+      and public.user_owns_course(source_sessions.course_id)
   )
   or exists (
     select 1
     from public.attendance_sessions target_sessions
-    join public.courses target_courses on target_courses.id = target_sessions.course_id
     where target_sessions.id = session_overrides.target_session_id
-      and (target_courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+      and public.user_owns_course(target_sessions.course_id)
   )
 )
 with check (
   exists (
     select 1
     from public.attendance_sessions source_sessions
-    join public.courses source_courses on source_courses.id = source_sessions.course_id
     where source_sessions.id = session_overrides.source_session_id
-      and (source_courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+      and public.user_owns_course(source_sessions.course_id)
   )
   or exists (
     select 1
     from public.attendance_sessions target_sessions
-    join public.courses target_courses on target_courses.id = target_sessions.course_id
     where target_sessions.id = session_overrides.target_session_id
-      and (target_courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+      and public.user_owns_course(target_sessions.course_id)
   )
 );
