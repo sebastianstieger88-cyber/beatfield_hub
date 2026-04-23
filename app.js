@@ -2538,6 +2538,7 @@ function render() {
   const appUnlocked = loggedIn && (state.profile.role === "admin" || state.profile.role === "trainer");
   const recoveryMode = isRecoveryMode();
   const availableSections = getAvailableSections({ connected, loggedIn, appUnlocked });
+  const navigationSections = getNavigationSections(availableSections, { connected, loggedIn, appUnlocked });
   ensureActiveSection(availableSections, { connected, loggedIn, appUnlocked });
 
   contentPanels.forEach((panel) => {
@@ -2604,7 +2605,7 @@ function render() {
   renderReportPreview();
   renderMobileSessionSummary();
   renderParticipantProfile();
-  updateNavigationVisibility(availableSections);
+  updateNavigationVisibility(navigationSections);
   mobileMonthBtn?.classList.toggle("hidden", !isAdmin());
   mobileReportsBtn?.classList.toggle("hidden", !isAdmin());
   updateActiveNavLink();
@@ -6458,6 +6459,19 @@ function getAvailableSections({ connected, loggedIn, appUnlocked }) {
   }
 
   return sections;
+}
+
+function getNavigationSections(availableSections, { connected, loggedIn, appUnlocked }) {
+  if (!connected || !loggedIn || !appUnlocked || isAdmin()) {
+    return availableSections;
+  }
+
+  return availableSections.filter((sectionId) => [
+    "#todayPanel",
+    "#courseListPanel",
+    "#attendancePanel",
+    "#trialsPanel",
+  ].includes(sectionId));
 }
 
 function ensureActiveSection(availableSections, { connected, loggedIn, appUnlocked }) {
