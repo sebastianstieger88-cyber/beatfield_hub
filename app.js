@@ -5957,7 +5957,21 @@ function getParticipantRecentHistory(participantId, limit = 6) {
 }
 
 function getTrainerName(trainerId) {
-  return state.trainers.find((trainer) => trainer.user_id === trainerId)?.full_name || "Nicht zugewiesen";
+  const directProfileName = state.trainers.find((trainer) => trainer.user_id === trainerId)?.full_name;
+  if (directProfileName) {
+    return directProfileName;
+  }
+
+  const linkedDirectoryName = state.trainerDirectory.find((entry) => entry.linked_user_id === trainerId)?.full_name;
+  if (linkedDirectoryName) {
+    return linkedDirectoryName;
+  }
+
+  if (trainerId === state.session?.user?.id && state.profile?.full_name) {
+    return state.profile.full_name;
+  }
+
+  return "Nicht zugewiesen";
 }
 
 function getTrainerDirectoryName(directoryId) {
