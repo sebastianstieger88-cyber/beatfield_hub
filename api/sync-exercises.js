@@ -102,7 +102,8 @@ async function getSupabaseUser(supabaseUrl, anonKey, accessToken) {
   });
 
   if (!response.ok) {
-    throw new Error("Der Supabase-Login konnte für den Übungs-Sync nicht verifiziert werden.");
+    const payload = await response.text();
+    throw new Error(`Der Supabase-Login konnte für den Übungs-Sync nicht verifiziert werden (${response.status}): ${payload || response.statusText}`);
   }
 
   return response.json();
