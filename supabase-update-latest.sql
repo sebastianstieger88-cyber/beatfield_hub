@@ -264,8 +264,13 @@ using (
   exists (
     select 1
     from public.courses
+    left join public.trainer_directory on trainer_directory.id = courses.trainer_directory_id
     where courses.id = participants.course_id
-      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+      and (
+        courses.trainer_id = auth.uid()
+        or trainer_directory.linked_user_id = auth.uid()
+        or public.current_user_role() = 'admin'
+      )
   )
 );
 
@@ -278,16 +283,26 @@ using (
   exists (
     select 1
     from public.courses
+    left join public.trainer_directory on trainer_directory.id = courses.trainer_directory_id
     where courses.id = participants.course_id
-      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+      and (
+        courses.trainer_id = auth.uid()
+        or trainer_directory.linked_user_id = auth.uid()
+        or public.current_user_role() = 'admin'
+      )
   )
 )
 with check (
   exists (
     select 1
     from public.courses
+    left join public.trainer_directory on trainer_directory.id = courses.trainer_directory_id
     where courses.id = participants.course_id
-      and (courses.trainer_id = auth.uid() or public.current_user_role() = 'admin')
+      and (
+        courses.trainer_id = auth.uid()
+        or trainer_directory.linked_user_id = auth.uid()
+        or public.current_user_role() = 'admin'
+      )
   )
 );
 
