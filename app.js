@@ -106,6 +106,7 @@ const inviteForm = document.querySelector("#inviteForm");
 const trainerDirectoryForm = document.querySelector("#trainerDirectoryForm");
 const courseForm = document.querySelector("#courseForm");
 const seasonForm = document.querySelector("#seasonForm");
+const seasonStartDateInput = document.querySelector("#seasonStartDateInput");
 const generateSeasonDatesBtn = document.querySelector("#generateSeasonDatesBtn");
 const clearSeasonDatesBtn = document.querySelector("#clearSeasonDatesBtn");
 const addSeasonDateBtn = document.querySelector("#addSeasonDateBtn");
@@ -252,6 +253,18 @@ inviteForm?.addEventListener("submit", handleInviteCreate);
 trainerDirectoryForm?.addEventListener("submit", handleTrainerDirectoryCreate);
 courseForm?.addEventListener("submit", handleCourseCreate);
 seasonForm?.addEventListener("submit", handleSeasonCreate);
+seasonStartDateInput?.addEventListener("keydown", (event) => {
+  const allowedKeys = ["Tab", "Shift", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
+  if (!allowedKeys.includes(event.key)) {
+    event.preventDefault();
+  }
+});
+seasonStartDateInput?.addEventListener("focus", () => {
+  seasonStartDateInput.showPicker?.();
+});
+seasonStartDateInput?.addEventListener("click", () => {
+  seasonStartDateInput.showPicker?.();
+});
 generateSeasonDatesBtn?.addEventListener("click", handleGenerateSeasonDates);
 clearSeasonDatesBtn?.addEventListener("click", () => {
   state.seasonDraftDates = [];
@@ -4167,6 +4180,24 @@ function renderSeasons() {
     const schedule = renderSeasonTrainingSchedule(trainingDates);
     card.appendChild(schedule);
 
+    if (season.status === "aktiv") {
+      const addDateRow = document.createElement("div");
+      addDateRow.className = "season-extra-date-row";
+      addDateRow.innerHTML = `
+        <label>
+          <span>Nachholtermin hinzufügen</span>
+          <input type="date" class="season-extra-date-input">
+        </label>
+        <button type="button" class="ghost season-extra-date-btn">Trainingstag hinzufügen</button>
+      `;
+      const dateInput = addDateRow.querySelector(".season-extra-date-input");
+      const addButton = addDateRow.querySelector(".season-extra-date-btn");
+      addButton.addEventListener("click", async () => {
+        await handleSeasonExtraDateAdd(season, String(dateInput?.value || "").trim());
+      });
+      card.appendChild(addDateRow);
+    }
+
     const actions = document.createElement("div");
     actions.className = "stat-card-actions";
     const selectBtn = document.createElement("button");
@@ -4232,6 +4263,72 @@ function renderSeasons() {
     card.appendChild(actions);
     seasonList.appendChild(card);
   });
+}
+
+async function handleSeasonExtraDateAdd(season, dateValue) {
+  if (!season || !dateValue) {
+    notify("Bitte zuerst ein Datum für den Nachholtermin wählen.", true);
+    return;
+  }
+
+  if (!state.supabase || !state.session?.user?.id) {
+    return;
+  }
+
+  const payload = buildSeasonSessionPayload(dateValue, dateValue, season.id, [dateValue]).filter((entry) => {
+    return !state.sessions.some((session) => session.course_id === entry.course_id && session.session_date === entry.session_date);
+  });
+
+  if (!payload.length) {
+    notify("Für dieses Datum gibt es entweder keinen passenden Kurstag oder der Termin ist bereits angelegt.", true);
+    return;
+  }
+
+  const sessionResult = await state.supabase
+    .from("attendance_sessions")
+    .insert(payload)
+    .select("id, course_id, session_date, season_id");
+
+  if (sessionResult.error && !String(sessionResult.error.message || "").toLowerCase().includes("duplicate")) {
+    notify(getFriendlySupabaseMessage(sessionResult.error, "Nachholtermin konnte nicht angelegt werden."), true);
+    return;
+  }
+
+  const nextStartDate = season.start_date && season.start_date < dateValue ? season.start_date : dateValue;
+  const nextEndDate = season.end_date && season.end_date > dateValue ? season.end_date : dateValue;
+  let updatedSeason = season;
+
+  if (nextStartDate !== season.start_date || nextEndDate !== season.end_date) {
+    const seasonUpdateResult = await state.supabase
+      .from("seasons")
+      .update({
+        start_date: nextStartDate,
+        end_date: nextEndDate,
+      })
+      .eq("id", season.id);
+
+    if (seasonUpdateResult.error) {
+      notify(getFriendlySupabaseMessage(seasonUpdateResult.error, "Nachholtermin wurde angelegt, aber der Season-Zeitraum konnte nicht angepasst werden."), true);
+    } else {
+      updatedSeason = {
+        ...season,
+        start_date: nextStartDate,
+        end_date: nextEndDate,
+      };
+      state.seasons = state.seasons.map((entry) => entry.id === season.id ? updatedSeason : entry);
+    }
+  }
+
+  if (sessionResult.data?.length) {
+    state.sessions = [
+      ...sessionResult.data,
+      ...state.sessions.filter((entry) => !sessionResult.data.some((inserted) => inserted.id === entry.id)),
+    ].sort((left, right) => String(left.session_date || "").localeCompare(String(right.session_date || "")));
+  }
+
+  render();
+  notify(`Nachholtermin für ${updatedSeason.name} am ${formatDateLabel(dateValue)} wurde angelegt.`);
+  await refreshVisibleData({ context: "Season extra date refresh", silent: true });
 }
 
 function renderSeasonTrainingSchedule(trainingDates) {

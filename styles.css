@@ -430,6 +430,14 @@ label span,
   margin-top: 12px;
 }
 
+.season-extra-date-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin-top: 14px;
+}
+
 .season-calendar {
   display: grid;
   gap: 10px;
