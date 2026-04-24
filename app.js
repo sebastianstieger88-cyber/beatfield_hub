@@ -5318,8 +5318,9 @@ function renderParticipants() {
   participantFormNotice?.classList.toggle("hidden", true);
   markAllPresentBtn.disabled = !canEditCourse(course);
   markAllAbsentBtn.disabled = !canEditCourse(course);
-  const sessionDate = getEffectiveAttendanceDate();
-  const session = getSessionForCourseAndDate(course.id, sessionDate);
+  const focusedStandaloneSession = getAttendanceStandaloneFocusSession(course.id);
+  const sessionDate = focusedStandaloneSession?.session_date || getEffectiveAttendanceDate();
+  const session = focusedStandaloneSession || getSessionForCourseAndDate(course.id, sessionDate);
   const records = getRecordsForSession(session?.id);
   const rawSessionParticipants = getFilteredParticipants(course.id, session?.id);
   const sessionParticipants = isAdmin()
@@ -6735,6 +6736,39 @@ function getStandaloneEntrySession(entry) {
     return null;
   }
   return state.sessions.find((session) => session.id === entry.attendance_session_id) || null;
+}
+
+function getAttendanceStandaloneFocusSession(courseId = null) {
+  const focus = state.attendanceStandaloneFocus;
+  if (!focus) {
+    return null;
+  }
+
+  if (focus.type === "trial") {
+    const trial = state.trialRequests.find((entry) => entry.id === focus.id) || null;
+    const session = getStandaloneEntrySession(trial);
+    if (!session) {
+      return null;
+    }
+    if (courseId && session.course_id !== courseId) {
+      return null;
+    }
+    return session;
+  }
+
+  if (focus.type === "dropin") {
+    const dropIn = state.dropInBookings.find((entry) => entry.id === focus.id) || null;
+    const session = getStandaloneEntrySession(dropIn);
+    if (!session) {
+      return null;
+    }
+    if (courseId && session.course_id !== courseId) {
+      return null;
+    }
+    return session;
+  }
+
+  return null;
 }
 
 function standaloneEntryMatchesCourseDate(entry, courseId, sessionId, activeSessionDate) {
