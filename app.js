@@ -51,6 +51,7 @@ const state = {
   moveParticipantContext: null,
   selectedParticipantId: null,
   selectedExerciseId: null,
+  attendanceStandaloneFocus: null,
   participantSearch: "",
   isOffline: !navigator.onLine,
   pendingActions: loadOfflineQueue(),
@@ -3975,6 +3976,12 @@ function openTrialInAttendance(trial) {
   const session = trial?.attendance_session_id
     ? state.sessions.find((entry) => entry.id === trial.attendance_session_id) || null
     : null;
+  state.attendanceStandaloneFocus = trial?.id
+    ? {
+        type: "trial",
+        id: trial.id,
+      }
+    : null;
   if (trial?.course_id) {
     state.selectedCourseId = trial.course_id;
   }
@@ -3988,6 +3995,12 @@ function openTrialInAttendance(trial) {
 function openDropInInAttendance(dropIn) {
   const session = dropIn?.attendance_session_id
     ? state.sessions.find((entry) => entry.id === dropIn.attendance_session_id) || null
+    : null;
+  state.attendanceStandaloneFocus = dropIn?.id
+    ? {
+        type: "dropin",
+        id: dropIn.id,
+      }
     : null;
   if (dropIn?.course_id) {
     state.selectedCourseId = dropIn.course_id;
@@ -6840,6 +6853,54 @@ function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
       rosterIds.add(participant.id);
     }
   });
+
+  const focusedStandalone = state.attendanceStandaloneFocus;
+  if (focusedStandalone && !roster.some((participant) => {
+    if (focusedStandalone.type === "trial") {
+      return participant.trial_request_id === focusedStandalone.id;
+    }
+    if (focusedStandalone.type === "dropin") {
+      return participant.drop_in_booking_id === focusedStandalone.id;
+    }
+    return false;
+  })) {
+    if (focusedStandalone.type === "trial") {
+      const trial = state.trialRequests.find((entry) => entry.id === focusedStandalone.id) || null;
+      const linkedSession = getStandaloneEntrySession(trial);
+      if (trial && linkedSession?.course_id === courseId && (!activeSessionDate || linkedSession.session_date === activeSessionDate)) {
+        roster.push({
+          id: `trial-${trial.id}`,
+          course_id: linkedSession.course_id || trial.course_id,
+          season_id: linkedSession.season_id || null,
+          season_booking_id: null,
+          full_name: `${trial.full_name} (Probetraining)`,
+          phone: trial.phone || "",
+          email: trial.email || "",
+          is_trial: true,
+          trial_request_id: trial.id,
+        });
+      }
+    }
+
+    if (focusedStandalone.type === "dropin") {
+      const dropIn = state.dropInBookings.find((entry) => entry.id === focusedStandalone.id) || null;
+      const linkedSession = getStandaloneEntrySession(dropIn);
+      if (dropIn && linkedSession?.course_id === courseId && (!activeSessionDate || linkedSession.session_date === activeSessionDate)) {
+        roster.push({
+          id: `dropin-${dropIn.id}`,
+          course_id: linkedSession.course_id || dropIn.course_id,
+          season_id: linkedSession.season_id || null,
+          season_booking_id: null,
+          full_name: `${dropIn.full_name} (DROP-IN)`,
+          phone: dropIn.phone || "",
+          email: dropIn.email || "",
+          is_dropin: true,
+          drop_in_booking_id: dropIn.id,
+          drop_in_status: dropIn.status,
+        });
+      }
+    }
+  }
 
   return roster.sort((left, right) => String(left.full_name || "").localeCompare(String(right.full_name || "")));
 }
