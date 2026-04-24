@@ -143,7 +143,7 @@ async function fetchAllNotionPages(notionToken, databaseId) {
 
     if (!response.ok) {
       const payload = await response.text();
-      throw new Error(`Notion-Datenbank konnte nicht geladen werden (${maskIdentifier(databaseId)}): ${payload}`);
+      throw new Error(buildRemoteServiceError("Notion-Datenbank", response.status, payload, maskIdentifier(databaseId)));
     }
 
     const payload = await response.json();
@@ -317,7 +317,7 @@ async function fetchExistingExercisePageIds(supabaseUrl, serviceRoleKey) {
 
   if (!response.ok) {
     const payload = await response.text();
-    throw new Error(`Bestehende Übungen konnten nicht geladen werden: ${payload}`);
+    throw new Error(buildRemoteServiceError("Supabase-Übungen", response.status, payload));
   }
 
   const rows = await response.json();
@@ -353,7 +353,7 @@ async function archiveMissingExercises(supabaseUrl, serviceRoleKey, existingPage
 
     if (!response.ok) {
       const payload = await response.text();
-      throw new Error(`Nicht mehr vorhandene Übungen konnten nicht archiviert werden: ${payload}`);
+      throw new Error(buildRemoteServiceError("Übungsarchiv", response.status, payload));
     }
   }
 }
@@ -372,6 +372,32 @@ async function upsertExercises(supabaseUrl, serviceRoleKey, exercises) {
 
   if (!response.ok) {
     const payload = await response.text();
-    throw new Error(`Übungen konnten nicht in Supabase synchronisiert werden: ${payload}`);
+    throw new Error(buildRemoteServiceError("Supabase-Sync", response.status, payload));
   }
+}
+
+function buildRemoteServiceError(label, status, payload, context = "") {
+  const raw = String(payload || "").trim();
+  const prefix = context ? `${label} (${context})` : label;
+
+  if (status >= 500 && /cloudflare|bad gateway|<!doctype html/i.test(raw)) {
+    return `${prefix} ist gerade vorübergehend nicht erreichbar (${status}). Bitte in ein paar Minuten erneut versuchen.`;
+  }
+
+  if (/^\s*\{/.test(raw)) {
+    try {
+      const parsed = JSON.parse(raw);
+      const message = parsed?.message || parsed?.error || parsed?.code || raw;
+      return `${prefix}: ${message}`;
+    } catch (error) {
+      // Fallback below
+    }
+  }
+
+  if (/<html/i.test(raw)) {
+    return `${prefix} hat einen unerwarteten HTML-Fehler zurückgegeben (${status}). Bitte später erneut versuchen.`;
+  }
+
+  const compact = raw.replace(/\s+/g, " ").slice(0, 220);
+  return `${prefix}: ${compact || `Fehler ${status}`}`;
 }
