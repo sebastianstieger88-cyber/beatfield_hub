@@ -722,6 +722,11 @@ button.ghost.is-active {
   color: #ffd37a;
 }
 
+button.ghost:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 button.danger {
   background: rgba(255, 107, 87, 0.14);
   color: var(--danger);

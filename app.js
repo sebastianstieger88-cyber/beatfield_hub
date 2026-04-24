@@ -161,6 +161,7 @@ const exerciseTagFilter = document.querySelector("#exerciseTagFilter");
 const exerciseSyncBtn = document.querySelector("#exerciseSyncBtn");
 const exerciseSyncMeta = document.querySelector("#exerciseSyncMeta");
 const exerciseFavoriteFilterBtn = document.querySelector("#exerciseFavoriteFilterBtn");
+const exerciseResetFiltersBtn = document.querySelector("#exerciseResetFiltersBtn");
 const exerciseTableBody = document.querySelector("#exerciseTableBody");
 const planningPreview = document.querySelector("#planningPreview");
 const planNextBtn = document.querySelector("#planNextBtn");
@@ -286,6 +287,10 @@ exerciseTagFilter?.addEventListener("change", () => {
 });
 exerciseFavoriteFilterBtn?.addEventListener("click", () => {
   state.exerciseFavoritesOnly = !state.exerciseFavoritesOnly;
+  renderExercises();
+});
+exerciseResetFiltersBtn?.addEventListener("click", () => {
+  resetExerciseFilters();
   renderExercises();
 });
 exerciseSyncBtn?.addEventListener("click", handleExerciseSync);
@@ -2764,6 +2769,30 @@ function getExerciseFilterOptions(field) {
   return Array.from(values).sort((left, right) => left.localeCompare(right, "de"));
 }
 
+function hasActiveExerciseFilters() {
+  return Boolean(
+    (state.exerciseFilters.search || "").trim() ||
+      state.exerciseFilters.category !== "all" ||
+      state.exerciseFilters.focus !== "all" ||
+      state.exerciseFilters.level !== "all" ||
+      state.exerciseFilters.equipment !== "all" ||
+      state.exerciseFilters.tag !== "all" ||
+      state.exerciseFavoritesOnly
+  );
+}
+
+function resetExerciseFilters() {
+  state.exerciseFilters = {
+    search: "",
+    category: "all",
+    focus: "all",
+    level: "all",
+    equipment: "all",
+    tag: "all",
+  };
+  state.exerciseFavoritesOnly = false;
+}
+
 function updateExerciseFilterSelect(select, values, allLabel, selectedValue) {
   if (!select) {
     return;
@@ -2959,6 +2988,9 @@ function renderExercises() {
   if (exerciseFavoriteFilterBtn) {
     exerciseFavoriteFilterBtn.classList.toggle("is-active", state.exerciseFavoritesOnly);
     exerciseFavoriteFilterBtn.textContent = state.exerciseFavoritesOnly ? "Alle Übungen zeigen" : "Nur Favoriten";
+  }
+  if (exerciseResetFiltersBtn) {
+    exerciseResetFiltersBtn.disabled = !hasActiveExerciseFilters();
   }
 
   const latestSync = state.exercises
