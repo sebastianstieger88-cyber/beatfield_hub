@@ -40,6 +40,7 @@ const state = {
     direction: "asc",
   },
   exerciseFavoritesOnly: false,
+  exercisePinFavorites: false,
   exerciseSyncing: false,
   selectedCourseId: null,
   selectedSeasonId: null,
@@ -164,7 +165,9 @@ const exerciseEquipmentFilter = document.querySelector("#exerciseEquipmentFilter
 const exerciseTagFilter = document.querySelector("#exerciseTagFilter");
 const exerciseSyncBtn = document.querySelector("#exerciseSyncBtn");
 const exerciseSyncMeta = document.querySelector("#exerciseSyncMeta");
+const exerciseActiveFilters = document.querySelector("#exerciseActiveFilters");
 const exerciseFavoriteFilterBtn = document.querySelector("#exerciseFavoriteFilterBtn");
+const exercisePinFavoritesBtn = document.querySelector("#exercisePinFavoritesBtn");
 const exerciseResetFiltersBtn = document.querySelector("#exerciseResetFiltersBtn");
 const exerciseTableBody = document.querySelector("#exerciseTableBody");
 const planningPreview = document.querySelector("#planningPreview");
@@ -291,6 +294,10 @@ exerciseTagFilter?.addEventListener("change", () => {
 });
 exerciseFavoriteFilterBtn?.addEventListener("click", () => {
   state.exerciseFavoritesOnly = !state.exerciseFavoritesOnly;
+  renderExercises();
+});
+exercisePinFavoritesBtn?.addEventListener("click", () => {
+  state.exercisePinFavorites = !state.exercisePinFavorites;
   renderExercises();
 });
 exerciseResetFiltersBtn?.addEventListener("click", () => {
@@ -2706,7 +2713,7 @@ function render() {
   renderReportPreview();
   renderMobileSessionSummary();
   renderParticipantProfile();
-  renderExerciseDetail();
+  renderExerciseDetailView();
   updateNavigationVisibility(navigationSections);
   mobileMonthBtn?.classList.toggle("hidden", !isAdmin());
   mobileReportsBtn?.classList.toggle("hidden", !isAdmin());
@@ -2781,7 +2788,8 @@ function hasActiveExerciseFilters() {
       state.exerciseFilters.level !== "all" ||
       state.exerciseFilters.equipment !== "all" ||
       state.exerciseFilters.tag !== "all" ||
-      state.exerciseFavoritesOnly
+      state.exerciseFavoritesOnly ||
+      state.exercisePinFavorites
   );
 }
 
@@ -2795,14 +2803,24 @@ function resetExerciseFilters() {
     tag: "all",
   };
   state.exerciseFavoritesOnly = false;
+  state.exercisePinFavorites = false;
 }
 
 function getSortedExercises(exercises) {
   const sorted = [...exercises];
   const directionFactor = state.exerciseSort.direction === "desc" ? -1 : 1;
   const field = state.exerciseSort.field || "title";
+  const favoriteIds = new Set(state.exerciseFavorites.map((entry) => entry.exercise_id));
 
   sorted.sort((left, right) => {
+    if (state.exercisePinFavorites) {
+      const leftFavorite = favoriteIds.has(left.id);
+      const rightFavorite = favoriteIds.has(right.id);
+      if (leftFavorite !== rightFavorite) {
+        return leftFavorite ? -1 : 1;
+      }
+    }
+
     const leftValue = String(left?.[field] || "").trim();
     const rightValue = String(right?.[field] || "").trim();
     const normalizedLeft = leftValue || "zzz";
@@ -2811,6 +2829,60 @@ function getSortedExercises(exercises) {
   });
 
   return sorted;
+}
+
+function getActiveExerciseFilterChips() {
+  const chips = [];
+  const search = String(state.exerciseFilters.search || "").trim();
+  if (search) {
+    chips.push({ label: `Suche: ${search}`, action: () => {
+      state.exerciseFilters.search = "";
+      renderExercises();
+    } });
+  }
+
+  const filterLabels = {
+    category: "Körperbereich",
+    focus: "Bewegungsmuster",
+    level: "Muskelgruppe",
+    equipment: "Ausrüstung",
+    tag: "Tag",
+  };
+
+  Object.entries(filterLabels).forEach(([field, label]) => {
+    const value = state.exerciseFilters[field];
+    if (value && value !== "all") {
+      chips.push({
+        label: `${label}: ${value}`,
+        action: () => {
+          state.exerciseFilters[field] = "all";
+          renderExercises();
+        },
+      });
+    }
+  });
+
+  if (state.exerciseFavoritesOnly) {
+    chips.push({
+      label: "Nur Favoriten",
+      action: () => {
+        state.exerciseFavoritesOnly = false;
+        renderExercises();
+      },
+    });
+  }
+
+  if (state.exercisePinFavorites) {
+    chips.push({
+      label: "Favoriten zuerst",
+      action: () => {
+        state.exercisePinFavorites = false;
+        renderExercises();
+      },
+    });
+  }
+
+  return chips;
 }
 
 function renderExerciseTableHeader(table) {
@@ -2941,7 +3013,7 @@ function closeExerciseDetailModal() {
 
 function openExerciseDetailModal(exerciseId) {
   state.selectedExerciseId = exerciseId;
-  renderExerciseDetail();
+  renderExerciseDetailView();
 }
 
 function renderExerciseDetail() {
@@ -2995,6 +3067,89 @@ function renderExerciseDetail() {
   exerciseDetailModal.classList.remove("hidden");
 }
 
+function renderExerciseDetailView() {
+  if (!exerciseDetailModal || !exerciseDetailBody || !exerciseDetailTitle) {
+    return;
+  }
+
+  const exercise = getExerciseById(state.selectedExerciseId);
+  if (!exercise) {
+    exerciseDetailModal.classList.add("hidden");
+    return;
+  }
+
+  exerciseDetailTitle.textContent = exercise.title || "Übungsdetails";
+  const links = [
+    exercise.video_url ? `<a class="ghost" href="${escapeHtml(exercise.video_url)}" target="_blank" rel="noreferrer">Video öffnen</a>` : "",
+    exercise.source_url ? `<a class="ghost" href="${escapeHtml(exercise.source_url)}" target="_blank" rel="noreferrer">Notion öffnen</a>` : "",
+  ].filter(Boolean).join("");
+
+  const sections = [
+    {
+      title: "Ausführung",
+      items: [
+        ["Beschreibung", exercise.description],
+        ["Ablauf-Cues", exercise.coaching_cues],
+        ["Technik-Cues", exercise.technique_cues],
+      ],
+    },
+    {
+      title: "Coaching",
+      items: [
+        ["Häufige Fehler", exercise.common_errors],
+        ["Korrektur", exercise.correction],
+      ],
+    },
+    {
+      title: "Variationen",
+      items: [
+        ["Progression", exercise.progression],
+        ["Regression", exercise.regression],
+        ["Varianten", exercise.variants],
+      ],
+    },
+  ].map((section) => {
+    const items = section.items
+      .filter(([, value]) => String(value || "").trim())
+      .map(([label, value]) => `
+        <div class="exercise-detail-item">
+          <p class="exercise-detail-label">${escapeHtml(label)}</p>
+          <p class="exercise-copy">${escapeHtml(value)}</p>
+        </div>
+      `)
+      .join("");
+
+    if (!items) {
+      return "";
+    }
+
+    return `
+      <section class="exercise-detail-card">
+        <h4>${escapeHtml(section.title)}</h4>
+        <div class="exercise-detail-list">
+          ${items}
+        </div>
+      </section>
+    `;
+  }).filter(Boolean).join("");
+
+  exerciseDetailBody.innerHTML = `
+    <div class="exercise-detail-hero">
+      <div class="course-status-grid">
+        ${exercise.category ? `<span class="course-status-pill">${escapeHtml(exercise.category)}</span>` : ""}
+        ${exercise.focus ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(exercise.focus)}</span>` : ""}
+        ${exercise.level ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(exercise.level)}</span>` : ""}
+        ${exercise.equipment ? `<span class="course-status-pill course-status-pill-warn">${escapeHtml(exercise.equipment)}</span>` : ""}
+      </div>
+      ${exercise.tags?.length ? `<div class="exercise-tag-row">${exercise.tags.map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
+    </div>
+    ${sections ? `<div class="exercise-detail-grid">${sections}</div>` : `<p class="stat-meta">Für diese Übung sind noch keine erweiterten Details synchronisiert.</p>`}
+    ${links ? `<div class="stat-card-actions exercise-actions">${links}</div>` : ""}
+  `;
+
+  exerciseDetailModal.classList.remove("hidden");
+}
+
 async function toggleExerciseFavorite(exerciseId) {
   if (!state.supabase || !state.session?.user?.id) {
     return;
@@ -3015,8 +3170,8 @@ async function toggleExerciseFavorite(exerciseId) {
 
     state.exerciseFavorites = state.exerciseFavorites.filter((entry) => entry.exercise_id !== exerciseId);
     renderExercises();
-    renderExerciseDetail();
-    return;
+  renderExerciseDetailView();
+  return;
   }
 
   const { error } = await state.supabase
@@ -3033,7 +3188,7 @@ async function toggleExerciseFavorite(exerciseId) {
 
   state.exerciseFavorites.unshift({ exercise_id: exerciseId });
   renderExercises();
-  renderExerciseDetail();
+  renderExerciseDetailView();
 }
 
 function renderExercises() {
@@ -3064,8 +3219,33 @@ function renderExercises() {
     exerciseFavoriteFilterBtn.classList.toggle("is-active", state.exerciseFavoritesOnly);
     exerciseFavoriteFilterBtn.textContent = state.exerciseFavoritesOnly ? "Alle Übungen zeigen" : "Nur Favoriten";
   }
+  if (exercisePinFavoritesBtn) {
+    exercisePinFavoritesBtn.classList.toggle("is-active", state.exercisePinFavorites);
+    exercisePinFavoritesBtn.textContent = state.exercisePinFavorites ? "Normale Reihenfolge" : "Favoriten zuerst";
+  }
   if (exerciseResetFiltersBtn) {
     exerciseResetFiltersBtn.disabled = !hasActiveExerciseFilters();
+  }
+
+  if (exerciseActiveFilters) {
+    const chips = getActiveExerciseFilterChips();
+    exerciseActiveFilters.innerHTML = chips.length
+      ? chips
+          .map((chip, index) => `
+            <button type="button" class="exercise-filter-chip" data-exercise-chip="${index}">
+              <span>${escapeHtml(chip.label)}</span>
+              <span aria-hidden="true">×</span>
+            </button>
+          `)
+          .join("")
+      : "";
+    exerciseActiveFilters.classList.toggle("hidden", !chips.length);
+    exerciseActiveFilters.querySelectorAll("[data-exercise-chip]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const chip = chips[Number(button.dataset.exerciseChip)];
+        chip?.action?.();
+      });
+    });
   }
 
   const latestSync = state.exercises
