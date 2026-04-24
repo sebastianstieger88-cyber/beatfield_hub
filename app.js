@@ -43,6 +43,7 @@ const state = {
   exercisePinFavorites: false,
   exerciseSyncing: false,
   selectedCourseId: null,
+  editingCourseId: null,
   selectedSeasonId: null,
   attendanceSeasonId: null,
   seasonFilter: "all",
@@ -133,6 +134,7 @@ const monthPicker = document.querySelector("#monthPicker");
 const participantSearch = document.querySelector("#participantSearch");
 const trainerSelect = document.querySelector("#trainerSelect");
 const deleteCourseBtn = document.querySelector("#deleteCourseBtn");
+const cancelCourseEditBtn = document.querySelector("#cancelCourseEditBtn");
 const bookingSeasonSelect = document.querySelector("#bookingSeasonSelect");
 const bookingPackageSelect = document.querySelector("#bookingPackageSelect");
 const attendanceSeasonSelect = document.querySelector("#attendanceSeasonSelect");
@@ -287,6 +289,10 @@ addSeasonDateBtn?.addEventListener("click", handleAddSeasonDraftDate);
 seasonBookingForm?.addEventListener("submit", handleSeasonBookingCreate);
 cancelBookingEditBtn?.addEventListener("click", resetBookingForm);
 deleteCourseBtn?.addEventListener("click", handleCourseDelete);
+cancelCourseEditBtn?.addEventListener("click", () => {
+  resetCourseForm();
+  render();
+});
 participantForm?.addEventListener("submit", handleParticipantCreate);
 openBookingPanelBtn?.addEventListener("click", () => {
   state.activeSection = "#bookingPanel";
@@ -1112,16 +1118,24 @@ async function handleCourseCreate(event) {
 
     const formData = new FormData(courseForm);
     const trainerSelection = parseTrainerSelection(formData.get("trainerId"));
-    const { data, error } = await state.supabase
-      .from("courses")
-      .insert({
-        name: String(formData.get("name")).trim(),
-        location: String(formData.get("location")).trim(),
-        weekday: normalizeWeekdayLabel(formData.get("weekday")),
-        time: String(formData.get("time")).trim() || null,
-        trainer_id: trainerSelection.trainerId,
-        trainer_directory_id: trainerSelection.directoryId,
-      })
+    const payload = {
+      name: String(formData.get("name")).trim(),
+      location: String(formData.get("location")).trim(),
+      weekday: normalizeWeekdayLabel(formData.get("weekday")),
+      time: String(formData.get("time")).trim() || null,
+      trainer_id: trainerSelection.trainerId,
+      trainer_directory_id: trainerSelection.directoryId,
+    };
+    const isEditing = Boolean(state.editingCourseId);
+    const query = isEditing
+      ? state.supabase
+        .from("courses")
+        .update(payload)
+        .eq("id", state.editingCourseId)
+      : state.supabase
+        .from("courses")
+        .insert(payload);
+    const { data, error } = await query
       .select("id, name, location, weekday, time, trainer_id, trainer_directory_id")
       .single();
 
@@ -1146,14 +1160,14 @@ async function handleCourseCreate(event) {
     markOptimisticVisibility("courses");
     state.acceptEmptyFetch.courses = false;
     state.selectedCourseId = data.id;
-    courseForm.reset();
+    resetCourseForm();
     renderCourseList();
     renderPlanning();
     renderParticipants();
     persistOfflineCache();
     setActiveSection("#courseListPanel");
     render();
-    notify("Kurs gespeichert.");
+    notify(isEditing ? "Kurs aktualisiert." : "Kurs gespeichert.");
 
     await refreshVisibleData({ includeCourses: true, context: "Course refresh", silent: true });
   } catch (error) {
@@ -2831,6 +2845,11 @@ function render() {
   const recoveryMode = isRecoveryMode();
   const availableSections = getAvailableSections({ connected, loggedIn, appUnlocked });
   const navigationSections = getNavigationSections(availableSections, { connected, loggedIn, appUnlocked });
+  if (state.editingCourseId && !state.courses.some((course) => course.id === state.editingCourseId)) {
+    state.editingCourseId = null;
+  }
+  syncCourseFormToSelection();
+  cancelCourseEditBtn?.classList.toggle("hidden", !state.editingCourseId);
   ensureActiveSection(availableSections, { connected, loggedIn, appUnlocked });
 
   contentPanels.forEach((panel) => {
@@ -5355,7 +5374,7 @@ function renderCourseList() {
       `;
 
     const openCourse = () => {
-      state.selectedCourseId = course.id;
+      startCourseEdit(course.id);
       render();
       scrollToSection("#attendancePanel");
     };
@@ -6811,6 +6830,34 @@ function getParticipantSeasonAttendanceRate(participant, seasonId) {
 
 function getSelectedCourse() {
   return state.courses.find((course) => course.id === state.selectedCourseId) || null;
+}
+
+function syncCourseFormToSelection() {
+  if (!courseForm) {
+    return;
+  }
+
+  const course = getSelectedCourse();
+  if (!course || state.editingCourseId !== course.id) {
+    return;
+  }
+
+  courseForm.elements.name.value = course.name || "";
+  courseForm.elements.location.value = course.location || "";
+  courseForm.elements.weekday.value = normalizeWeekdayLabel(course.weekday) || "Montag";
+  courseForm.elements.time.value = course.time || "";
+  courseForm.elements.trainerId.value = formatTrainerSelectionValue(course.trainer_id, course.trainer_directory_id);
+}
+
+function startCourseEdit(courseId) {
+  state.selectedCourseId = courseId;
+  state.editingCourseId = courseId;
+  syncCourseFormToSelection();
+}
+
+function resetCourseForm() {
+  state.editingCourseId = null;
+  courseForm?.reset();
 }
 
 function getSelectedSeason() {
@@ -9092,6 +9139,18 @@ function parseTrainerSelection(value) {
     trainerId: normalized,
     directoryId: null,
   };
+}
+
+function formatTrainerSelectionValue(trainerId, directoryId) {
+  const normalizedTrainerId = normalizeOptionalId(trainerId);
+  const normalizedDirectoryId = normalizeOptionalId(directoryId);
+  if (normalizedTrainerId) {
+    return `auth:${normalizedTrainerId}`;
+  }
+  if (normalizedDirectoryId) {
+    return `directory:${normalizedDirectoryId}`;
+  }
+  return "";
 }
 
 function getTrainerSummaries() {
