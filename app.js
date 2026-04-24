@@ -1696,6 +1696,95 @@ async function cloneBookingIntoSeason(booking, targetSeason) {
   return { ok: true };
 }
 
+function getCarryOverSourceSeason(targetSeason) {
+  if (!targetSeason) {
+    return null;
+  }
+
+  const otherSeasons = state.seasons.filter((season) => season.id !== targetSeason.id);
+  const activeSource = otherSeasons.find((season) => season.status === "aktiv");
+  if (activeSource) {
+    return activeSource;
+  }
+
+  const targetStart = new Date(`${targetSeason.start_date}T00:00:00`).getTime();
+  const previousSeason = otherSeasons
+    .filter((season) => new Date(`${season.start_date}T00:00:00`).getTime() <= targetStart)
+    .sort((left, right) => new Date(`${right.start_date}T00:00:00`).getTime() - new Date(`${left.start_date}T00:00:00`).getTime())[0];
+
+  return previousSeason || otherSeasons[0] || null;
+}
+
+async function handleSeasonCarryOverIntoExisting(targetSeason) {
+  if (!isAdmin() || !targetSeason) {
+    return;
+  }
+
+  const sourceSeason = getCarryOverSourceSeason(targetSeason);
+  if (!sourceSeason) {
+    notify("Es gibt noch keine andere Season, aus der Teilnehmer übernommen werden können.", true);
+    return;
+  }
+
+  if (sourceSeason.id === targetSeason.id) {
+    notify("Bitte wähle eine andere Ziel-Season für die Übernahme.", true);
+    return;
+  }
+
+  const sourceBookings = state.seasonBookings.filter((booking) => booking.season_id === sourceSeason.id);
+  if (!sourceBookings.length) {
+    notify(`In ${sourceSeason.name} gibt es keine Teilnehmer zum Übernehmen.`, true);
+    return;
+  }
+
+  const confirmed = window.confirm(`Sollen die Teilnehmer aus "${sourceSeason.name}" in "${targetSeason.name}" übernommen werden? Bereits vorhandene Buchungen in der Ziel-Season bleiben erhalten.`);
+  if (!confirmed) {
+    return;
+  }
+
+  let copiedCount = 0;
+  let duplicateCount = 0;
+  let failedCount = 0;
+
+  for (const booking of sourceBookings) {
+    const result = await cloneBookingIntoSeason(booking, targetSeason);
+    if (result.ok) {
+      copiedCount += 1;
+      continue;
+    }
+
+    if (String(result.message || "").includes("bereits vorhanden")) {
+      duplicateCount += 1;
+    } else {
+      failedCount += 1;
+    }
+  }
+
+  state.selectedSeasonId = targetSeason.id;
+  await fetchSupportData();
+  persistOfflineCache();
+  render();
+
+  if (!copiedCount && duplicateCount && !failedCount) {
+    notify(`In ${targetSeason.name} waren bereits alle passenden Teilnehmer aus ${sourceSeason.name} vorhanden.`);
+    return;
+  }
+
+  if (!copiedCount && failedCount) {
+    notify(`Teilnehmer aus ${sourceSeason.name} konnten nicht in ${targetSeason.name} übernommen werden.`, true);
+    return;
+  }
+
+  const summary = [`${copiedCount} Teilnehmer aus ${sourceSeason.name} nach ${targetSeason.name} übernommen.`];
+  if (duplicateCount) {
+    summary.push(`${duplicateCount} bereits vorhanden`);
+  }
+  if (failedCount) {
+    summary.push(`${failedCount} nicht übernommen`);
+  }
+  notify(summary.join(" "));
+}
+
 async function handleCarryOverBookingToNextSeason(booking, sourceSeason) {
   if (!isAdmin() || !booking || !sourceSeason) {
     return;
@@ -4246,7 +4335,7 @@ function renderSeasons() {
     carryOverBtn.className = "primary";
     carryOverBtn.textContent = "Teilnehmer übernehmen";
     carryOverBtn.addEventListener("click", async () => {
-      await handleSeasonDuplicate(season, true);
+      await handleSeasonCarryOverIntoExisting(season);
     });
     actions.appendChild(carryOverBtn);
 
