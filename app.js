@@ -5621,15 +5621,69 @@ function renderMonthlyCalendarView(monthValue) {
 
   monthlyCalendar.innerHTML = "";
   const [year, month] = monthValue.split("-").map(Number);
+  const eventsByDate = getMonthlyCalendarEvents(monthValue);
+  const eventCounts = { session: 0, trial: 0, dropin: 0, override: 0 };
+  eventsByDate.forEach((items) => {
+    items.forEach((entry) => {
+      if (Object.hasOwn(eventCounts, entry.type)) {
+        eventCounts[entry.type] += 1;
+      }
+    });
+  });
+
+  const jumpToCalendarEntry = (entry) => {
+    if (!entry?.courseId || !entry?.date) {
+      return;
+    }
+    state.selectedCourseId = entry.courseId;
+    state.attendanceSeasonId = entry.seasonId || null;
+    if (attendanceDate) {
+      attendanceDate.value = entry.date;
+    }
+    setActiveSection("#attendancePanel");
+  };
+
   const title = document.createElement("div");
-  title.className = "panel-heading";
+  title.className = "panel-heading monthly-calendar-heading";
   title.innerHTML = `
     <div>
       <p class="eyebrow">Kalender</p>
       <h3>${escapeHtml(getSelectedMonthLabel())}</h3>
     </div>
+    <div class="monthly-calendar-actions">
+      <button type="button" class="ghost" data-calendar-current-month>Aktuellen Monat</button>
+    </div>
   `;
   monthlyCalendar.appendChild(title);
+
+  title.querySelector("[data-calendar-current-month]")?.addEventListener("click", () => {
+    if (monthPicker) {
+      monthPicker.value = getCurrentMonth();
+    }
+    render();
+  });
+
+  const legend = document.createElement("div");
+  legend.className = "monthly-calendar-legend";
+  legend.innerHTML = `
+    <span class="monthly-calendar-legend-item">
+      <span class="monthly-calendar-legend-dot is-session"></span>
+      ${eventCounts.session} Termine
+    </span>
+    <span class="monthly-calendar-legend-item">
+      <span class="monthly-calendar-legend-dot is-trial"></span>
+      ${eventCounts.trial} Probetrainings
+    </span>
+    <span class="monthly-calendar-legend-item">
+      <span class="monthly-calendar-legend-dot is-dropin"></span>
+      ${eventCounts.dropin} Drop-Ins
+    </span>
+    <span class="monthly-calendar-legend-item">
+      <span class="monthly-calendar-legend-dot is-override"></span>
+      ${eventCounts.override} Umbuchungen
+    </span>
+  `;
+  monthlyCalendar.appendChild(legend);
 
   const weekdays = document.createElement("div");
   weekdays.className = "monthly-calendar-weekdays";
@@ -5645,7 +5699,6 @@ function renderMonthlyCalendarView(monthValue) {
   const firstDate = new Date(year, month - 1, 1);
   const daysInMonth = new Date(year, month, 0).getDate();
   const offset = (firstDate.getDay() + 6) % 7;
-  const eventsByDate = getMonthlyCalendarEvents(monthValue);
   const today = getToday();
 
   for (let index = 0; index < offset; index += 1) {
@@ -5659,41 +5712,64 @@ function renderMonthlyCalendarView(monthValue) {
     const dayEvents = eventsByDate.get(dateValue) || [];
     const dayCell = document.createElement("article");
     dayCell.className = `monthly-calendar-day${dayEvents.length ? " has-events" : ""}${dateValue === today ? " is-today" : ""}`;
-
+    const dayHeader = document.createElement("div");
+    dayHeader.className = "monthly-calendar-day-header";
     const dayNumber = document.createElement("strong");
     dayNumber.className = "monthly-calendar-day-number";
     dayNumber.textContent = String(day);
-    dayCell.appendChild(dayNumber);
+    const dayMeta = document.createElement("div");
+    dayMeta.className = "monthly-calendar-day-meta";
+    const weekdayLabel = document.createElement("span");
+    weekdayLabel.textContent = new Date(`${dateValue}T00:00:00`).toLocaleDateString("de-DE", { weekday: "short" });
+    dayMeta.appendChild(weekdayLabel);
+    if (dayEvents.length) {
+      const countLabel = document.createElement("span");
+      countLabel.className = "monthly-calendar-day-count";
+      countLabel.textContent = `${dayEvents.length} Einträge`;
+      dayMeta.appendChild(countLabel);
+    }
+    dayHeader.appendChild(dayNumber);
+    dayHeader.appendChild(dayMeta);
+    if (dayEvents.find((entry) => entry.courseId && entry.date)) {
+      dayHeader.classList.add("is-clickable");
+      dayHeader.addEventListener("click", () => {
+        jumpToCalendarEntry(dayEvents.find((entry) => entry.courseId && entry.date));
+      });
+    }
+    dayCell.appendChild(dayHeader);
 
     const eventList = document.createElement("div");
     eventList.className = "monthly-calendar-event-list";
-    dayEvents.slice(0, 4).forEach((entry) => {
+    dayEvents.slice(0, 5).forEach((entry) => {
       const eventButton = document.createElement("button");
       eventButton.type = "button";
       eventButton.className = `monthly-calendar-event monthly-calendar-event-${entry.type}`;
-      eventButton.textContent = entry.label;
+      eventButton.innerHTML = `
+        <span class="monthly-calendar-event-title">${escapeHtml(entry.label)}</span>
+        ${entry.meta ? `<span class="monthly-calendar-event-meta">${escapeHtml(entry.meta)}</span>` : ""}
+      `;
       if (entry.meta) {
         eventButton.title = entry.meta;
       }
       if (entry.courseId && entry.date) {
-        eventButton.addEventListener("click", () => {
-          state.selectedCourseId = entry.courseId;
-          state.attendanceSeasonId = entry.seasonId || null;
-          if (attendanceDate) {
-            attendanceDate.value = entry.date;
-          }
-          setActiveSection("#attendancePanel");
-        });
+        eventButton.addEventListener("click", () => jumpToCalendarEntry(entry));
       } else {
         eventButton.disabled = true;
       }
       eventList.appendChild(eventButton);
     });
 
-    if (dayEvents.length > 4) {
-      const overflow = document.createElement("span");
+    if (dayEvents.length > 5) {
+      const overflow = document.createElement("button");
+      overflow.type = "button";
       overflow.className = "monthly-calendar-more";
-      overflow.textContent = `+${dayEvents.length - 4} mehr`;
+      overflow.textContent = `+${dayEvents.length - 5} weitere`;
+      const firstActionable = dayEvents.find((entry) => entry.courseId && entry.date);
+      if (firstActionable) {
+        overflow.addEventListener("click", () => jumpToCalendarEntry(firstActionable));
+      } else {
+        overflow.disabled = true;
+      }
       eventList.appendChild(overflow);
     }
 

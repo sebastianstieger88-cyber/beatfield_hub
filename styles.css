@@ -500,6 +500,58 @@ label span,
   gap: 12px;
 }
 
+.monthly-calendar-heading {
+  align-items: center;
+}
+
+.monthly-calendar-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.monthly-calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.monthly-calendar-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(103, 193, 47, 0.1);
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.monthly-calendar-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.monthly-calendar-legend-dot.is-session {
+  background: #7fd24d;
+}
+
+.monthly-calendar-legend-dot.is-trial {
+  background: #f5b942;
+}
+
+.monthly-calendar-legend-dot.is-dropin {
+  background: #57b3ff;
+}
+
+.monthly-calendar-legend-dot.is-override {
+  background: rgba(255, 255, 255, 0.75);
+}
+
 .monthly-calendar-weekdays,
 .monthly-calendar-grid {
   display: grid;
@@ -541,8 +593,41 @@ label span,
   background: rgba(103, 193, 47, 0.04);
 }
 
+.monthly-calendar-day-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: start;
+}
+
+.monthly-calendar-day-header.is-clickable {
+  cursor: pointer;
+}
+
+.monthly-calendar-day-header.is-clickable:hover .monthly-calendar-day-number,
+.monthly-calendar-day-header.is-clickable:focus-visible .monthly-calendar-day-number {
+  color: var(--accent);
+}
+
 .monthly-calendar-day-number {
   font-size: 0.98rem;
+}
+
+.monthly-calendar-day-meta {
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.monthly-calendar-day-count {
+  color: var(--text);
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .monthly-calendar-event-list {
@@ -552,6 +637,8 @@ label span,
 
 .monthly-calendar-event {
   width: 100%;
+  display: grid;
+  gap: 3px;
   justify-content: flex-start;
   text-align: left;
   min-height: 0;
@@ -560,6 +647,19 @@ label span,
   border: 1px solid transparent;
   font-size: 0.82rem;
   font-weight: 700;
+}
+
+.monthly-calendar-event-title {
+  display: block;
+  line-height: 1.25;
+}
+
+.monthly-calendar-event-meta {
+  display: block;
+  opacity: 0.84;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.25;
 }
 
 .monthly-calendar-event-session {
@@ -583,9 +683,14 @@ label span,
 }
 
 .monthly-calendar-more {
+  width: 100%;
+  text-align: left;
   color: var(--muted);
   font-size: 0.8rem;
-  padding: 2px 4px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(103, 193, 47, 0.12);
 }
 
 .season-schedule-chip {
