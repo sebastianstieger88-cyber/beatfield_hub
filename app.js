@@ -161,6 +161,7 @@ const exerciseTagFilter = document.querySelector("#exerciseTagFilter");
 const exerciseSyncBtn = document.querySelector("#exerciseSyncBtn");
 const exerciseSyncMeta = document.querySelector("#exerciseSyncMeta");
 const exerciseFavoriteFilterBtn = document.querySelector("#exerciseFavoriteFilterBtn");
+const exerciseTableBody = document.querySelector("#exerciseTableBody");
 const planningPreview = document.querySelector("#planningPreview");
 const planNextBtn = document.querySelector("#planNextBtn");
 const planMonthBtn = document.querySelector("#planMonthBtn");
@@ -2936,7 +2937,7 @@ async function toggleExerciseFavorite(exerciseId) {
 }
 
 function renderExercises() {
-  if (!exerciseCards || !exerciseSyncMeta) {
+  if (!exerciseCards || !exerciseSyncMeta || !exerciseTableBody) {
     return;
   }
 
@@ -2975,6 +2976,15 @@ function renderExercises() {
 
   const exercises = getFilteredExercises();
   if (!exercises.length) {
+    exerciseTableBody.innerHTML = `
+      <tr>
+        <td colspan="5">
+          <div class="empty-state">
+            <p>Noch keine Übungen sichtbar. Lege zuerst den Notion-Sync an oder passe die Filter an.</p>
+          </div>
+        </td>
+      </tr>
+    `;
     exerciseCards.innerHTML = `
       <div class="empty-state">
         <p>Noch keine Übungen sichtbar. Lege zuerst den Notion-Sync an oder passe die Filter an.</p>
@@ -2982,6 +2992,27 @@ function renderExercises() {
     `;
     return;
   }
+
+  exerciseTableBody.innerHTML = exercises.map((exercise) => {
+    const isFavorite = isExerciseFavorite(exercise.id);
+    return `
+      <tr class="${isFavorite ? "exercise-row-favorite" : ""}">
+        <td>
+          <strong>${escapeHtml(exercise.title)}</strong>
+          ${isFavorite ? `<span class="exercise-table-favorite">Favorit</span>` : ""}
+        </td>
+        <td>${escapeHtml(exercise.category || "-")}</td>
+        <td>${escapeHtml(exercise.focus || "-")}</td>
+        <td>${escapeHtml(exercise.level || "-")}</td>
+        <td>
+          <div class="mini-actions table-actions">
+            <button type="button" class="ghost" data-exercise-detail="${escapeHtml(exercise.id)}">Details</button>
+            <button type="button" class="${isFavorite ? "primary" : "ghost"}" data-exercise-favorite="${escapeHtml(exercise.id)}">${isFavorite ? "Favorit entfernt" : "Als Favorit"}</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join("");
 
   exerciseCards.innerHTML = exercises.map((exercise) => {
     const isFavorite = isExerciseFavorite(exercise.id);
@@ -3017,6 +3048,14 @@ function renderExercises() {
     `;
   }).join("");
 
+  exerciseTableBody.querySelectorAll("[data-exercise-detail]").forEach((button) => {
+    button.addEventListener("click", () => openExerciseDetailModal(button.dataset.exerciseDetail));
+  });
+  exerciseTableBody.querySelectorAll("[data-exercise-favorite]").forEach((button) => {
+    button.addEventListener("click", () => {
+      toggleExerciseFavorite(button.dataset.exerciseFavorite);
+    });
+  });
   exerciseCards.querySelectorAll("[data-exercise-detail]").forEach((button) => {
     button.addEventListener("click", () => openExerciseDetailModal(button.dataset.exerciseDetail));
   });

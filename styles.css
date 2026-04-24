@@ -1183,9 +1183,34 @@ button.danger {
 }
 
 .exercise-grid {
-  display: grid;
+  display: none;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 14px;
+}
+
+.exercise-table-wrap {
+  margin-bottom: 16px;
+}
+
+.exercise-table td strong {
+  display: inline-block;
+  margin-right: 8px;
+}
+
+.exercise-table-favorite {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(245, 185, 66, 0.12);
+  border: 1px solid rgba(245, 185, 66, 0.2);
+  color: #f5b942;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.exercise-row-favorite td {
+  background: rgba(245, 185, 66, 0.04);
 }
 
 .exercise-card {
@@ -1492,6 +1517,14 @@ th {
     grid-template-columns: 1fr 1fr;
   }
 
+  .exercise-table-wrap {
+    display: none;
+  }
+
+  .exercise-grid {
+    display: grid;
+  }
+
   .toolbar-actions {
     width: 100%;
   }
@@ -1660,6 +1693,10 @@ th {
 
   .exercise-meta-grid {
     grid-template-columns: 1fr;
+  }
+
+  .exercise-table-wrap {
+    display: none;
   }
 
   h1 {
