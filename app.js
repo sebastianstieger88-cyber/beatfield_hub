@@ -6901,11 +6901,13 @@ function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
     if (focusedStandalone.type === "trial") {
       const trial = state.trialRequests.find((entry) => entry.id === focusedStandalone.id) || null;
       const linkedSession = getStandaloneEntrySession(trial);
-      if (trial && linkedSession?.course_id === courseId && (!activeSessionDate || linkedSession.session_date === activeSessionDate)) {
+      const focusedCourseMatches = trial && (linkedSession?.course_id === courseId || trial.course_id === courseId);
+      const focusedDateMatches = !activeSessionDate || !linkedSession || linkedSession.session_date === activeSessionDate;
+      if (focusedCourseMatches && focusedDateMatches) {
         roster.push({
           id: `trial-${trial.id}`,
-          course_id: linkedSession.course_id || trial.course_id,
-          season_id: linkedSession.season_id || null,
+          course_id: linkedSession?.course_id || trial.course_id,
+          season_id: linkedSession?.season_id || null,
           season_booking_id: null,
           full_name: `${trial.full_name} (Probetraining)`,
           phone: trial.phone || "",
@@ -6919,11 +6921,13 @@ function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
     if (focusedStandalone.type === "dropin") {
       const dropIn = state.dropInBookings.find((entry) => entry.id === focusedStandalone.id) || null;
       const linkedSession = getStandaloneEntrySession(dropIn);
-      if (dropIn && linkedSession?.course_id === courseId && (!activeSessionDate || linkedSession.session_date === activeSessionDate)) {
+      const focusedCourseMatches = dropIn && (linkedSession?.course_id === courseId || dropIn.course_id === courseId);
+      const focusedDateMatches = !activeSessionDate || !linkedSession || linkedSession.session_date === activeSessionDate;
+      if (focusedCourseMatches && focusedDateMatches) {
         roster.push({
           id: `dropin-${dropIn.id}`,
-          course_id: linkedSession.course_id || dropIn.course_id,
-          season_id: linkedSession.season_id || null,
+          course_id: linkedSession?.course_id || dropIn.course_id,
+          season_id: linkedSession?.season_id || null,
           season_booking_id: null,
           full_name: `${dropIn.full_name} (DROP-IN)`,
           phone: dropIn.phone || "",
