@@ -578,7 +578,7 @@ async function fetchSupportData() {
     .select("id, notion_page_id, title, category, focus, level, equipment, coaching_cues, technique_cues, progression, regression, common_errors, correction, variants, description, video_url, source_url, tags, notion_last_edited_at, notion_archived, synced_at")
     .order("title");
 
-  const exerciseFavoritesQuery = loggedIn
+  const exerciseFavoritesQuery = state.session?.user?.id
     ? state.supabase
       .from("exercise_favorites")
       .select("exercise_id")
