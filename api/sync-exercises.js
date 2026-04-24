@@ -23,8 +23,9 @@ export default async function handler(req, res) {
     NOTION_EXERCISE_SOURCE_FIELD,
     NOTION_EXERCISE_TAGS_FIELD,
   } = process.env;
+  const notionDatabaseId = normalizeNotionDatabaseId(NOTION_EXERCISE_DATABASE_ID);
 
-  if (!NOTION_TOKEN || !NOTION_EXERCISE_DATABASE_ID || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
+  if (!NOTION_TOKEN || !notionDatabaseId || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
     return res.status(500).json({
       error: "Für den Übungs-Sync fehlen noch Umgebungsvariablen in Vercel.",
     });
@@ -42,7 +43,7 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: "Nur Admins dürfen den Notion-Sync auslösen." });
     }
 
-    const pages = await fetchAllNotionPages(NOTION_TOKEN, NOTION_EXERCISE_DATABASE_ID);
+    const pages = await fetchAllNotionPages(NOTION_TOKEN, notionDatabaseId);
     const fieldMap = {
       title: splitFieldNames(NOTION_EXERCISE_TITLE_FIELD, ["Übung", "Uebung", "Exercise", "Name", "Titel"]),
       category: splitFieldNames(NOTION_EXERCISE_CATEGORY_FIELD, ["Kategorie", "Category", "Typ"]),
@@ -142,7 +143,7 @@ async function fetchAllNotionPages(notionToken, databaseId) {
 
     if (!response.ok) {
       const payload = await response.text();
-      throw new Error(`Notion-Datenbank konnte nicht geladen werden: ${payload}`);
+      throw new Error(`Notion-Datenbank konnte nicht geladen werden (${maskIdentifier(databaseId)}): ${payload}`);
     }
 
     const payload = await response.json();
@@ -151,6 +152,33 @@ async function fetchAllNotionPages(notionToken, databaseId) {
   } while (cursor);
 
   return pages;
+}
+
+function normalizeNotionDatabaseId(rawValue) {
+  const value = String(rawValue || "").trim();
+  if (!value) {
+    return "";
+  }
+
+  const urlMatch = value.match(/[0-9a-fA-F]{32}(?=\?|$)/);
+  if (urlMatch) {
+    return urlMatch[0];
+  }
+
+  const compact = value.replace(/-/g, "");
+  if (/^[0-9a-fA-F]{32}$/.test(compact)) {
+    return compact;
+  }
+
+  return value;
+}
+
+function maskIdentifier(value) {
+  const raw = String(value || "");
+  if (raw.length <= 8) {
+    return raw || "leer";
+  }
+  return `${raw.slice(0, 4)}...${raw.slice(-4)}`;
 }
 
 function splitFieldNames(customValue, defaults) {
