@@ -6721,17 +6721,40 @@ function getParticipantsForCourse(courseId) {
   });
 }
 
+function getStandaloneEntrySession(entry) {
+  if (!entry?.attendance_session_id) {
+    return null;
+  }
+  return state.sessions.find((session) => session.id === entry.attendance_session_id) || null;
+}
+
+function standaloneEntryMatchesCourseDate(entry, courseId, sessionId, activeSessionDate) {
+  const linkedSession = getStandaloneEntrySession(entry);
+  const resolvedCourseId = linkedSession?.course_id || entry?.course_id || null;
+  const resolvedDate = linkedSession?.session_date || null;
+
+  if (sessionId && entry?.attendance_session_id === sessionId) {
+    return true;
+  }
+
+  if (activeSessionDate && resolvedCourseId === courseId && resolvedDate === activeSessionDate) {
+    return true;
+  }
+
+  return false;
+}
+
 function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
   const baseParticipants = getParticipantsForCourse(courseId);
-  if (!sessionId) {
-    return baseParticipants;
-  }
   const activeSession = state.sessions.find((session) => session.id === sessionId) || null;
   const activeSessionDate = activeSession?.session_date || attendanceDate?.value || null;
+  if (!sessionId && !activeSessionDate) {
+    return baseParticipants;
+  }
 
   const movedOutIds = new Set(
     state.sessionOverrides
-      .filter((entry) => entry.source_session_id === sessionId)
+      .filter((entry) => !sessionId || entry.source_session_id === sessionId)
       .map((entry) => entry.participant_id),
   );
 
@@ -6739,7 +6762,16 @@ function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
   const rosterIds = new Set(roster.map((participant) => participant.id));
 
   state.sessionOverrides
-    .filter((entry) => entry.target_session_id === sessionId)
+    .filter((entry) => {
+      if (sessionId && entry.target_session_id === sessionId) {
+        return true;
+      }
+      if (!activeSessionDate) {
+        return false;
+      }
+      const targetSession = state.sessions.find((session) => session.id === entry.target_session_id) || null;
+      return targetSession?.course_id === courseId && targetSession?.session_date === activeSessionDate;
+    })
     .forEach((entry) => {
       const participant = state.participants.find((item) => item.id === entry.participant_id);
       if (!participant) {
@@ -6759,28 +6791,22 @@ function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
       if (entry.status === "konvertiert" || entry.status === "abgesagt") {
         return false;
       }
-      if (entry.attendance_session_id === sessionId) {
-        return true;
-      }
-      if (!activeSessionDate || entry.course_id !== courseId) {
-        return false;
-      }
-      const trialSession = entry.attendance_session_id
-        ? state.sessions.find((session) => session.id === entry.attendance_session_id) || null
-        : null;
-      return trialSession?.session_date === activeSessionDate;
+      return standaloneEntryMatchesCourseDate(entry, courseId, sessionId, activeSessionDate);
     })
-    .map((entry) => ({
-      id: `trial-${entry.id}`,
-      course_id: entry.course_id,
-      season_id: state.sessions.find((session) => session.id === entry.attendance_session_id)?.season_id || null,
-      season_booking_id: null,
-      full_name: `${entry.full_name} (Probetraining)`,
-      phone: entry.phone || "",
-      email: entry.email || "",
-      is_trial: true,
-      trial_request_id: entry.id,
-    }));
+    .map((entry) => {
+      const linkedSession = getStandaloneEntrySession(entry);
+      return {
+        id: `trial-${entry.id}`,
+        course_id: linkedSession?.course_id || entry.course_id,
+        season_id: linkedSession?.season_id || null,
+        season_booking_id: null,
+        full_name: `${entry.full_name} (Probetraining)`,
+        phone: entry.phone || "",
+        email: entry.email || "",
+        is_trial: true,
+        trial_request_id: entry.id,
+      };
+    });
 
   trialRoster.forEach((participant) => {
     if (!rosterIds.has(participant.id)) {
@@ -6794,29 +6820,23 @@ function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
       if (entry.status === "abgesagt") {
         return false;
       }
-      if (entry.attendance_session_id === sessionId) {
-        return true;
-      }
-      if (!activeSessionDate || entry.course_id !== courseId) {
-        return false;
-      }
-      const dropInSession = entry.attendance_session_id
-        ? state.sessions.find((session) => session.id === entry.attendance_session_id) || null
-        : null;
-      return dropInSession?.session_date === activeSessionDate;
+      return standaloneEntryMatchesCourseDate(entry, courseId, sessionId, activeSessionDate);
     })
-    .map((entry) => ({
-      id: `dropin-${entry.id}`,
-      course_id: entry.course_id,
-      season_id: state.sessions.find((session) => session.id === entry.attendance_session_id)?.season_id || null,
-      season_booking_id: null,
-      full_name: `${entry.full_name} (DROP-IN)`,
-      phone: entry.phone || "",
-      email: entry.email || "",
-      is_dropin: true,
-      drop_in_booking_id: entry.id,
-      drop_in_status: entry.status,
-    }));
+    .map((entry) => {
+      const linkedSession = getStandaloneEntrySession(entry);
+      return {
+        id: `dropin-${entry.id}`,
+        course_id: linkedSession?.course_id || entry.course_id,
+        season_id: linkedSession?.season_id || null,
+        season_booking_id: null,
+        full_name: `${entry.full_name} (DROP-IN)`,
+        phone: entry.phone || "",
+        email: entry.email || "",
+        is_dropin: true,
+        drop_in_booking_id: entry.id,
+        drop_in_status: entry.status,
+      };
+    });
 
   dropInRoster.forEach((participant) => {
     if (!rosterIds.has(participant.id)) {
