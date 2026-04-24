@@ -35,6 +35,10 @@ const state = {
     equipment: "all",
     tag: "all",
   },
+  exerciseSort: {
+    field: "title",
+    direction: "asc",
+  },
   exerciseFavoritesOnly: false,
   exerciseSyncing: false,
   selectedCourseId: null,
@@ -2793,6 +2797,73 @@ function resetExerciseFilters() {
   state.exerciseFavoritesOnly = false;
 }
 
+function getSortedExercises(exercises) {
+  const sorted = [...exercises];
+  const directionFactor = state.exerciseSort.direction === "desc" ? -1 : 1;
+  const field = state.exerciseSort.field || "title";
+
+  sorted.sort((left, right) => {
+    const leftValue = String(left?.[field] || "").trim();
+    const rightValue = String(right?.[field] || "").trim();
+    const normalizedLeft = leftValue || "zzz";
+    const normalizedRight = rightValue || "zzz";
+    return normalizedLeft.localeCompare(normalizedRight, "de", { sensitivity: "base" }) * directionFactor;
+  });
+
+  return sorted;
+}
+
+function renderExerciseTableHeader(table) {
+  const thead = table?.querySelector("thead");
+  if (!thead) {
+    return;
+  }
+
+  const columns = [
+    { field: "title", label: "Übung" },
+    { field: "category", label: "Körperbereich" },
+    { field: "focus", label: "Bewegungsmuster" },
+    { field: "level", label: "Muskelgruppe" },
+  ];
+
+  thead.innerHTML = `
+    <tr>
+      ${columns
+        .map(({ field, label }) => {
+          const isActive = state.exerciseSort.field === field;
+          const direction = isActive ? state.exerciseSort.direction : "none";
+          const arrow = !isActive ? "↕" : direction === "asc" ? "↑" : "↓";
+          return `
+            <th>
+              <button type="button" class="table-sort ${isActive ? "is-active" : ""}" data-exercise-sort="${escapeHtml(field)}" aria-label="${escapeHtml(label)} sortieren">
+                <span>${escapeHtml(label)}</span>
+                <span class="table-sort-indicator" aria-hidden="true">${arrow}</span>
+              </button>
+            </th>
+          `;
+        })
+        .join("")}
+      <th>Aktion</th>
+    </tr>
+  `;
+
+  thead.querySelectorAll("[data-exercise-sort]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const nextField = button.dataset.exerciseSort;
+      if (!nextField) {
+        return;
+      }
+      if (state.exerciseSort.field === nextField) {
+        state.exerciseSort.direction = state.exerciseSort.direction === "asc" ? "desc" : "asc";
+      } else {
+        state.exerciseSort.field = nextField;
+        state.exerciseSort.direction = "asc";
+      }
+      renderExercises();
+    });
+  });
+}
+
 function updateExerciseFilterSelect(select, values, allLabel, selectedValue) {
   if (!select) {
     return;
@@ -2969,6 +3040,10 @@ function renderExercises() {
   if (!exerciseCards || !exerciseSyncMeta || !exerciseTableBody) {
     return;
   }
+  const exerciseTable = exerciseTableBody.closest("table");
+  if (exerciseTable) {
+    renderExerciseTableHeader(exerciseTable);
+  }
 
   updateExerciseFilterSelect(exerciseCategoryFilter, getExerciseFilterOptions("category"), "Alle Kategorien", state.exerciseFilters.category);
   updateExerciseFilterSelect(exerciseFocusFilter, getExerciseFilterOptions("focus"), "Alle Fokusbereiche", state.exerciseFilters.focus);
@@ -3006,7 +3081,7 @@ function renderExercises() {
     <p class="stat-meta">${isAdmin() ? "Pflege läuft über Notion. Hier synchronisierst du und prüfst die Bibliothek." : "Pflege läuft über Notion. Hier kannst du dir Inspiration und Ideen holen."}</p>
   `;
 
-  const exercises = getFilteredExercises();
+  const exercises = getSortedExercises(getFilteredExercises());
   if (!exercises.length) {
     exerciseTableBody.innerHTML = `
       <tr>
