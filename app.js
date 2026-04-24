@@ -2872,13 +2872,17 @@ async function handleExerciseSync() {
   renderExercises();
 
   try {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 45000);
     const response = await fetch("/api/sync-exercises", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${state.session.access_token}`,
       },
+      signal: controller.signal,
     });
+    window.clearTimeout(timeoutId);
 
     const rawText = await response.text();
     let payload = {};
@@ -2898,7 +2902,11 @@ async function handleExerciseSync() {
     await refreshVisibleData({ context: "Exercise sync refresh", silent: true });
     notify(payload?.message || `${payload?.synced || 0} Übungen wurden synchronisiert.`);
   } catch (error) {
-    notify(error.message || "Notion-Sync fehlgeschlagen.", true);
+    if (error?.name === "AbortError") {
+      notify("Der Notion-Sync dauert zu lange. Bitte Vercel-Logs prüfen oder den Sync später erneut starten.", true);
+    } else {
+      notify(error.message || "Notion-Sync fehlgeschlagen.", true);
+    }
   } finally {
     state.exerciseSyncing = false;
     renderExercises();
