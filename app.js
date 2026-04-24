@@ -266,6 +266,18 @@ seasonStartDateInput?.addEventListener("focus", () => {
 seasonStartDateInput?.addEventListener("click", () => {
   seasonStartDateInput.showPicker?.();
 });
+seasonDateDraftInput?.addEventListener("keydown", (event) => {
+  const allowedKeys = ["Tab", "Shift", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
+  if (!allowedKeys.includes(event.key)) {
+    event.preventDefault();
+  }
+});
+seasonDateDraftInput?.addEventListener("focus", () => {
+  seasonDateDraftInput.showPicker?.();
+});
+seasonDateDraftInput?.addEventListener("click", () => {
+  seasonDateDraftInput.showPicker?.();
+});
 generateSeasonDatesBtn?.addEventListener("click", handleGenerateSeasonDates);
 clearSeasonDatesBtn?.addEventListener("click", () => {
   state.seasonDraftDates = [];
