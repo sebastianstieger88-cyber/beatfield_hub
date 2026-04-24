@@ -5329,10 +5329,20 @@ function renderParticipants() {
     }
 
     const moveButton = row.querySelector(".participant-move-btn");
-    moveButton.disabled = !canEditCourse(course) || isTrialParticipant || isDropInParticipant;
+    moveButton.disabled = !canEditCourse(course);
     if (!isTrialParticipant && !isDropInParticipant) {
       moveButton.addEventListener("click", async () => {
         await handleParticipantMove(participant, course);
+      });
+    } else if (isTrialParticipant) {
+      moveButton.addEventListener("click", async () => {
+        const trial = state.trialRequests.find((entry) => entry.id === participant.trial_request_id) || null;
+        await openTrialMoveModal(trial);
+      });
+    } else if (isDropInParticipant) {
+      moveButton.addEventListener("click", async () => {
+        const dropIn = state.dropInBookings.find((entry) => entry.id === participant.drop_in_booking_id) || null;
+        await openDropInMoveModal(dropIn);
       });
     }
 
@@ -5361,8 +5371,10 @@ function renderParticipants() {
     }
 
     if (isDropInParticipant) {
-      moveButton.textContent = "Einzelstunde";
+      moveButton.textContent = "DROP-IN umbuchen";
       deleteButton.textContent = "Stornieren";
+    } else if (isTrialParticipant) {
+      moveButton.textContent = "Probetraining umbuchen";
     }
 
     participantTableBody.appendChild(row);
@@ -5435,10 +5447,20 @@ function renderParticipants() {
       }
 
       const mobileMoveButton = card.querySelector(".participant-move-btn");
-      mobileMoveButton.disabled = !canEditCourse(course) || isTrialParticipant || isDropInParticipant;
+      mobileMoveButton.disabled = !canEditCourse(course);
       if (!isTrialParticipant && !isDropInParticipant) {
         mobileMoveButton.addEventListener("click", async () => {
           await handleParticipantMove(participant, course);
+        });
+      } else if (isTrialParticipant) {
+        mobileMoveButton.addEventListener("click", async () => {
+          const trial = state.trialRequests.find((entry) => entry.id === participant.trial_request_id) || null;
+          await openTrialMoveModal(trial);
+        });
+      } else if (isDropInParticipant) {
+        mobileMoveButton.addEventListener("click", async () => {
+          const dropIn = state.dropInBookings.find((entry) => entry.id === participant.drop_in_booking_id) || null;
+          await openDropInMoveModal(dropIn);
         });
       }
 
@@ -5467,8 +5489,10 @@ function renderParticipants() {
     }
 
     if (isDropInParticipant) {
-      mobileMoveButton.textContent = "Einzelstunde";
+      mobileMoveButton.textContent = "DROP-IN umbuchen";
       mobileDeleteButton.textContent = "Stornieren";
+    } else if (isTrialParticipant) {
+      mobileMoveButton.textContent = "Probetraining umbuchen";
     }
 
     participantCards.appendChild(card);
