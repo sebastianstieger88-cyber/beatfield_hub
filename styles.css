@@ -359,11 +359,13 @@ label span,
 
 .modal-card {
   width: min(560px, 100%);
+  max-height: calc(100vh - 48px);
   padding: 24px;
   border-radius: 24px;
   background: linear-gradient(180deg, rgba(28, 28, 28, 0.98) 0%, rgba(16, 16, 16, 0.98) 100%);
   border: 1px solid rgba(103, 193, 47, 0.14);
   box-shadow: 0 28px 48px rgba(0, 0, 0, 0.4);
+  overflow: auto;
 }
 
 #participantProfileModal .modal-card {
