@@ -5401,6 +5401,19 @@ function renderCourseList() {
     actions.appendChild(selectBtn);
 
     if (isAdmin()) {
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "ghost";
+      editBtn.textContent = "Bearbeiten";
+      editBtn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        startCourseEdit(course.id);
+        setActiveSection("#coursePanel");
+      });
+      actions.appendChild(editBtn);
+    }
+
+    if (isAdmin()) {
       const deleteBtn = document.createElement("button");
       deleteBtn.type = "button";
       deleteBtn.className = "danger";
