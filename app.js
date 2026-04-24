@@ -6726,6 +6726,8 @@ function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
   if (!sessionId) {
     return baseParticipants;
   }
+  const activeSession = state.sessions.find((session) => session.id === sessionId) || null;
+  const activeSessionDate = activeSession?.session_date || attendanceDate?.value || null;
 
   const movedOutIds = new Set(
     state.sessionOverrides
@@ -6753,7 +6755,21 @@ function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
     });
 
   const trialRoster = state.trialRequests
-    .filter((entry) => entry.status !== "konvertiert" && entry.status !== "abgesagt" && entry.attendance_session_id === sessionId)
+    .filter((entry) => {
+      if (entry.status === "konvertiert" || entry.status === "abgesagt") {
+        return false;
+      }
+      if (entry.attendance_session_id === sessionId) {
+        return true;
+      }
+      if (!activeSessionDate || entry.course_id !== courseId) {
+        return false;
+      }
+      const trialSession = entry.attendance_session_id
+        ? state.sessions.find((session) => session.id === entry.attendance_session_id) || null
+        : null;
+      return trialSession?.session_date === activeSessionDate;
+    })
     .map((entry) => ({
       id: `trial-${entry.id}`,
       course_id: entry.course_id,
@@ -6774,7 +6790,21 @@ function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
   });
 
   const dropInRoster = state.dropInBookings
-    .filter((entry) => entry.status !== "abgesagt" && entry.attendance_session_id === sessionId)
+    .filter((entry) => {
+      if (entry.status === "abgesagt") {
+        return false;
+      }
+      if (entry.attendance_session_id === sessionId) {
+        return true;
+      }
+      if (!activeSessionDate || entry.course_id !== courseId) {
+        return false;
+      }
+      const dropInSession = entry.attendance_session_id
+        ? state.sessions.find((session) => session.id === entry.attendance_session_id) || null
+        : null;
+      return dropInSession?.session_date === activeSessionDate;
+    })
     .map((entry) => ({
       id: `dropin-${entry.id}`,
       course_id: entry.course_id,
