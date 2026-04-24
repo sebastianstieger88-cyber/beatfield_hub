@@ -2990,12 +2990,6 @@ function renderExercises() {
       exercise.video_url ? `<a class="ghost" href="${escapeHtml(exercise.video_url)}" target="_blank" rel="noreferrer">Video öffnen</a>` : "",
       exercise.source_url ? `<a class="ghost" href="${escapeHtml(exercise.source_url)}" target="_blank" rel="noreferrer">Notion öffnen</a>` : "",
     ].filter(Boolean).join("");
-    const secondaryMeta = [
-      exercise.technique_cues ? "Technik-Cues" : "",
-      exercise.progression ? "Progression" : "",
-      exercise.regression ? "Regression" : "",
-      exercise.common_errors ? "Fehler" : "",
-    ].filter(Boolean).join(" · ");
 
     return `
       <article class="exercise-card ${isFavorite ? "exercise-card-favorite" : ""}">
@@ -3007,17 +3001,13 @@ function renderExercises() {
           <div class="course-status-grid">
             ${isFavorite ? `<span class="course-status-pill course-status-pill-warn">Favorit</span>` : ""}
             ${exercise.category ? `<span class="course-status-pill">${escapeHtml(exercise.category)}</span>` : ""}
-            ${exercise.level ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(exercise.level)}</span>` : ""}
           </div>
         </div>
         <div class="exercise-meta-grid">
-          ${exercise.focus ? `<p><strong>Fokus</strong><span>${escapeHtml(exercise.focus)}</span></p>` : ""}
-          ${exercise.equipment ? `<p><strong>Equipment</strong><span>${escapeHtml(exercise.equipment)}</span></p>` : ""}
+          ${exercise.category ? `<p><strong>Körperbereich</strong><span>${escapeHtml(exercise.category)}</span></p>` : ""}
+          ${exercise.focus ? `<p><strong>Bewegungsmuster</strong><span>${escapeHtml(exercise.focus)}</span></p>` : ""}
+          ${exercise.level ? `<p><strong>Muskelgruppe</strong><span>${escapeHtml(exercise.level)}</span></p>` : ""}
         </div>
-        ${exercise.description ? `<p class="exercise-copy">${escapeHtml(exercise.description)}</p>` : ""}
-        ${exercise.coaching_cues ? `<p class="exercise-copy exercise-copy-muted"><strong>Coaching-Cues:</strong> ${escapeHtml(exercise.coaching_cues)}</p>` : ""}
-        ${secondaryMeta ? `<p class="exercise-copy exercise-copy-muted">${escapeHtml(secondaryMeta)}</p>` : ""}
-        ${tags ? `<div class="exercise-tag-row">${tags}</div>` : ""}
         <div class="stat-card-actions exercise-actions">
           <button type="button" class="ghost" data-exercise-detail="${escapeHtml(exercise.id)}">Details</button>
           <button type="button" class="${isFavorite ? "primary" : "ghost"}" data-exercise-favorite="${escapeHtml(exercise.id)}">${isFavorite ? "Favorit entfernt" : "Als Favorit"}</button>
