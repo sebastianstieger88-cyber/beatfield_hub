@@ -1176,6 +1176,12 @@ button.danger {
   margin-bottom: 16px;
 }
 
+.exercise-toolbar .is-active {
+  border-color: rgba(245, 185, 66, 0.3);
+  background: rgba(245, 185, 66, 0.12);
+  color: #f5b942;
+}
+
 .exercise-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -1190,6 +1196,11 @@ button.danger {
   display: grid;
   gap: 12px;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+}
+
+.exercise-card-favorite {
+  border-color: rgba(245, 185, 66, 0.26);
+  box-shadow: 0 12px 28px rgba(245, 185, 66, 0.08);
 }
 
 .exercise-card-head {
@@ -1247,6 +1258,21 @@ button.danger {
 
 .exercise-actions {
   justify-content: flex-start;
+}
+
+.exercise-detail-section {
+  display: grid;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(103, 193, 47, 0.08);
+}
+
+.exercise-detail-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .attendance-toolbar {

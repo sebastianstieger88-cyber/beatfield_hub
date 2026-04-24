@@ -246,6 +246,12 @@ create table if not exists public.exercise_library (
   level text,
   equipment text,
   coaching_cues text,
+  technique_cues text,
+  progression text,
+  regression text,
+  common_errors text,
+  correction text,
+  variants text,
   description text,
   video_url text,
   source_url text,
@@ -256,6 +262,20 @@ create table if not exists public.exercise_library (
   raw_properties jsonb,
   synced_at timestamptz not null default now(),
   created_at timestamptz not null default now()
+);
+
+alter table public.exercise_library add column if not exists technique_cues text;
+alter table public.exercise_library add column if not exists progression text;
+alter table public.exercise_library add column if not exists regression text;
+alter table public.exercise_library add column if not exists common_errors text;
+alter table public.exercise_library add column if not exists correction text;
+alter table public.exercise_library add column if not exists variants text;
+
+create table if not exists public.exercise_favorites (
+  user_id uuid not null references public.profiles(user_id) on delete cascade,
+  exercise_id uuid not null references public.exercise_library(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, exercise_id)
 );
 
 create or replace function public.handle_new_user()
@@ -353,6 +373,7 @@ alter table public.beat_out_entries enable row level security;
 alter table public.session_overrides enable row level security;
 alter table public.drop_in_bookings enable row level security;
 alter table public.exercise_library enable row level security;
+alter table public.exercise_favorites enable row level security;
 
 drop policy if exists "admins see all courses" on public.courses;
 create policy "admins see all courses"
@@ -435,6 +456,14 @@ for all
 to authenticated
 using (public.current_user_role() = 'admin')
 with check (public.current_user_role() = 'admin');
+
+drop policy if exists "users manage own exercise favorites" on public.exercise_favorites;
+create policy "users manage own exercise favorites"
+on public.exercise_favorites
+for all
+to authenticated
+using (user_id = auth.uid())
+with check (user_id = auth.uid());
 
 drop policy if exists "participants visible to course owners" on public.participants;
 create policy "participants visible to course owners"

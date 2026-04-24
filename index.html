@@ -495,6 +495,7 @@
               <option value="all">Alle Tags</option>
             </select>
           </label>
+          <button id="exerciseFavoriteFilterBtn" type="button" class="ghost">Nur Favoriten</button>
         </div>
         <div id="exerciseSyncMeta" class="stat-card exercise-sync-meta"></div>
         <div id="exerciseCards" class="exercise-grid"></div>
@@ -698,6 +699,19 @@
         <button id="closeParticipantProfileModalBtn" type="button" class="ghost">Schliessen</button>
       </div>
       <div id="participantProfileBody" class="stack"></div>
+    </div>
+  </div>
+
+  <div id="exerciseDetailModal" class="overlay hidden">
+    <div class="modal-card">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Übung</p>
+          <h2 id="exerciseDetailTitle">Übungsdetails</h2>
+        </div>
+        <button id="closeExerciseDetailModalBtn" type="button" class="ghost">Schließen</button>
+      </div>
+      <div id="exerciseDetailBody" class="stack"></div>
     </div>
   </div>
 

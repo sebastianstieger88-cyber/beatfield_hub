@@ -22,6 +22,7 @@ const state = {
   trialRequests: [],
   dropInBookings: [],
   exercises: [],
+  exerciseFavorites: [],
   showArchivedDropIns: false,
   sessions: [],
   records: [],
@@ -34,6 +35,7 @@ const state = {
     equipment: "all",
     tag: "all",
   },
+  exerciseFavoritesOnly: false,
   exerciseSyncing: false,
   selectedCourseId: null,
   selectedSeasonId: null,
@@ -43,6 +45,7 @@ const state = {
   editingBookingId: null,
   moveParticipantContext: null,
   selectedParticipantId: null,
+  selectedExerciseId: null,
   participantSearch: "",
   isOffline: !navigator.onLine,
   pendingActions: loadOfflineQueue(),
@@ -157,6 +160,7 @@ const exerciseEquipmentFilter = document.querySelector("#exerciseEquipmentFilter
 const exerciseTagFilter = document.querySelector("#exerciseTagFilter");
 const exerciseSyncBtn = document.querySelector("#exerciseSyncBtn");
 const exerciseSyncMeta = document.querySelector("#exerciseSyncMeta");
+const exerciseFavoriteFilterBtn = document.querySelector("#exerciseFavoriteFilterBtn");
 const planningPreview = document.querySelector("#planningPreview");
 const planNextBtn = document.querySelector("#planNextBtn");
 const planMonthBtn = document.querySelector("#planMonthBtn");
@@ -198,6 +202,10 @@ const participantProfileModal = document.querySelector("#participantProfileModal
 const participantProfileTitle = document.querySelector("#participantProfileTitle");
 const participantProfileBody = document.querySelector("#participantProfileBody");
 const closeParticipantProfileModalBtn = document.querySelector("#closeParticipantProfileModalBtn");
+const exerciseDetailModal = document.querySelector("#exerciseDetailModal");
+const exerciseDetailTitle = document.querySelector("#exerciseDetailTitle");
+const exerciseDetailBody = document.querySelector("#exerciseDetailBody");
+const closeExerciseDetailModalBtn = document.querySelector("#closeExerciseDetailModalBtn");
 const contentPanels = [
   authPanel,
   sessionPanel,
@@ -275,6 +283,10 @@ exerciseTagFilter?.addEventListener("change", () => {
   state.exerciseFilters.tag = exerciseTagFilter.value || "all";
   renderExercises();
 });
+exerciseFavoriteFilterBtn?.addEventListener("click", () => {
+  state.exerciseFavoritesOnly = !state.exerciseFavoritesOnly;
+  renderExercises();
+});
 exerciseSyncBtn?.addEventListener("click", handleExerciseSync);
 toggleArchivedDropInsBtn?.addEventListener("click", () => {
   state.showArchivedDropIns = !state.showArchivedDropIns;
@@ -287,6 +299,12 @@ closeParticipantProfileModalBtn?.addEventListener("click", closeParticipantProfi
 participantProfileModal?.addEventListener("click", (event) => {
   if (event.target === participantProfileModal) {
     closeParticipantProfileModal();
+  }
+});
+closeExerciseDetailModalBtn?.addEventListener("click", closeExerciseDetailModal);
+exerciseDetailModal?.addEventListener("click", (event) => {
+  if (event.target === exerciseDetailModal) {
+    closeExerciseDetailModal();
   }
 });
 seasonFilterAllBtn?.addEventListener("click", () => setSeasonFilter("all"));
@@ -557,10 +575,17 @@ async function fetchSupportData() {
 
   const exerciseQuery = state.supabase
     .from("exercise_library")
-    .select("id, notion_page_id, title, category, focus, level, equipment, coaching_cues, description, video_url, source_url, tags, notion_last_edited_at, notion_archived, synced_at")
+    .select("id, notion_page_id, title, category, focus, level, equipment, coaching_cues, technique_cues, progression, regression, common_errors, correction, variants, description, video_url, source_url, tags, notion_last_edited_at, notion_archived, synced_at")
     .order("title");
 
-  const [seasonResult, seasonBookingResult, trainerResult, trainerDirectoryResult, inviteResult, participantResult, sessionResult, trialResult, dropInResult, exerciseResult] = await Promise.all([
+  const exerciseFavoritesQuery = loggedIn
+    ? state.supabase
+      .from("exercise_favorites")
+      .select("exercise_id")
+      .eq("user_id", state.session.user.id)
+    : Promise.resolve({ data: [], error: null });
+
+  const [seasonResult, seasonBookingResult, trainerResult, trainerDirectoryResult, inviteResult, participantResult, sessionResult, trialResult, dropInResult, exerciseResult, exerciseFavoritesResult] = await Promise.all([
     seasonsQuery,
     seasonBookingsQuery,
     trainerQuery,
@@ -571,6 +596,7 @@ async function fetchSupportData() {
     trialsQuery,
     dropInQuery,
     exerciseQuery,
+    exerciseFavoritesQuery,
   ]);
 
   if (seasonResult.error) {
@@ -602,6 +628,9 @@ async function fetchSupportData() {
   }
   if (exerciseResult.error) {
     notify(getFriendlySupabaseMessage(exerciseResult.error, "Übungen konnten nicht geladen werden."), true);
+  }
+  if (exerciseFavoritesResult.error) {
+    notify(getFriendlySupabaseMessage(exerciseFavoritesResult.error, "Übungsfavoriten konnten nicht geladen werden."), true);
   }
   if (seasonResult.error) {
     notify(getFriendlySupabaseMessage(seasonResult.error, "Seasons konnten nicht geladen werden."), true);
@@ -664,6 +693,9 @@ async function fetchSupportData() {
   }
   if (!exerciseResult.error) {
     state.exercises = (exerciseResult.data || []).filter((exercise) => !exercise.notion_archived);
+  }
+  if (!exerciseFavoritesResult.error) {
+    state.exerciseFavorites = exerciseFavoritesResult.data || [];
   }
 
   if (state.profile?.role === "trainer") {
@@ -2664,6 +2696,7 @@ function render() {
   renderReportPreview();
   renderMobileSessionSummary();
   renderParticipantProfile();
+  renderExerciseDetail();
   updateNavigationVisibility(navigationSections);
   mobileMonthBtn?.classList.toggle("hidden", !isAdmin());
   mobileReportsBtn?.classList.toggle("hidden", !isAdmin());
@@ -2742,8 +2775,12 @@ function updateExerciseFilterSelect(select, values, allLabel, selectedValue) {
 
 function getFilteredExercises() {
   const searchNeedle = String(state.exerciseFilters.search || "").trim().toLowerCase();
+  const favoriteIds = new Set(state.exerciseFavorites.map((entry) => entry.exercise_id));
 
   return state.exercises.filter((exercise) => {
+    if (state.exerciseFavoritesOnly && !favoriteIds.has(exercise.id)) {
+      return false;
+    }
     if (state.exerciseFilters.category !== "all" && (exercise.category || "") !== state.exerciseFilters.category) {
       return false;
     }
@@ -2771,6 +2808,12 @@ function getFilteredExercises() {
       exercise.level,
       exercise.equipment,
       exercise.coaching_cues,
+      exercise.technique_cues,
+      exercise.progression,
+      exercise.regression,
+      exercise.common_errors,
+      exercise.correction,
+      exercise.variants,
       exercise.description,
       ...(exercise.tags || []),
     ]
@@ -2780,6 +2823,116 @@ function getFilteredExercises() {
 
     return haystack.includes(searchNeedle);
   });
+}
+
+function isExerciseFavorite(exerciseId) {
+  return state.exerciseFavorites.some((entry) => entry.exercise_id === exerciseId);
+}
+
+function getExerciseById(exerciseId) {
+  return state.exercises.find((exercise) => exercise.id === exerciseId) || null;
+}
+
+function closeExerciseDetailModal() {
+  state.selectedExerciseId = null;
+  exerciseDetailModal?.classList.add("hidden");
+}
+
+function openExerciseDetailModal(exerciseId) {
+  state.selectedExerciseId = exerciseId;
+  renderExerciseDetail();
+}
+
+function renderExerciseDetail() {
+  if (!exerciseDetailModal || !exerciseDetailBody || !exerciseDetailTitle) {
+    return;
+  }
+
+  const exercise = getExerciseById(state.selectedExerciseId);
+  if (!exercise) {
+    exerciseDetailModal.classList.add("hidden");
+    return;
+  }
+
+  exerciseDetailTitle.textContent = exercise.title || "Übungsdetails";
+  const links = [
+    exercise.video_url ? `<a class="ghost" href="${escapeHtml(exercise.video_url)}" target="_blank" rel="noreferrer">Video öffnen</a>` : "",
+    exercise.source_url ? `<a class="ghost" href="${escapeHtml(exercise.source_url)}" target="_blank" rel="noreferrer">Notion öffnen</a>` : "",
+  ].filter(Boolean).join("");
+
+  const sections = [
+    ["Beschreibung", exercise.description],
+    ["Ablauf-Cues", exercise.coaching_cues],
+    ["Technik-Cues", exercise.technique_cues],
+    ["Progression", exercise.progression],
+    ["Regression", exercise.regression],
+    ["Häufige Fehler", exercise.common_errors],
+    ["Korrektur", exercise.correction],
+    ["Varianten", exercise.variants],
+  ]
+    .filter(([, value]) => String(value || "").trim())
+    .map(([label, value]) => `
+      <div class="exercise-detail-section">
+        <p class="exercise-detail-label">${escapeHtml(label)}</p>
+        <p class="exercise-copy">${escapeHtml(value)}</p>
+      </div>
+    `)
+    .join("");
+
+  exerciseDetailBody.innerHTML = `
+    <div class="course-status-grid">
+      ${exercise.category ? `<span class="course-status-pill">${escapeHtml(exercise.category)}</span>` : ""}
+      ${exercise.focus ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(exercise.focus)}</span>` : ""}
+      ${exercise.level ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(exercise.level)}</span>` : ""}
+      ${exercise.equipment ? `<span class="course-status-pill course-status-pill-warn">${escapeHtml(exercise.equipment)}</span>` : ""}
+    </div>
+    ${exercise.tags?.length ? `<div class="exercise-tag-row">${exercise.tags.map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
+    ${sections || `<p class="stat-meta">Für diese Übung sind noch keine erweiterten Details synchronisiert.</p>`}
+    ${links ? `<div class="stat-card-actions exercise-actions">${links}</div>` : ""}
+  `;
+
+  exerciseDetailModal.classList.remove("hidden");
+}
+
+async function toggleExerciseFavorite(exerciseId) {
+  if (!state.supabase || !state.session?.user?.id) {
+    return;
+  }
+
+  const favorite = state.exerciseFavorites.find((entry) => entry.exercise_id === exerciseId);
+  if (favorite) {
+    const { error } = await state.supabase
+      .from("exercise_favorites")
+      .delete()
+      .eq("user_id", state.session.user.id)
+      .eq("exercise_id", exerciseId);
+
+    if (error) {
+      notify(getFriendlySupabaseMessage(error, "Favorit konnte nicht entfernt werden."), true);
+      return;
+    }
+
+    state.exerciseFavorites = state.exerciseFavorites.filter((entry) => entry.exercise_id !== exerciseId);
+    renderExercises();
+    renderExerciseDetail();
+    return;
+  }
+
+  const { error } = await state.supabase
+    .from("exercise_favorites")
+    .insert({
+      user_id: state.session.user.id,
+      exercise_id: exerciseId,
+    });
+
+  if (error) {
+    notify(getFriendlySupabaseMessage(error, "Favorit konnte nicht gespeichert werden."), true);
+    return;
+  }
+
+  state.exerciseFavorites.unshift({ exercise_id: exerciseId });
+  renderExercises();
+  renderExerciseDetail();
 }
 
 function renderExercises() {
@@ -2802,6 +2955,10 @@ function renderExercises() {
     exerciseSyncBtn.disabled = state.exerciseSyncing;
     exerciseSyncBtn.textContent = state.exerciseSyncing ? "Synchronisiert..." : "Jetzt mit Notion synchronisieren";
   }
+  if (exerciseFavoriteFilterBtn) {
+    exerciseFavoriteFilterBtn.classList.toggle("is-active", state.exerciseFavoritesOnly);
+    exerciseFavoriteFilterBtn.textContent = state.exerciseFavoritesOnly ? "Alle Übungen zeigen" : "Nur Favoriten";
+  }
 
   const latestSync = state.exercises
     .map((exercise) => exercise.synced_at)
@@ -2811,6 +2968,7 @@ function renderExercises() {
   exerciseSyncMeta.innerHTML = `
     <h3>Sync-Status</h3>
     <p class="stat-meta">${state.exercises.length} aktive Übungen in der App.</p>
+    <p class="stat-meta">${state.exerciseFavorites.length} Favoriten gespeichert.</p>
     <p class="stat-meta">${latestSync ? `Zuletzt synchronisiert: ${escapeHtml(formatDateTimeLabel(latestSync))}` : "Noch kein Sync vorhanden."}</p>
     <p class="stat-meta">${isAdmin() ? "Pflege läuft über Notion. Hier synchronisierst du und prüfst die Bibliothek." : "Pflege läuft über Notion. Hier kannst du dir Inspiration und Ideen holen."}</p>
   `;
@@ -2826,20 +2984,28 @@ function renderExercises() {
   }
 
   exerciseCards.innerHTML = exercises.map((exercise) => {
+    const isFavorite = isExerciseFavorite(exercise.id);
     const tags = (exercise.tags || []).map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("");
     const links = [
       exercise.video_url ? `<a class="ghost" href="${escapeHtml(exercise.video_url)}" target="_blank" rel="noreferrer">Video öffnen</a>` : "",
       exercise.source_url ? `<a class="ghost" href="${escapeHtml(exercise.source_url)}" target="_blank" rel="noreferrer">Notion öffnen</a>` : "",
     ].filter(Boolean).join("");
+    const secondaryMeta = [
+      exercise.technique_cues ? "Technik-Cues" : "",
+      exercise.progression ? "Progression" : "",
+      exercise.regression ? "Regression" : "",
+      exercise.common_errors ? "Fehler" : "",
+    ].filter(Boolean).join(" · ");
 
     return `
-      <article class="exercise-card">
+      <article class="exercise-card ${isFavorite ? "exercise-card-favorite" : ""}">
         <div class="exercise-card-head">
           <div>
             <p class="eyebrow">Übung</p>
             <h3>${escapeHtml(exercise.title)}</h3>
           </div>
           <div class="course-status-grid">
+            ${isFavorite ? `<span class="course-status-pill course-status-pill-warn">Favorit</span>` : ""}
             ${exercise.category ? `<span class="course-status-pill">${escapeHtml(exercise.category)}</span>` : ""}
             ${exercise.level ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(exercise.level)}</span>` : ""}
           </div>
@@ -2850,11 +3016,25 @@ function renderExercises() {
         </div>
         ${exercise.description ? `<p class="exercise-copy">${escapeHtml(exercise.description)}</p>` : ""}
         ${exercise.coaching_cues ? `<p class="exercise-copy exercise-copy-muted"><strong>Coaching-Cues:</strong> ${escapeHtml(exercise.coaching_cues)}</p>` : ""}
+        ${secondaryMeta ? `<p class="exercise-copy exercise-copy-muted">${escapeHtml(secondaryMeta)}</p>` : ""}
         ${tags ? `<div class="exercise-tag-row">${tags}</div>` : ""}
-        ${links ? `<div class="stat-card-actions exercise-actions">${links}</div>` : ""}
+        <div class="stat-card-actions exercise-actions">
+          <button type="button" class="ghost" data-exercise-detail="${escapeHtml(exercise.id)}">Details</button>
+          <button type="button" class="${isFavorite ? "primary" : "ghost"}" data-exercise-favorite="${escapeHtml(exercise.id)}">${isFavorite ? "Favorit entfernt" : "Als Favorit"}</button>
+          ${links}
+        </div>
       </article>
     `;
   }).join("");
+
+  exerciseCards.querySelectorAll("[data-exercise-detail]").forEach((button) => {
+    button.addEventListener("click", () => openExerciseDetailModal(button.dataset.exerciseDetail));
+  });
+  exerciseCards.querySelectorAll("[data-exercise-favorite]").forEach((button) => {
+    button.addEventListener("click", () => {
+      toggleExerciseFavorite(button.dataset.exerciseFavorite);
+    });
+  });
 }
 
 async function handleExerciseSync() {
