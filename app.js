@@ -2446,6 +2446,76 @@ async function handleMoveParticipantSubmit(event) {
     return;
   }
 
+  if (context.mode === "trial-session") {
+    const trial = state.trialRequests.find((entry) => entry.id === context.trialId);
+    const targetSession = state.sessions.find((entry) => entry.id === moveParticipantTargetCourse.value);
+    const targetCourse = targetSession ? state.courses.find((entry) => entry.id === targetSession.course_id) : null;
+    if (!trial || !targetSession || !targetCourse) {
+      notify("Der Zieltermin konnte nicht aufgelöst werden.", true);
+      closeMoveParticipantModal();
+      return;
+    }
+
+    const updateResult = await state.supabase
+      .from("trial_requests")
+      .update({
+        attendance_session_id: targetSession.id,
+        course_id: targetCourse.id,
+      })
+      .eq("id", trial.id);
+
+    if (updateResult.error) {
+      notify(getFriendlySupabaseMessage(updateResult.error, "Probetraining konnte nicht umgebucht werden."), true);
+      return;
+    }
+
+    state.trialRequests = state.trialRequests.map((entry) => (
+      entry.id === trial.id
+        ? { ...entry, attendance_session_id: targetSession.id, course_id: targetCourse.id }
+        : entry
+    ));
+    closeMoveParticipantModal();
+    render();
+    notify(`${trial.full_name} wurde auf ${formatDateLabel(targetSession.session_date)} umgebucht.`);
+    await refreshVisibleData({ context: "Trial rebook refresh", silent: true });
+    return;
+  }
+
+  if (context.mode === "dropin-session") {
+    const dropIn = state.dropInBookings.find((entry) => entry.id === context.dropInId);
+    const targetSession = state.sessions.find((entry) => entry.id === moveParticipantTargetCourse.value);
+    const targetCourse = targetSession ? state.courses.find((entry) => entry.id === targetSession.course_id) : null;
+    if (!dropIn || !targetSession || !targetCourse) {
+      notify("Der Zieltermin konnte nicht aufgelöst werden.", true);
+      closeMoveParticipantModal();
+      return;
+    }
+
+    const updateResult = await state.supabase
+      .from("drop_in_bookings")
+      .update({
+        attendance_session_id: targetSession.id,
+        course_id: targetCourse.id,
+      })
+      .eq("id", dropIn.id);
+
+    if (updateResult.error) {
+      notify(getFriendlySupabaseMessage(updateResult.error, "DROP-IN konnte nicht umgebucht werden."), true);
+      return;
+    }
+
+    state.dropInBookings = state.dropInBookings.map((entry) => (
+      entry.id === dropIn.id
+        ? { ...entry, attendance_session_id: targetSession.id, course_id: targetCourse.id }
+        : entry
+    ));
+    closeMoveParticipantModal();
+    render();
+    notify(`${dropIn.full_name} wurde auf ${formatDateLabel(targetSession.session_date)} umgebucht.`);
+    await refreshVisibleData({ context: "Drop-in rebook refresh", silent: true });
+    return;
+  }
+
   const participant = state.participants.find((entry) => entry.id === context.participantId);
   const currentCourse = state.courses.find((entry) => entry.id === context.currentCourseId);
   if (!participant || !currentCourse) {
@@ -4595,6 +4665,7 @@ function renderTrials() {
       <div class="trial-actions">
         <button type="button" class="ghost" data-trial-action="booked">Gebucht</button>
         <button type="button" class="ghost" data-trial-action="attended">Teilgenommen</button>
+        <button type="button" class="ghost" data-trial-action="move">Umbuchen</button>
         <button type="button" class="primary" data-trial-action="convert">Konvertieren</button>
         <button type="button" class="danger" data-trial-action="delete">Löschen</button>
       </div>
@@ -4605,6 +4676,9 @@ function renderTrials() {
     });
     card.querySelector('[data-trial-action="attended"]').addEventListener("click", async () => {
       await updateTrialStatus(trial.id, "teilgenommen");
+    });
+    card.querySelector('[data-trial-action="move"]').addEventListener("click", async () => {
+      await openTrialMoveModal(trial);
     });
     card.querySelector('[data-trial-action="convert"]').addEventListener("click", async () => {
       await convertTrialToParticipant(trial);
@@ -4655,6 +4729,7 @@ function renderDropIns() {
       <div class="trial-actions">
         <button type="button" class="ghost" data-dropin-action="attended">Teilgenommen</button>
         <button type="button" class="ghost" data-dropin-action="open">Zum Kurs</button>
+        <button type="button" class="ghost" data-dropin-action="move">Umbuchen</button>
         ${isPast || isArchived ? `<button type="button" class="ghost" data-dropin-action="archive">${isArchived ? "Wiederherstellen" : "Archivieren"}</button>` : ""}
         <button type="button" class="danger" data-dropin-action="cancel">Löschen</button>
       </div>
@@ -4665,6 +4740,9 @@ function renderDropIns() {
     });
     card.querySelector('[data-dropin-action="open"]').addEventListener("click", () => {
       openDropInInAttendance(dropIn);
+    });
+    card.querySelector('[data-dropin-action="move"]').addEventListener("click", async () => {
+      await openDropInMoveModal(dropIn);
     });
     const archiveButton = card.querySelector('[data-dropin-action="archive"]');
     archiveButton?.addEventListener("click", async () => {
@@ -4757,6 +4835,112 @@ async function updateDropInStatus(dropInId, status) {
   await fetchSupportData();
   render();
   notify(`DROP-IN auf "${status}" gesetzt.`);
+}
+
+async function openTrialMoveModal(trial) {
+  if (!trial || state.isOffline) {
+    notify("Umbuchungen sind nur online möglich.", true);
+    return;
+  }
+
+  if (!moveParticipantModal || !moveParticipantTargetCourse || !moveParticipantText) {
+    notify("Umbuchungsfenster konnte nicht geöffnet werden.", true);
+    return;
+  }
+
+  const currentSession = trial.attendance_session_id
+    ? state.sessions.find((entry) => entry.id === trial.attendance_session_id) || null
+    : null;
+  if (!currentSession) {
+    notify("Für dieses Probetraining ist noch kein gültiger Termin hinterlegt.", true);
+    return;
+  }
+
+  const availableSessions = getAvailableStandaloneSessionTargets(currentSession.id, currentSession.season_id || null);
+  if (!availableSessions.length) {
+    notify("Aktuell gibt es keinen anderen passenden Termin zum Umbuchen.", true);
+    return;
+  }
+
+  state.moveParticipantContext = {
+    mode: "trial-session",
+    trialId: trial.id,
+    currentSessionId: currentSession.id,
+    availableTargetSessionIds: availableSessions.map((entry) => entry.id),
+  };
+
+  if (moveParticipantTitle) {
+    moveParticipantTitle.textContent = "Probetraining umbuchen";
+  }
+  if (moveParticipantTargetLabel) {
+    moveParticipantTargetLabel.textContent = "Zieltermin";
+  }
+  if (moveParticipantSubmitBtn) {
+    moveParticipantSubmitBtn.textContent = "Probetraining umbuchen";
+  }
+  moveParticipantText.textContent = `${trial.full_name} wird vom Termin am ${formatDateLabel(currentSession.session_date)} auf einen anderen konkreten Termin verschoben.`;
+  moveParticipantTargetCourse.innerHTML = "";
+  availableSessions.forEach((session) => {
+    const course = state.courses.find((entry) => entry.id === session.course_id) || null;
+    const option = document.createElement("option");
+    option.value = session.id;
+    option.textContent = `${formatDateLabel(session.session_date)} | ${course?.name || "Kurs"} (${course?.weekday || "Tag"}${course?.time ? `, ${course.time} Uhr` : ""})`;
+    moveParticipantTargetCourse.appendChild(option);
+  });
+  moveParticipantModal.classList.remove("hidden");
+}
+
+async function openDropInMoveModal(dropIn) {
+  if (!dropIn || state.isOffline) {
+    notify("Umbuchungen sind nur online möglich.", true);
+    return;
+  }
+
+  if (!moveParticipantModal || !moveParticipantTargetCourse || !moveParticipantText) {
+    notify("Umbuchungsfenster konnte nicht geöffnet werden.", true);
+    return;
+  }
+
+  const currentSession = dropIn.attendance_session_id
+    ? state.sessions.find((entry) => entry.id === dropIn.attendance_session_id) || null
+    : null;
+  if (!currentSession) {
+    notify("Für diesen DROP-IN ist noch kein gültiger Termin hinterlegt.", true);
+    return;
+  }
+
+  const availableSessions = getAvailableStandaloneSessionTargets(currentSession.id, currentSession.season_id || null);
+  if (!availableSessions.length) {
+    notify("Aktuell gibt es keinen anderen passenden Termin zum Umbuchen.", true);
+    return;
+  }
+
+  state.moveParticipantContext = {
+    mode: "dropin-session",
+    dropInId: dropIn.id,
+    currentSessionId: currentSession.id,
+    availableTargetSessionIds: availableSessions.map((entry) => entry.id),
+  };
+
+  if (moveParticipantTitle) {
+    moveParticipantTitle.textContent = "DROP-IN umbuchen";
+  }
+  if (moveParticipantTargetLabel) {
+    moveParticipantTargetLabel.textContent = "Zieltermin";
+  }
+  if (moveParticipantSubmitBtn) {
+    moveParticipantSubmitBtn.textContent = "DROP-IN umbuchen";
+  }
+  moveParticipantText.textContent = `${dropIn.full_name} wird vom Termin am ${formatDateLabel(currentSession.session_date)} auf einen anderen konkreten Termin verschoben.`;
+  moveParticipantTargetCourse.innerHTML = "";
+  availableSessions.forEach((session) => {
+    const course = state.courses.find((entry) => entry.id === session.course_id) || null;
+    const option = document.createElement("option");
+    option.value = session.id;
+    option.textContent = `${formatDateLabel(session.session_date)} | ${course?.name || "Kurs"} (${course?.weekday || "Tag"}${course?.time ? `, ${course.time} Uhr` : ""})`;
+    moveParticipantTargetCourse.appendChild(option);
+  });
+  moveParticipantModal.classList.remove("hidden");
 }
 
 async function handleDropInArchive(dropIn, shouldArchive = true) {
@@ -6697,6 +6881,16 @@ function getUpcomingTrialSessions() {
       }
       return String(left.course_id || "").localeCompare(String(right.course_id || ""));
     });
+}
+
+function getAvailableStandaloneSessionTargets(currentSessionId, preferredSeasonId = null) {
+  const upcomingSessions = getUpcomingTrialSessions().filter((session) => session.id !== currentSessionId);
+  if (!preferredSeasonId) {
+    return upcomingSessions;
+  }
+
+  const sameSeasonSessions = upcomingSessions.filter((session) => session.season_id === preferredSeasonId);
+  return sameSeasonSessions.length ? sameSeasonSessions : upcomingSessions;
 }
 
 function getSessionsForCourse(courseId) {
