@@ -686,3 +686,78 @@ with check (
       and public.user_owns_course(target_sessions.course_id)
   )
 );
+
+-- Optionaler Daten-Fix fuer aeltere Probetrainings / DROP-INs:
+-- haengt Legacy-Eintraege wieder an die passende attendance_session desselben Kurses.
+-- Fall 1: attendance_session_id existiert, zeigt aber auf einen Termin eines anderen Kurses.
+update public.trial_requests as trial
+set attendance_session_id = replacement.id
+from public.attendance_sessions as linked
+join lateral (
+  select sessions.id
+  from public.attendance_sessions as sessions
+  where sessions.course_id = trial.course_id
+    and sessions.session_date = linked.session_date
+  order by sessions.created_at nulls last, sessions.id
+  limit 1
+) as replacement on true
+where trial.attendance_session_id = linked.id
+  and linked.course_id is distinct from trial.course_id
+  and replacement.id is distinct from trial.attendance_session_id;
+
+update public.drop_in_bookings as dropin
+set attendance_session_id = replacement.id
+from public.attendance_sessions as linked
+join lateral (
+  select sessions.id
+  from public.attendance_sessions as sessions
+  where sessions.course_id = dropin.course_id
+    and sessions.session_date = linked.session_date
+  order by sessions.created_at nulls last, sessions.id
+  limit 1
+) as replacement on true
+where dropin.attendance_session_id = linked.id
+  and linked.course_id is distinct from dropin.course_id
+  and replacement.id is distinct from dropin.attendance_session_id;
+
+-- Fall 2: attendance_session_id fehlt oder zeigt ins Leere.
+-- Dann wird als bestmoeglicher Fallback ein Termin desselben Kurses am created_at-Datum verwendet.
+update public.trial_requests as trial
+set attendance_session_id = replacement.id
+from lateral (
+  select sessions.id
+  from public.attendance_sessions as sessions
+  where sessions.course_id = trial.course_id
+    and sessions.session_date = timezone('Europe/Berlin', trial.created_at)::date
+  order by sessions.created_at nulls last, sessions.id
+  limit 1
+) as replacement
+where replacement.id is not null
+  and (
+    trial.attendance_session_id is null
+    or not exists (
+      select 1
+      from public.attendance_sessions as linked
+      where linked.id = trial.attendance_session_id
+    )
+  );
+
+update public.drop_in_bookings as dropin
+set attendance_session_id = replacement.id
+from lateral (
+  select sessions.id
+  from public.attendance_sessions as sessions
+  where sessions.course_id = dropin.course_id
+    and sessions.session_date = timezone('Europe/Berlin', dropin.created_at)::date
+  order by sessions.created_at nulls last, sessions.id
+  limit 1
+) as replacement
+where replacement.id is not null
+  and (
+    dropin.attendance_session_id is null
+    or not exists (
+      select 1
+      from public.attendance_sessions as linked
+      where linked.id = dropin.attendance_session_id
+    )
+  );
