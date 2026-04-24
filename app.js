@@ -3978,9 +3978,7 @@ function openTrialInAttendance(trial) {
   if (trial?.course_id) {
     state.selectedCourseId = trial.course_id;
   }
-  if (session?.season_id) {
-    state.attendanceSeasonId = session.season_id;
-  }
+  state.attendanceSeasonId = session?.season_id || null;
   if (session?.session_date && attendanceDate) {
     attendanceDate.value = session.session_date;
   }
@@ -3994,9 +3992,7 @@ function openDropInInAttendance(dropIn) {
   if (dropIn?.course_id) {
     state.selectedCourseId = dropIn.course_id;
   }
-  if (session?.season_id) {
-    state.attendanceSeasonId = session.season_id;
-  }
+  state.attendanceSeasonId = session?.season_id || null;
   if (session?.session_date && attendanceDate) {
     attendanceDate.value = session.session_date;
   }
