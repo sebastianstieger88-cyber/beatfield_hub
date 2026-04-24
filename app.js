@@ -3002,7 +3002,7 @@ function renderExercises() {
           ${isFavorite ? `<span class="exercise-table-favorite">Favorit</span>` : ""}
         </td>
         <td>${escapeHtml(exercise.category || "-")}</td>
-        <td>${escapeHtml(exercise.focus || "-")}</td>
+        <td>${exercise.focus ? `<span class="exercise-table-emphasis">${escapeHtml(exercise.focus)}</span>` : "-"}</td>
         <td>${escapeHtml(exercise.level || "-")}</td>
         <td>
           <div class="mini-actions table-actions">
