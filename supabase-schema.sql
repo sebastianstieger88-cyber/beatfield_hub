@@ -82,6 +82,7 @@ create table if not exists public.season_bookings (
   contact_status text not null default 'offen' check (contact_status in ('offen', 'kontaktiert', 'zugesagt', 'pausiert')),
   free_seasons_redeemed integer not null default 0,
   selected_days text[] not null,
+  start_date date,
   created_at timestamptz not null default now()
 );
 

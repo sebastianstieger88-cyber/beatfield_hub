@@ -174,6 +174,9 @@ alter table public.season_bookings
 alter table public.season_bookings
   add column if not exists free_seasons_redeemed integer not null default 0;
 
+alter table public.season_bookings
+  add column if not exists start_date date;
+
 do $$
 begin
   if not exists (

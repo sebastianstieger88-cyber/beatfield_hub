@@ -117,6 +117,7 @@ const seasonDatePreview = document.querySelector("#seasonDatePreview");
 const seasonBookingForm = document.querySelector("#seasonBookingForm");
 const saveBookingBtn = document.querySelector("#saveBookingBtn");
 const cancelBookingEditBtn = document.querySelector("#cancelBookingEditBtn");
+const bookingStartDateInput = document.querySelector("#bookingStartDateInput");
 const participantForm = document.querySelector("#participantForm");
 const participantFormNotice = document.querySelector("#participantFormNotice");
 const openBookingPanelBtn = document.querySelector("#openBookingPanelBtn");
@@ -279,6 +280,18 @@ seasonDateDraftInput?.addEventListener("focus", () => {
 });
 seasonDateDraftInput?.addEventListener("click", () => {
   seasonDateDraftInput.showPicker?.();
+});
+bookingStartDateInput?.addEventListener("keydown", (event) => {
+  const allowedKeys = ["Tab", "Shift", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
+  if (!allowedKeys.includes(event.key)) {
+    event.preventDefault();
+  }
+});
+bookingStartDateInput?.addEventListener("focus", () => {
+  bookingStartDateInput.showPicker?.();
+});
+bookingStartDateInput?.addEventListener("click", () => {
+  bookingStartDateInput.showPicker?.();
 });
 generateSeasonDatesBtn?.addEventListener("click", handleGenerateSeasonDates);
 clearSeasonDatesBtn?.addEventListener("click", () => {
@@ -569,7 +582,7 @@ async function fetchSupportData() {
 
   const seasonBookingsQuery = state.supabase
     .from("season_bookings")
-    .select("id, season_id, full_name, phone, package_type, contact_status, free_seasons_redeemed, selected_days, created_at")
+    .select("id, season_id, full_name, phone, package_type, contact_status, free_seasons_redeemed, selected_days, start_date, created_at")
     .order("created_at", { ascending: false });
 
   const trainerQuery = state.supabase
@@ -1252,6 +1265,7 @@ async function handleSeasonBookingCreate(event) {
     const fullName = String(formData.get("fullName")).trim();
     const phone = String(formData.get("phone")).trim();
     const packageType = String(formData.get("packageType")).trim();
+    const startDate = normalizeOptionalId(formData.get("startDate"));
     const selectedDays = packageType === "3x REPEAT"
       ? ["Montag", "Mittwoch", "Samstag"]
       : formData.getAll("selectedDays").map((value) => String(value));
@@ -1284,6 +1298,7 @@ async function handleSeasonBookingCreate(event) {
           phone: phone || null,
           package_type: packageType,
           selected_days: selectedDays,
+          start_date: startDate,
         })
         .eq("id", bookingId);
 
@@ -1301,6 +1316,7 @@ async function handleSeasonBookingCreate(event) {
         contact_status: state.seasonBookings.find((entry) => entry.id === bookingId)?.contact_status || "offen",
         free_seasons_redeemed: state.seasonBookings.find((entry) => entry.id === bookingId)?.free_seasons_redeemed || 0,
         selected_days: selectedDays,
+        start_date: startDate,
         created_at: state.seasonBookings.find((entry) => entry.id === bookingId)?.created_at || new Date().toISOString(),
       };
     } else {
@@ -1314,8 +1330,9 @@ async function handleSeasonBookingCreate(event) {
           contact_status: "offen",
           free_seasons_redeemed: 0,
           selected_days: selectedDays,
+          start_date: startDate,
         })
-        .select("id, season_id, full_name, phone, package_type, contact_status, free_seasons_redeemed, selected_days, created_at")
+        .select("id, season_id, full_name, phone, package_type, contact_status, free_seasons_redeemed, selected_days, start_date, created_at")
         .single();
 
       if (bookingInsertResult.error) {
@@ -1333,6 +1350,7 @@ async function handleSeasonBookingCreate(event) {
       fullName,
       phone,
       selectedDays,
+      startDate,
       relevantCourses: relevantCourses.data,
     });
 
@@ -1493,6 +1511,7 @@ async function handleSeasonDuplicate(sourceSeason, carryOverBookings = false) {
           phone: booking.phone || null,
           package_type: booking.package_type,
           selected_days: booking.selected_days,
+          start_date: null,
         })
         .select("id")
         .single();
@@ -1514,6 +1533,7 @@ async function handleSeasonDuplicate(sourceSeason, carryOverBookings = false) {
         fullName: booking.full_name,
         phone: booking.phone || "",
         selectedDays: booking.selected_days,
+        startDate: booking.start_date || null,
         relevantCourses: relevantCourses.data,
       });
 
@@ -1678,6 +1698,7 @@ async function cloneBookingIntoSeason(booking, targetSeason) {
       contact_status: "zugesagt",
       free_seasons_redeemed: 0,
       selected_days: booking.selected_days,
+      start_date: targetSeason.start_date || null,
     })
     .select("id")
     .single();
@@ -1700,6 +1721,7 @@ async function cloneBookingIntoSeason(booking, targetSeason) {
     fullName: booking.full_name,
     phone: booking.phone || "",
     selectedDays: booking.selected_days,
+    startDate: targetSeason.start_date || null,
     relevantCourses: relevantCourses.data,
   });
 
@@ -2112,8 +2134,9 @@ async function handleParticipantCreate(event) {
           contact_status: "offen",
           free_seasons_redeemed: 0,
           selected_days: [selectedDay],
+          start_date: session?.session_date || null,
         })
-        .select("id, season_id, full_name, phone, package_type, contact_status, free_seasons_redeemed, selected_days, created_at")
+        .select("id, season_id, full_name, phone, package_type, contact_status, free_seasons_redeemed, selected_days, start_date, created_at")
         .single();
 
       if (bookingInsertResult.error) {
@@ -2135,6 +2158,7 @@ async function handleParticipantCreate(event) {
         fullName,
         phone,
         selectedDays: [selectedDay],
+        startDate: null,
         relevantCourses: [{ weekday: selectedDay, course }],
       });
 
@@ -2248,6 +2272,7 @@ async function handleParticipantDelete(participant, course) {
         fullName: booking.full_name,
         phone: booking.phone,
         selectedDays: remainingDays,
+        startDate: booking.start_date || null,
         relevantCourses: relevantCourses.data,
       });
 
@@ -2317,7 +2342,7 @@ async function handleParticipantDelete(participant, course) {
   }
 }
 
-async function syncSeasonBookingParticipants({ bookingId, seasonId, fullName, phone, selectedDays, relevantCourses }) {
+async function syncSeasonBookingParticipants({ bookingId, seasonId, fullName, phone, selectedDays, startDate, relevantCourses }) {
   const existingParticipants = state.participants.filter((participant) => participant.season_booking_id === bookingId);
   const existingByWeekday = new Map(
     existingParticipants
@@ -2420,6 +2445,7 @@ function openBookingEdit(booking) {
   bookingSeasonSelect.value = booking.season_id;
   seasonBookingForm.querySelector('input[name="fullName"]').value = booking.full_name;
   seasonBookingForm.querySelector('input[name="phone"]').value = booking.phone || "";
+  seasonBookingForm.querySelector('input[name="startDate"]').value = booking.start_date || "";
   bookingPackageSelect.value = booking.package_type;
 
   Array.from(seasonBookingForm.querySelectorAll('input[name="selectedDays"]')).forEach((input) => {
@@ -4581,6 +4607,7 @@ function renderSeasonBookings() {
       <p class="stat-meta">${season ? escapeHtml(season.name) : "Ohne Season"}</p>
       <p class="stat-meta">Paket: ${escapeHtml(booking.package_type)}</p>
       <p class="stat-meta">Tage: ${escapeHtml(formatSelectedDays(booking.selected_days))}</p>
+      ${booking.start_date ? `<p class="stat-meta">Start ab: ${escapeHtml(formatDateLabel(booking.start_date))}</p>` : ""}
       <p class="stat-meta">BEAT-OUTS: ${beatOutUsage.used}/${beatOutUsage.limit}</p>
       <p class="stat-meta">Gratis-Season: ${rewardStatus.availableRewards} verfügbar | ${rewardStatus.redeemedRewards} eingelöst</p>
       <p class="stat-meta">${booking.phone ? escapeHtml(booking.phone) : "Keine Telefonnummer"}</p>
@@ -5245,8 +5272,9 @@ async function convertTrialToParticipant(trial) {
         contact_status: "zugesagt",
         free_seasons_redeemed: 0,
         selected_days: [selectedDay],
+        start_date: session.session_date,
       })
-      .select("id, season_id, full_name, phone, package_type, contact_status, free_seasons_redeemed, selected_days, created_at")
+      .select("id, season_id, full_name, phone, package_type, contact_status, free_seasons_redeemed, selected_days, start_date, created_at")
       .single();
 
     if (bookingInsertResult.error) {
@@ -5260,6 +5288,7 @@ async function convertTrialToParticipant(trial) {
       fullName: trial.full_name,
       phone: trial.phone || "",
       selectedDays: [selectedDay],
+      startDate: session.session_date,
       relevantCourses: relevantCourses.data,
     });
 
@@ -6932,6 +6961,13 @@ function getAttendanceStandaloneFocusSession(courseId = null) {
   return null;
 }
 
+function bookingAppliesToSessionDate(booking, sessionDate) {
+  if (!booking?.start_date || !sessionDate) {
+    return true;
+  }
+  return booking.start_date <= sessionDate;
+}
+
 function standaloneEntryMatchesCourseDate(entry, courseId, sessionId, activeSessionDate) {
   const linkedSession = getStandaloneEntrySession(entry);
   const resolvedCourseId = linkedSession?.course_id || entry?.course_id || null;
@@ -6962,7 +6998,13 @@ function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
       .map((entry) => entry.participant_id),
   );
 
-  const roster = baseParticipants.filter((participant) => !movedOutIds.has(participant.id));
+  const roster = baseParticipants.filter((participant) => {
+    if (movedOutIds.has(participant.id)) {
+      return false;
+    }
+    const booking = getParticipantSeasonBooking(participant);
+    return bookingAppliesToSessionDate(booking, activeSessionDate);
+  });
   const rosterIds = new Set(roster.map((participant) => participant.id));
 
   state.sessionOverrides
