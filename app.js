@@ -78,6 +78,7 @@ const state = {
 };
 
 const setupNotice = document.querySelector("#setupNotice");
+const setupPanel = document.querySelector("#setupPanel");
 const authPanel = document.querySelector("#authPanel");
 const sessionPanel = document.querySelector("#sessionPanel");
 const adminPanel = document.querySelector("#adminPanel");
@@ -3008,6 +3009,9 @@ function render() {
     const shouldShow = availableSections.includes(panelId) && state.activeSection === panelId;
     panel.classList.toggle("hidden", !shouldShow);
   });
+
+  const shouldShowSetupPanel = !loggedIn || state.profile?.role === "admin" || !appUnlocked;
+  setupPanel?.classList.toggle("hidden", !shouldShowSetupPanel);
 
   updatePasswordForm.classList.toggle("hidden", !loggedIn || !recoveryMode || state.activeSection !== "#sessionPanel");
 
