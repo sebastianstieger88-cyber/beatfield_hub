@@ -286,6 +286,7 @@
           </div>
         </div>
         <form id="seasonForm" class="stack inline-form season-form">
+          <input type="hidden" name="seasonId">
           <label>
             <span>Season-Name</span>
             <input name="name" type="text" placeholder="z. B. Season 07" required>
@@ -321,7 +322,10 @@
             </div>
           </div>
           <p class="stat-meta season-dates-hint">Wenn du hier konkrete Daten pflegst, nutzt die Season genau diese Termine. `Standardtermine laden` nimmt die automatisch berechneten Mo/Mi/Sa-Termine als Ausgangspunkt.</p>
-          <button type="submit" class="primary">Season anlegen</button>
+          <div class="form-actions">
+            <button id="saveSeasonBtn" type="submit" class="primary">Season anlegen</button>
+            <button id="cancelSeasonEditBtn" type="button" class="ghost hidden">Bearbeitung abbrechen</button>
+          </div>
         </form>
         <div class="report-actions">
           <button id="seasonFilterAllBtn" type="button" class="ghost">Alle</button>

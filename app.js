@@ -44,6 +44,7 @@ const state = {
   exerciseSyncing: false,
   selectedCourseId: null,
   editingCourseId: null,
+  editingSeasonId: null,
   selectedSeasonId: null,
   attendanceSeasonId: null,
   seasonFilter: "all",
@@ -109,6 +110,8 @@ const trainerDirectoryForm = document.querySelector("#trainerDirectoryForm");
 const courseForm = document.querySelector("#courseForm");
 const seasonForm = document.querySelector("#seasonForm");
 const seasonStartDateInput = document.querySelector("#seasonStartDateInput");
+const saveSeasonBtn = document.querySelector("#saveSeasonBtn");
+const cancelSeasonEditBtn = document.querySelector("#cancelSeasonEditBtn");
 const generateSeasonDatesBtn = document.querySelector("#generateSeasonDatesBtn");
 const clearSeasonDatesBtn = document.querySelector("#clearSeasonDatesBtn");
 const addSeasonDateBtn = document.querySelector("#addSeasonDateBtn");
@@ -301,6 +304,7 @@ clearSeasonDatesBtn?.addEventListener("click", () => {
 addSeasonDateBtn?.addEventListener("click", handleAddSeasonDraftDate);
 seasonBookingForm?.addEventListener("submit", handleSeasonBookingCreate);
 cancelBookingEditBtn?.addEventListener("click", resetBookingForm);
+cancelSeasonEditBtn?.addEventListener("click", resetSeasonForm);
 deleteCourseBtn?.addEventListener("click", handleCourseDelete);
 cancelCourseEditBtn?.addEventListener("click", () => {
   resetCourseForm();
@@ -521,6 +525,72 @@ async function loadProtectedData() {
 }
 
 async function fetchProfile() {
+  if (isEditing) {
+    const existingSessionIds = getSeasonSessions(seasonId).map((session) => session.id);
+    const existingDates = getSeasonTrainingDates(seasonId);
+    const desiredDates = explicitSeasonDates.length
+      ? explicitSeasonDates
+      : buildSeasonSessionPayload(startDate, endDate, seasonId, explicitSeasonDates).map((entry) => entry.session_date);
+    const datesChanged = JSON.stringify(existingDates) !== JSON.stringify(desiredDates);
+    const hasLinkedSessionData = existingSessionIds.some((sessionIdValue) => {
+      return state.records.some((entry) => entry.session_id === sessionIdValue)
+        || state.beatOutEntries.some((entry) => entry.session_id === sessionIdValue)
+        || state.sessionOverrides.some((entry) => entry.source_session_id === sessionIdValue || entry.target_session_id === sessionIdValue);
+    });
+
+    if (datesChanged && hasLinkedSessionData) {
+      notify("Die Termine dieser Season kÃ¶nnen nicht mehr geÃ¤ndert werden, weil dafÃ¼r bereits Anwesenheiten, BEAT-OUTs oder Umbuchungen existieren.", true);
+      return;
+    }
+
+    const updateResult = await state.supabase
+      .from("seasons")
+      .update({
+        name,
+        start_date: startDate,
+        end_date: endDate,
+        status,
+      })
+      .eq("id", seasonId);
+
+    if (updateResult.error) {
+      notify(getFriendlySupabaseMessage(updateResult.error, "Season konnte nicht aktualisiert werden."), true);
+      return;
+    }
+
+    if (datesChanged && existingSessionIds.length) {
+      const deleteResult = await state.supabase
+        .from("attendance_sessions")
+        .delete()
+        .eq("season_id", seasonId);
+
+      if (deleteResult.error) {
+        notify(getFriendlySupabaseMessage(deleteResult.error, "Season-Termine konnten nicht aktualisiert werden."), true);
+        return;
+      }
+    }
+
+    const sessionPayload = buildSeasonSessionPayload(startDate, endDate, seasonId, explicitSeasonDates);
+    if (datesChanged && sessionPayload.length) {
+      const sessionResult = await state.supabase
+        .from("attendance_sessions")
+        .insert(sessionPayload);
+
+      if (sessionResult.error && !String(sessionResult.error.message).toLowerCase().includes("duplicate")) {
+        notify(getFriendlySupabaseMessage(sessionResult.error, "Season wurde aktualisiert, aber die Termine konnten nicht vollstÃ¤ndig gespeichert werden."), true);
+        return;
+      }
+    }
+
+    state.selectedSeasonId = seasonId;
+    state.attendanceSeasonId = seasonId;
+    resetSeasonForm();
+    await fetchSupportData();
+    render();
+    notify(`Season "${name}" wurde aktualisiert.`);
+    return;
+  }
+
   const { data, error } = await state.supabase
     .from("profiles")
     .select("user_id, full_name, role")
@@ -1197,12 +1267,14 @@ async function handleSeasonCreate(event) {
   }
 
   const formData = new FormData(seasonForm);
+  const seasonId = normalizeOptionalId(formData.get("seasonId"));
   const name = String(formData.get("name")).trim();
   const startDate = String(formData.get("startDate")).trim();
   const status = String(formData.get("status")).trim() || "geplant";
   const seasonDatesInput = state.seasonDraftDates.join(", ");
   const explicitSeasonDates = parseSeasonDateEntries(seasonDatesInput);
   const endDate = calculateSeasonEndDate(startDate);
+  const isEditing = Boolean(seasonId);
 
   if (seasonDatesInput && !explicitSeasonDates.length) {
     notify("Bitte gültige Season-Termine eingeben, z. B. 04.04.2026, 06.04.2026, 08.04.2026.", true);
@@ -1244,8 +1316,7 @@ async function handleSeasonCreate(event) {
 
   state.selectedSeasonId = data.id;
   state.attendanceSeasonId = data.id;
-  seasonForm.reset();
-  state.seasonDraftDates = [];
+  resetSeasonForm();
   await fetchSupportData();
   render();
   notify(`Season "${name}" wurde mit ${sessionPayload.length} Terminen angelegt.`);
@@ -2601,6 +2672,35 @@ async function handleMoveParticipantSubmit(event) {
     return;
   }
 
+  if (context.mode === "booking-renewal") {
+    const booking = state.seasonBookings.find((entry) => entry.id === context.bookingId) || null;
+    const sourceSeason = state.seasons.find((entry) => entry.id === context.sourceSeasonId) || null;
+    const targetSeason = state.seasons.find((entry) => entry.id === moveParticipantTargetCourse.value) || null;
+    if (!booking || !sourceSeason || !targetSeason) {
+      notify("Die Ziel-Season konnte nicht aufgelöst werden.", true);
+      closeMoveParticipantModal();
+      return;
+    }
+
+    const result = await cloneBookingIntoSeason(booking, targetSeason);
+    if (!result.ok) {
+      notify(result.message, true);
+      return;
+    }
+
+    if (booking.contact_status !== "zugesagt") {
+      await updateBookingContactStatus(booking, "zugesagt", { silent: true });
+    }
+
+    state.selectedSeasonId = targetSeason.id;
+    closeMoveParticipantModal();
+    await fetchSupportData();
+    persistOfflineCache();
+    render();
+    notify(`${booking.full_name} wurde in ${targetSeason.name} übernommen.`);
+    return;
+  }
+
   if (context.mode === "trial-session") {
     const trial = state.trialRequests.find((entry) => entry.id === context.trialId);
     const targetSession = state.sessions.find((entry) => entry.id === moveParticipantTargetCourse.value);
@@ -2789,6 +2889,15 @@ function closeMoveParticipantModal() {
   state.moveParticipantContext = null;
   moveParticipantModal?.classList.add("hidden");
   moveParticipantForm?.reset();
+  if (moveParticipantTitle) {
+    moveParticipantTitle.textContent = "Teilnehmer umbuchen";
+  }
+  if (moveParticipantTargetLabel) {
+    moveParticipantTargetLabel.textContent = "Zielkurs";
+  }
+  if (moveParticipantSubmitBtn) {
+    moveParticipantSubmitBtn.textContent = "Umbuchung speichern";
+  }
 }
 
 async function handleTrialCreate(event) {
@@ -4303,6 +4412,39 @@ function renderAttendanceSessionOptions() {
   attendanceSessionSelect.value = attendanceDate?.value || sessions[0].session_date;
 }
 
+function openSeasonEdit(season) {
+  if (!seasonForm || !season) {
+    return;
+  }
+
+  state.editingSeasonId = season.id;
+  seasonForm.querySelector('input[name="seasonId"]').value = season.id;
+  seasonForm.querySelector('input[name="name"]').value = season.name || "";
+  seasonForm.querySelector('input[name="startDate"]').value = season.start_date || "";
+  seasonForm.querySelector('select[name="status"]').value = season.status || "geplant";
+  state.seasonDraftDates = getSeasonTrainingDates(season.id);
+  renderSeasonDateEditor();
+  saveSeasonBtn && (saveSeasonBtn.textContent = "Season aktualisieren");
+  cancelSeasonEditBtn?.classList.remove("hidden");
+  scrollToSection("#seasonPanel");
+}
+
+function resetSeasonForm() {
+  if (!seasonForm) {
+    return;
+  }
+
+  state.editingSeasonId = null;
+  seasonForm.reset();
+  seasonForm.querySelector('input[name="seasonId"]').value = "";
+  state.seasonDraftDates = [];
+  renderSeasonDateEditor();
+  if (saveSeasonBtn) {
+    saveSeasonBtn.textContent = "Season anlegen";
+  }
+  cancelSeasonEditBtn?.classList.add("hidden");
+}
+
 function renderSeasons() {
   if (!seasonList) {
     return;
@@ -4365,6 +4507,15 @@ function renderSeasons() {
       scrollToSection("#bookingPanel");
     });
     actions.appendChild(selectBtn);
+
+    const editBtn = document.createElement("button");
+    editBtn.type = "button";
+    editBtn.className = "ghost";
+    editBtn.textContent = "Bearbeiten";
+    editBtn.addEventListener("click", () => {
+      openSeasonEdit(season);
+    });
+    actions.appendChild(editBtn);
 
     const duplicateBtn = document.createElement("button");
     duplicateBtn.type = "button";
@@ -5218,6 +5369,61 @@ async function handleDropInArchive(dropIn, shouldArchive = true) {
   });
   renderDropIns();
   notify(shouldArchive ? "DROP-IN wurde archiviert." : "DROP-IN wurde wiederhergestellt.");
+}
+
+function getAvailableRenewalSeasons(sourceSeason) {
+  if (!sourceSeason) {
+    return [];
+  }
+
+  const sourceStart = new Date(`${sourceSeason.start_date}T00:00:00`).getTime();
+  return state.seasons
+    .filter((season) => season.id !== sourceSeason.id)
+    .filter((season) => new Date(`${season.start_date}T00:00:00`).getTime() >= sourceStart)
+    .sort((left, right) => new Date(`${left.start_date}T00:00:00`).getTime() - new Date(`${right.start_date}T00:00:00`).getTime());
+}
+
+async function handleCarryOverBookingToNextSeason(booking, sourceSeason) {
+  if (!isAdmin() || !booking || !sourceSeason) {
+    return;
+  }
+
+  if (!moveParticipantModal || !moveParticipantTargetCourse || !moveParticipantText) {
+    return;
+  }
+
+  const availableSeasons = getAvailableRenewalSeasons(sourceSeason);
+  if (!availableSeasons.length) {
+    notify("Bitte lege zuerst eine Ziel-Season an, bevor du den Teilnehmer verlängerst.", true);
+    return;
+  }
+
+  state.moveParticipantContext = {
+    mode: "booking-renewal",
+    bookingId: booking.id,
+    sourceSeasonId: sourceSeason.id,
+    availableSeasonIds: availableSeasons.map((season) => season.id),
+  };
+
+  if (moveParticipantTitle) {
+    moveParticipantTitle.textContent = "Teilnehmer verlängern";
+  }
+  if (moveParticipantTargetLabel) {
+    moveParticipantTargetLabel.textContent = "Ziel-Season";
+  }
+  if (moveParticipantSubmitBtn) {
+    moveParticipantSubmitBtn.textContent = "In Season übernehmen";
+  }
+
+  moveParticipantText.textContent = `${booking.full_name} wird aus ${sourceSeason.name} in eine bereits angelegte Ziel-Season übernommen.`;
+  moveParticipantTargetCourse.innerHTML = "";
+  availableSeasons.forEach((season) => {
+    const option = document.createElement("option");
+    option.value = season.id;
+    option.textContent = `${season.name} | ${formatDateLabel(season.start_date)} bis ${formatDateLabel(season.end_date)}`;
+    moveParticipantTargetCourse.appendChild(option);
+  });
+  moveParticipantModal.classList.remove("hidden");
 }
 
 async function handleDropInDelete(dropIn) {
