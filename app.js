@@ -1212,18 +1212,18 @@ async function handleSeasonCreate(event) {
   const isEditing = Boolean(seasonId);
 
   if (!name || !startDate) {
-    notify("Bitte Season-Name und Startdatum ausw?hlen.", true);
+    notify("Bitte Season-Name und Startdatum auswählen.", true);
     return;
   }
 
   if (seasonDatesInput && !explicitSeasonDates.length) {
-    notify("Bitte g?ltige Season-Termine eingeben, z. B. 04.04.2026, 06.04.2026, 08.04.2026.", true);
+    notify("Bitte gültige Season-Termine eingeben, z. B. 04.04.2026, 06.04.2026, 08.04.2026.", true);
     return;
   }
 
   const unmappedDates = getSeasonDatesWithoutMatchingCourse(explicitSeasonDates);
   if (unmappedDates.length) {
-    notify(`F?r diese Season-Termine fehlt noch ein passender Kurs: ${unmappedDates.map((date) => formatDateLabel(date)).join(", ")}.`, true);
+    notify(`Für diese Season-Termine fehlt noch ein passender Kurs: ${unmappedDates.map((date) => formatDateLabel(date)).join(", ")}.`, true);
     return;
   }
 
@@ -1241,7 +1241,7 @@ async function handleSeasonCreate(event) {
     });
 
     if (datesChanged && hasLinkedSessionData) {
-      notify("Die Termine dieser Season k?nnen nicht mehr ge?ndert werden, weil daf?r bereits Anwesenheiten, BEAT-OUTs oder Umbuchungen existieren.", true);
+      notify("Die Termine dieser Season können nicht mehr geändert werden, weil dafür bereits Anwesenheiten, BEAT-OUTs oder Umbuchungen existieren.", true);
       return;
     }
 
@@ -1279,7 +1279,7 @@ async function handleSeasonCreate(event) {
         .insert(sessionPayload);
 
       if (sessionResult.error && !String(sessionResult.error.message).toLowerCase().includes("duplicate")) {
-        notify(getFriendlySupabaseMessage(sessionResult.error, "Season wurde aktualisiert, aber die Termine konnten nicht vollst?ndig gespeichert werden."), true);
+        notify(getFriendlySupabaseMessage(sessionResult.error, "Season wurde aktualisiert, aber die Termine konnten nicht vollständig gespeichert werden."), true);
         return;
       }
     }
@@ -1316,7 +1316,7 @@ async function handleSeasonCreate(event) {
       .insert(sessionPayload);
 
     if (sessionResult.error && !String(sessionResult.error.message).toLowerCase().includes("duplicate")) {
-      notify(getFriendlySupabaseMessage(sessionResult.error, "Season wurde angelegt, aber die Termine konnten nicht vollst?ndig erzeugt werden."), true);
+      notify(getFriendlySupabaseMessage(sessionResult.error, "Season wurde angelegt, aber die Termine konnten nicht vollständig erzeugt werden."), true);
     }
   }
 
@@ -1348,7 +1348,7 @@ async function handleSeasonBookingCreate(event) {
       .map((input) => normalizeWeekdayLabel(input.value));
 
     if (!seasonId) {
-      notify("Bitte zuerst eine Season ausw?hlen.", true);
+      notify("Bitte zuerst eine Season auswählen.", true);
       return;
     }
 
@@ -1358,13 +1358,13 @@ async function handleSeasonBookingCreate(event) {
     }
 
     if (!packageType) {
-      notify("Bitte ein Paket ausw?hlen.", true);
+      notify("Bitte ein Paket auswählen.", true);
       return;
     }
 
     const expectedDayCount = getExpectedDayCount(packageType);
     if (selectedDays.length !== expectedDayCount) {
-      notify(`Bitte genau ${expectedDayCount} Trainingstag${expectedDayCount === 1 ? "" : "e"} ausw?hlen.`, true);
+      notify(`Bitte genau ${expectedDayCount} Trainingstag${expectedDayCount === 1 ? "" : "e"} auswählen.`, true);
       return;
     }
 
@@ -1462,7 +1462,7 @@ async function handleSeasonBookingCreate(event) {
     await refreshVisibleData({ context: "Booking refresh", silent: true });
     notify(bookingId
       ? `${fullName} wurde in der Buchung aktualisiert.`
-      : `${fullName} wurde f?r ${packageType} eingebucht.`);
+      : `${fullName} wurde für ${packageType} eingebucht.`);
   } catch (error) {
     console.error("Season booking save failed", error);
     notify(`Buchung konnte nicht gespeichert werden: ${error?.message || "Unerwarteter Fehler"}`, true);
