@@ -1892,7 +1892,7 @@ async function handleSeasonCarryOverIntoExisting(targetSeason) {
   notify(summary.join(" "));
 }
 
-async function handleCarryOverBookingToNextSeason(booking, sourceSeason) {
+async function handleCarryOverBookingToNextSeasonLegacy(booking, sourceSeason) {
   if (!isAdmin() || !booking || !sourceSeason) {
     return;
   }
