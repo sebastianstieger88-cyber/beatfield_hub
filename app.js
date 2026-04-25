@@ -454,7 +454,7 @@ async function initialize() {
     setupNotice.classList.remove("hidden");
     statusHeadline.textContent = "Setup erforderlich";
     statusText.textContent = "Bitte zuerst Supabase in config.js konfigurieren.";
-    backendStatus.textContent = "config.js unvollstÃ¤ndig";
+    backendStatus.textContent = "config.js unvollständig";
     render();
     return;
   }
@@ -693,10 +693,10 @@ async function fetchSupportData() {
     notify(dropInResult.error.message, true);
   }
   if (exerciseResult.error) {
-    notify(getFriendlySupabaseMessage(exerciseResult.error, "Ãœbungen konnten nicht geladen werden."), true);
+    notify(getFriendlySupabaseMessage(exerciseResult.error, "Übungen konnten nicht geladen werden."), true);
   }
   if (exerciseFavoritesResult.error) {
-    notify(getFriendlySupabaseMessage(exerciseFavoritesResult.error, "Ãœbungsfavoriten konnten nicht geladen werden."), true);
+    notify(getFriendlySupabaseMessage(exerciseFavoritesResult.error, "Übungsfavoriten konnten nicht geladen werden."), true);
   }
   if (seasonResult.error) {
     notify(getFriendlySupabaseMessage(seasonResult.error, "Seasons konnten nicht geladen werden."), true);
@@ -898,7 +898,7 @@ async function handleSignup(event) {
   }
 
   signupForm.reset();
-  notify("Konto angelegt. Bitte E-Mail bestÃ¤tigen, falls Supabase Confirmation aktiv ist.");
+  notify("Konto angelegt. Bitte E-Mail bestätigen, falls Supabase Confirmation aktiv ist.");
 }
 
 async function handleReset(event) {
@@ -1088,7 +1088,7 @@ async function handleTrainerDirectoryCreate(event) {
     }
     render();
     notify(inviteCode && email
-      ? `Trainer eingetragen und Zugang vorbereitet fÃ¼r ${email}. Du kannst jetzt "E-Mail vorbereiten" nutzen.`
+      ? `Trainer eingetragen und Zugang vorbereitet für ${email}. Du kannst jetzt "E-Mail vorbereiten" nutzen.`
       : "Trainer wurde eingetragen.");
 
     await refreshVisibleData({ context: "Trainer refresh", silent: true });
@@ -1122,7 +1122,7 @@ async function handleTrainerInviteRegenerate(entry) {
   await fetchSupportData();
   showInviteOutput(inviteCode);
   render();
-  notify(`Neuer Trainerzugang fÃ¼r ${entry.email} wurde vorbereitet. Du kannst jetzt "E-Mail vorbereiten" nutzen.`);
+  notify(`Neuer Trainerzugang für ${entry.email} wurde vorbereitet. Du kannst jetzt "E-Mail vorbereiten" nutzen.`);
 }
 
 async function handleCourseCreate(event) {
@@ -1477,16 +1477,16 @@ async function handleCourseDelete() {
 
     const course = getSelectedCourse();
     if (!course) {
-      notify("Bitte zuerst einen Kurs auswÃ¤hlen.", true);
+      notify("Bitte zuerst einen Kurs auswählen.", true);
       return;
     }
 
     if (state.isOffline) {
-      notify("Kurse kÃ¶nnen nur online gelÃ¶scht werden.", true);
+      notify("Kurse können nur online gelöscht werden.", true);
       return;
     }
 
-    const confirmed = window.confirm(`Soll der Kurs "${course.name}" wirklich gelÃ¶scht werden? Teilnehmer, Termine und Anwesenheiten dieses Kurses gehen dabei verloren.`);
+    const confirmed = window.confirm(`Soll der Kurs "${course.name}" wirklich gelöscht werden? Teilnehmer, Termine und Anwesenheiten dieses Kurses gehen dabei verloren.`);
     if (!confirmed) {
       return;
     }
@@ -1505,7 +1505,7 @@ async function handleCourseDelete() {
         .in("session_id", linkedSessionIds);
 
       if (beatOutDeleteResult.error) {
-        notify(getFriendlySupabaseMessage(beatOutDeleteResult.error, "BEAT-OUTs des Kurses konnten nicht gelÃ¶scht werden."), true);
+        notify(getFriendlySupabaseMessage(beatOutDeleteResult.error, "BEAT-OUTs des Kurses konnten nicht gelöscht werden."), true);
         return;
       }
     }
@@ -1516,7 +1516,7 @@ async function handleCourseDelete() {
       .eq("id", course.id);
 
     if (deleteResult.error) {
-      notify(getFriendlySupabaseMessage(deleteResult.error, "Kurs konnte nicht gelÃ¶scht werden."), true);
+      notify(getFriendlySupabaseMessage(deleteResult.error, "Kurs konnte nicht gelöscht werden."), true);
       return;
     }
 
@@ -1541,10 +1541,10 @@ async function handleCourseDelete() {
     state.acceptEmptyFetch.courses = true;
     state.acceptEmptyFetch.participants = true;
     await refreshVisibleData({ includeCourses: true, context: "Course delete refresh", silent: true });
-    notify(`Kurs "${course.name}" wurde gelÃ¶scht.`);
+    notify(`Kurs "${course.name}" wurde gelöscht.`);
   } catch (error) {
     console.error("Course delete failed", error);
-    notify(`Kurs konnte nicht gelÃ¶scht werden: ${error?.message || "Unerwarteter Fehler"}`, true);
+    notify(`Kurs konnte nicht gelöscht werden: ${error?.message || "Unerwarteter Fehler"}`, true);
   }
 }
 
@@ -1583,7 +1583,7 @@ async function handleSeasonDuplicate(sourceSeason, carryOverBookings = false) {
       .insert(sessionPayload);
 
     if (sessionResult.error && !String(sessionResult.error.message).toLowerCase().includes("duplicate")) {
-      notify(getFriendlySupabaseMessage(sessionResult.error, "Season wurde dupliziert, aber die Termine konnten nicht vollstÃ¤ndig erzeugt werden."), true);
+      notify(getFriendlySupabaseMessage(sessionResult.error, "Season wurde dupliziert, aber die Termine konnten nicht vollständig erzeugt werden."), true);
     }
   }
 
@@ -1604,7 +1604,7 @@ async function handleSeasonDuplicate(sourceSeason, carryOverBookings = false) {
         .single();
 
       if (bookingInsertResult.error) {
-        notify(getFriendlySupabaseMessage(bookingInsertResult.error, `Season wurde dupliziert, aber ${booking.full_name} konnte nicht Ã¼bernommen werden.`), true);
+        notify(getFriendlySupabaseMessage(bookingInsertResult.error, `Season wurde dupliziert, aber ${booking.full_name} konnte nicht übernommen werden.`), true);
         continue;
       }
 
@@ -1647,8 +1647,8 @@ async function handleSeasonStatusUpdate(season, status) {
 
   const labels = {
     aktiv: "aktivieren",
-    abgeschlossen: "abschlieÃŸen",
-    geplant: "zur Planung zurÃ¼cksetzen",
+    abgeschlossen: "abschließen",
+    geplant: "zur Planung zurücksetzen",
   };
 
   const confirmed = window.confirm(`Soll die Season "${season.name}" wirklich auf "${status}" gesetzt werden?`);
@@ -1680,7 +1680,7 @@ async function handleSeasonDelete(season) {
     return;
   }
 
-  const confirmed = window.confirm(`Soll die Season "${season.name}" wirklich komplett gelÃ¶scht werden? Alle Buchungen, verknÃ¼pften Teilnehmer und Season-Termine werden dabei entfernt.`);
+  const confirmed = window.confirm(`Soll die Season "${season.name}" wirklich komplett gelöscht werden? Alle Buchungen, verknüpften Teilnehmer und Season-Termine werden dabei entfernt.`);
   if (!confirmed) {
     return;
   }
@@ -1700,7 +1700,7 @@ async function handleSeasonDelete(season) {
       .in("id", sessionIds);
 
     if (sessionDeleteResult.error) {
-      notify(getFriendlySupabaseMessage(sessionDeleteResult.error, "Season-Termine konnten nicht gelÃ¶scht werden."), true);
+      notify(getFriendlySupabaseMessage(sessionDeleteResult.error, "Season-Termine konnten nicht gelöscht werden."), true);
       return;
     }
   }
@@ -1711,7 +1711,7 @@ async function handleSeasonDelete(season) {
     .eq("id", season.id);
 
   if (seasonDeleteResult.error) {
-    notify(getFriendlySupabaseMessage(seasonDeleteResult.error, "Season konnte nicht gelÃ¶scht werden."), true);
+    notify(getFriendlySupabaseMessage(seasonDeleteResult.error, "Season konnte nicht gelöscht werden."), true);
     return;
   }
 
@@ -1740,7 +1740,7 @@ async function handleSeasonDelete(season) {
   state.acceptEmptyFetch.beatOutEntries = true;
 
   render();
-  notify(`Season "${season.name}" wurde gelÃ¶scht.`);
+  notify(`Season "${season.name}" wurde gelöscht.`);
   await refreshVisibleData({ context: "Season delete refresh", silent: true });
 }
 
@@ -1793,7 +1793,7 @@ async function cloneBookingIntoSeason(booking, targetSeason) {
   if (bookingInsertResult.error) {
     return {
       ok: false,
-      message: getFriendlySupabaseMessage(bookingInsertResult.error, `${booking.full_name} konnte nicht in die Folge-Season Ã¼bernommen werden.`),
+      message: getFriendlySupabaseMessage(bookingInsertResult.error, `${booking.full_name} konnte nicht in die Folge-Season übernommen werden.`),
     };
   }
 
@@ -1845,22 +1845,22 @@ async function handleSeasonCarryOverIntoExisting(targetSeason) {
 
   const sourceSeason = getCarryOverSourceSeason(targetSeason);
   if (!sourceSeason) {
-    notify("Es gibt noch keine andere Season, aus der Teilnehmer Ã¼bernommen werden kÃ¶nnen.", true);
+    notify("Es gibt noch keine andere Season, aus der Teilnehmer übernommen werden können.", true);
     return;
   }
 
   if (sourceSeason.id === targetSeason.id) {
-    notify("Bitte wÃ¤hle eine andere Ziel-Season fÃ¼r die Ãœbernahme.", true);
+    notify("Bitte wähle eine andere Ziel-Season für die Übernahme.", true);
     return;
   }
 
   const sourceBookings = state.seasonBookings.filter((booking) => booking.season_id === sourceSeason.id);
   if (!sourceBookings.length) {
-    notify(`In ${sourceSeason.name} gibt es keine Teilnehmer zum Ãœbernehmen.`, true);
+    notify(`In ${sourceSeason.name} gibt es keine Teilnehmer zum Übernehmen.`, true);
     return;
   }
 
-  const confirmed = window.confirm(`Sollen die Teilnehmer aus "${sourceSeason.name}" in "${targetSeason.name}" Ã¼bernommen werden? Bereits vorhandene Buchungen in der Ziel-Season bleiben erhalten.`);
+  const confirmed = window.confirm(`Sollen die Teilnehmer aus "${sourceSeason.name}" in "${targetSeason.name}" übernommen werden? Bereits vorhandene Buchungen in der Ziel-Season bleiben erhalten.`);
   if (!confirmed) {
     return;
   }
@@ -1894,16 +1894,16 @@ async function handleSeasonCarryOverIntoExisting(targetSeason) {
   }
 
   if (!copiedCount && failedCount) {
-    notify(`Teilnehmer aus ${sourceSeason.name} konnten nicht in ${targetSeason.name} Ã¼bernommen werden.`, true);
+    notify(`Teilnehmer aus ${sourceSeason.name} konnten nicht in ${targetSeason.name} übernommen werden.`, true);
     return;
   }
 
-  const summary = [`${copiedCount} Teilnehmer aus ${sourceSeason.name} nach ${targetSeason.name} Ã¼bernommen.`];
+  const summary = [`${copiedCount} Teilnehmer aus ${sourceSeason.name} nach ${targetSeason.name} übernommen.`];
   if (duplicateCount) {
     summary.push(`${duplicateCount} bereits vorhanden`);
   }
   if (failedCount) {
-    summary.push(`${failedCount} nicht Ã¼bernommen`);
+    summary.push(`${failedCount} nicht übernommen`);
   }
   notify(summary.join(" "));
 }
@@ -1932,7 +1932,7 @@ async function handleCarryOverBookingToNextSeasonLegacy(booking, sourceSeason) {
   await fetchSupportData();
   persistOfflineCache();
   render();
-  notify(`${booking.full_name} wurde in ${targetSeason.name} Ã¼bernommen.`);
+  notify(`${booking.full_name} wurde in ${targetSeason.name} übernommen.`);
 }
 
 async function handleBookingDelete(booking) {
@@ -1940,7 +1940,7 @@ async function handleBookingDelete(booking) {
     return;
   }
 
-  const confirmed = window.confirm(`Soll die Buchung von "${booking.full_name}" wirklich gelÃ¶scht werden? Alle zugehÃ¶rigen Season-Teilnehmer werden dabei entfernt.`);
+  const confirmed = window.confirm(`Soll die Buchung von "${booking.full_name}" wirklich gelöscht werden? Alle zugehörigen Season-Teilnehmer werden dabei entfernt.`);
   if (!confirmed) {
     return;
   }
@@ -1955,7 +1955,7 @@ async function handleBookingDelete(booking) {
       .eq("season_booking_id", booking.id);
 
     if (beatOutDeleteResult.error) {
-      notify(getFriendlySupabaseMessage(beatOutDeleteResult.error, "BEAT-OUTs der Buchung konnten nicht gelÃ¶scht werden."), true);
+      notify(getFriendlySupabaseMessage(beatOutDeleteResult.error, "BEAT-OUTs der Buchung konnten nicht gelöscht werden."), true);
       return;
     }
   }
@@ -1966,7 +1966,7 @@ async function handleBookingDelete(booking) {
     .eq("season_booking_id", booking.id);
 
   if (participantDeleteResult.error) {
-    notify(getFriendlySupabaseMessage(participantDeleteResult.error, "Season-Teilnehmer konnten nicht gelÃ¶scht werden."), true);
+    notify(getFriendlySupabaseMessage(participantDeleteResult.error, "Season-Teilnehmer konnten nicht gelöscht werden."), true);
     return;
   }
 
@@ -1976,7 +1976,7 @@ async function handleBookingDelete(booking) {
     .eq("id", booking.id);
 
   if (bookingDeleteResult.error) {
-    notify(getFriendlySupabaseMessage(bookingDeleteResult.error, "Buchung konnte nicht gelÃ¶scht werden."), true);
+    notify(getFriendlySupabaseMessage(bookingDeleteResult.error, "Buchung konnte nicht gelöscht werden."), true);
     return;
   }
 
@@ -2004,7 +2004,7 @@ async function handleBookingDelete(booking) {
   await fetchSupportData();
   persistOfflineCache();
   render();
-  notify(`Buchung von ${booking.full_name} wurde gelÃ¶scht.`);
+  notify(`Buchung von ${booking.full_name} wurde gelöscht.`);
 }
 
 async function handleTrainerDirectoryDelete(entry) {
@@ -2014,11 +2014,11 @@ async function handleTrainerDirectoryDelete(entry) {
     }
 
     if (state.isOffline) {
-      notify("Trainer kÃ¶nnen nur online gelÃ¶scht werden.", true);
+      notify("Trainer können nur online gelöscht werden.", true);
       return;
     }
 
-    const confirmed = window.confirm(`Soll der Trainer "${entry.full_name}" wirklich gelÃ¶scht werden? Kurszuweisungen dieses manuellen Eintrags werden dabei entfernt.`);
+    const confirmed = window.confirm(`Soll der Trainer "${entry.full_name}" wirklich gelöscht werden? Kurszuweisungen dieses manuellen Eintrags werden dabei entfernt.`);
     if (!confirmed) {
       return;
     }
@@ -2029,7 +2029,7 @@ async function handleTrainerDirectoryDelete(entry) {
       .eq("trainer_directory_id", entry.id);
 
     if (courseUnassignResult.error) {
-      notify(getFriendlySupabaseMessage(courseUnassignResult.error, "Trainer konnte nicht aus den Kursen gelÃ¶st werden."), true);
+      notify(getFriendlySupabaseMessage(courseUnassignResult.error, "Trainer konnte nicht aus den Kursen gelöst werden."), true);
       return;
     }
 
@@ -2039,7 +2039,7 @@ async function handleTrainerDirectoryDelete(entry) {
       .eq("trainer_directory_id", entry.id);
 
     if (inviteDeleteResult.error) {
-      notify(getFriendlySupabaseMessage(inviteDeleteResult.error, "Trainer-Einladungen konnten nicht gelÃ¶scht werden."), true);
+      notify(getFriendlySupabaseMessage(inviteDeleteResult.error, "Trainer-Einladungen konnten nicht gelöscht werden."), true);
       return;
     }
 
@@ -2049,7 +2049,7 @@ async function handleTrainerDirectoryDelete(entry) {
       .eq("id", entry.id);
 
     if (deleteResult.error) {
-      notify(getFriendlySupabaseMessage(deleteResult.error, "Trainer konnte nicht gelÃ¶scht werden."), true);
+      notify(getFriendlySupabaseMessage(deleteResult.error, "Trainer konnte nicht gelöscht werden."), true);
       return;
     }
 
@@ -2078,10 +2078,10 @@ async function handleTrainerDirectoryDelete(entry) {
     state.acceptEmptyFetch.invites = true;
     state.acceptEmptyFetch.courses = true;
     await refreshVisibleData({ includeCourses: true, context: "Trainer delete refresh", silent: true });
-    notify(`Trainer "${entry.full_name}" wurde gelÃ¶scht.`);
+    notify(`Trainer "${entry.full_name}" wurde gelöscht.`);
   } catch (error) {
     console.error("Trainer delete failed", error);
-    notify(`Trainer konnte nicht gelÃ¶scht werden: ${error?.message || "Unerwarteter Fehler"}`, true);
+    notify(`Trainer konnte nicht gelöscht werden: ${error?.message || "Unerwarteter Fehler"}`, true);
   }
 }
 
@@ -2111,7 +2111,7 @@ async function updateBookingContactStatus(booking, nextStatus = null, { silent =
 
   if (!silent) {
     render();
-    notify(`Kontaktstatus fÃ¼r ${booking.full_name}: ${resolvedStatus}.`);
+    notify(`Kontaktstatus für ${booking.full_name}: ${resolvedStatus}.`);
   }
 }
 
@@ -2122,7 +2122,7 @@ async function redeemFreeSeasonForBooking(booking) {
 
   const rewardStatus = getFreeSeasonRewardStatus(booking);
   if (rewardStatus.availableRewards <= 0) {
-    notify("FÃ¼r diese Buchung ist aktuell keine Gratis-Season verfÃ¼gbar.", true);
+    notify("Für diese Buchung ist aktuell keine Gratis-Season verfügbar.", true);
     return;
   }
 
@@ -2133,7 +2133,7 @@ async function redeemFreeSeasonForBooking(booking) {
     .eq("id", booking.id);
 
   if (updateResult.error) {
-    notify(getFriendlySupabaseMessage(updateResult.error, "Gratis-Season konnte nicht eingelÃ¶st werden."), true);
+    notify(getFriendlySupabaseMessage(updateResult.error, "Gratis-Season konnte nicht eingelöst werden."), true);
     return;
   }
 
@@ -2143,7 +2143,7 @@ async function redeemFreeSeasonForBooking(booking) {
       : entry;
   });
   render();
-  notify(`Gratis-Season fÃ¼r ${booking.full_name} wurde eingelÃ¶st.`);
+  notify(`Gratis-Season für ${booking.full_name} wurde eingelöst.`);
 }
 
 async function handleParticipantCreate(event) {
@@ -2193,7 +2193,7 @@ async function handleParticipantCreate(event) {
         const refreshOk = await refreshVisibleData({ context: "Trainer participant refresh", silent: false });
         const participantPersisted = state.participants.some((entry) => entry.id === participantInsertResult.data.id);
         if (!refreshOk || !participantPersisted) {
-          notify("Teilnehmer konnte nicht dauerhaft in Supabase bestÃ¤tigt werden. Bitte Kursliste prÃ¼fen.", true);
+          notify("Teilnehmer konnte nicht dauerhaft in Supabase bestätigt werden. Bitte Kursliste prüfen.", true);
           return;
         }
 
@@ -2205,7 +2205,7 @@ async function handleParticipantCreate(event) {
       }
 
       if (!preferredSeasonId) {
-        notify("Bitte zuerst eine Season anlegen, damit Teilnehmer sauber als TRAIN, BEAT oder REPEAT gebucht werden kÃ¶nnen.", true);
+        notify("Bitte zuerst eine Season anlegen, damit Teilnehmer sauber als TRAIN, BEAT oder REPEAT gebucht werden können.", true);
         state.activeSection = "#seasonPanel";
         render();
         return;
@@ -2261,7 +2261,7 @@ async function handleParticipantCreate(event) {
       const participantPersisted = state.participants.some((entry) => entry.season_booking_id === optimisticBooking.id);
 
       if (!refreshOk || !bookingPersisted || !participantPersisted) {
-        notify("Teilnehmer konnte nicht dauerhaft in Supabase bestÃ¤tigt werden. Bitte Buchungen und Teilnehmerliste prÃ¼fen.", true);
+        notify("Teilnehmer konnte nicht dauerhaft in Supabase bestätigt werden. Bitte Buchungen und Teilnehmerliste prüfen.", true);
         return;
       }
 
@@ -2288,7 +2288,7 @@ async function handleParticipantDelete(participant, course) {
     }
 
     if (state.isOffline) {
-      notify("Teilnehmer kÃ¶nnen nur online gelÃ¶scht werden.", true);
+      notify("Teilnehmer können nur online gelöscht werden.", true);
       return;
     }
 
@@ -2299,7 +2299,7 @@ async function handleParticipantDelete(participant, course) {
 
       if (!remainingDays.length) {
         const confirmedDeleteBooking = window.confirm(
-          `${participant.full_name} ist Ã¼ber eine Season-Buchung in diesem Kurs. Soll die gesamte Buchung gelÃ¶scht werden?`,
+          `${participant.full_name} ist über eine Season-Buchung in diesem Kurs. Soll die gesamte Buchung gelöscht werden?`,
         );
         if (!confirmedDeleteBooking) {
           return;
@@ -2310,7 +2310,7 @@ async function handleParticipantDelete(participant, course) {
 
       const nextPackageType = getPackageTypeForDayCount(remainingDays.length);
       if (!nextPackageType) {
-        notify("Die Season-Buchung konnte nicht auf ein gÃ¼ltiges Paket umgestellt werden.", true);
+        notify("Die Season-Buchung konnte nicht auf ein gültiges Paket umgestellt werden.", true);
         return;
       }
 
@@ -2375,7 +2375,7 @@ async function handleParticipantDelete(participant, course) {
         return;
     }
 
-    const confirmed = window.confirm(`Soll ${participant.full_name} wirklich aus ${course.name} gelÃ¶scht werden?`);
+    const confirmed = window.confirm(`Soll ${participant.full_name} wirklich aus ${course.name} gelöscht werden?`);
     if (!confirmed) {
       return;
     }
@@ -2386,7 +2386,7 @@ async function handleParticipantDelete(participant, course) {
       .eq("participant_id", participant.id);
 
     if (beatOutDeleteResult.error) {
-      notify(getFriendlySupabaseMessage(beatOutDeleteResult.error, "BEAT-OUTs des Teilnehmers konnten nicht gelÃ¶scht werden."), true);
+      notify(getFriendlySupabaseMessage(beatOutDeleteResult.error, "BEAT-OUTs des Teilnehmers konnten nicht gelöscht werden."), true);
       return;
     }
 
@@ -2396,7 +2396,7 @@ async function handleParticipantDelete(participant, course) {
       .eq("participant_id", participant.id);
 
     if (recordDeleteResult.error) {
-      notify(getFriendlySupabaseMessage(recordDeleteResult.error, "Anwesenheiten des Teilnehmers konnten nicht gelÃ¶scht werden."), true);
+      notify(getFriendlySupabaseMessage(recordDeleteResult.error, "Anwesenheiten des Teilnehmers konnten nicht gelöscht werden."), true);
       return;
     }
 
@@ -2406,7 +2406,7 @@ async function handleParticipantDelete(participant, course) {
       .eq("id", participant.id);
 
     if (participantDeleteResult.error) {
-      notify(getFriendlySupabaseMessage(participantDeleteResult.error, "Teilnehmer konnte nicht gelÃ¶scht werden."), true);
+      notify(getFriendlySupabaseMessage(participantDeleteResult.error, "Teilnehmer konnte nicht gelöscht werden."), true);
       return;
     }
 
@@ -2421,11 +2421,11 @@ async function handleParticipantDelete(participant, course) {
       state.acceptEmptyFetch.beatOutEntries = true;
       persistOfflineCache();
       render();
-      notify(`${participant.full_name} wurde gelÃ¶scht.`);
+      notify(`${participant.full_name} wurde gelöscht.`);
       await refreshVisibleData({ context: "Participant delete refresh", silent: true });
   } catch (error) {
     console.error("Participant delete failed", error);
-    notify(`Teilnehmer konnte nicht gelÃ¶scht werden: ${error?.message || "Unerwarteter Fehler"}`, true);
+    notify(`Teilnehmer konnte nicht gelöscht werden: ${error?.message || "Unerwarteter Fehler"}`, true);
   }
 }
 
@@ -2506,7 +2506,7 @@ async function syncSeasonBookingParticipants({ bookingId, seasonId, fullName, ph
       if (insertResult.error) {
         return {
           ok: false,
-          message: getFriendlySupabaseMessage(insertResult.error, "Teilnehmer konnten nicht fÃ¼r die Buchung angelegt werden."),
+          message: getFriendlySupabaseMessage(insertResult.error, "Teilnehmer konnten nicht für die Buchung angelegt werden."),
         };
       }
 
@@ -2571,12 +2571,12 @@ async function handleParticipantMove(participant, currentCourse) {
   }
 
   if (state.isOffline) {
-    notify("Umbuchungen sind nur online mÃ¶glich.", true);
+    notify("Umbuchungen sind nur online möglich.", true);
     return;
   }
 
   if (!moveParticipantModal || !moveParticipantTargetCourse || !moveParticipantText) {
-    notify("Umbuchungsfenster konnte nicht geÃ¶ffnet werden.", true);
+    notify("Umbuchungsfenster konnte nicht geöffnet werden.", true);
     return;
   }
 
@@ -2586,7 +2586,7 @@ async function handleParticipantMove(participant, currentCourse) {
   const incomingOverride = activeSession ? getSessionOverrideForTarget(participant.id, activeSession.id) : null;
 
   if (incomingOverride) {
-    const removeConfirmed = window.confirm(`Soll die Einzeltermin-Umbuchung fÃ¼r ${participant.full_name} wieder aufgehoben werden?`);
+    const removeConfirmed = window.confirm(`Soll die Einzeltermin-Umbuchung für ${participant.full_name} wieder aufgehoben werden?`);
     if (!removeConfirmed) {
       return;
     }
@@ -2597,7 +2597,7 @@ async function handleParticipantMove(participant, currentCourse) {
   if (booking) {
     const bookingSeason = state.seasons.find((entry) => entry.id === booking.season_id);
     if (bookingSeason && (sessionDate < bookingSeason.start_date || sessionDate > bookingSeason.end_date)) {
-      notify(`Termin-Umbuchungen sind nur innerhalb der Season ${bookingSeason.name} mÃ¶glich.`, true);
+      notify(`Termin-Umbuchungen sind nur innerhalb der Season ${bookingSeason.name} möglich.`, true);
       return;
     }
 
@@ -2613,7 +2613,7 @@ async function handleParticipantMove(participant, currentCourse) {
 
     const availableSessions = getAvailableSessionMoveTargets(participant, booking, sourceSessionId);
     if (!availableSessions.length) {
-      notify("FÃ¼r diese Buchung gibt es in der Season aktuell keinen passenden Ausweichtermin auf einem anderen Trainingstag.", true);
+      notify("Für diese Buchung gibt es in der Season aktuell keinen passenden Ausweichtermin auf einem anderen Trainingstag.", true);
       return;
     }
 
@@ -2635,7 +2635,7 @@ async function handleParticipantMove(participant, currentCourse) {
     if (moveParticipantSubmitBtn) {
       moveParticipantSubmitBtn.textContent = "Termin-Umbuchung speichern";
     }
-    moveParticipantText.textContent = `${participant.full_name} wird nur fÃ¼r den Termin am ${formatDateLabel(sessionDate)} auf einen konkreten Ersatztermin umgebucht. Die Season-Buchung bleibt dabei unverÃ¤ndert.`;
+    moveParticipantText.textContent = `${participant.full_name} wird nur für den Termin am ${formatDateLabel(sessionDate)} auf einen konkreten Ersatztermin umgebucht. Die Season-Buchung bleibt dabei unverändert.`;
     moveParticipantTargetCourse.innerHTML = "";
     availableSessions.forEach(({ session, course }) => {
       const option = document.createElement("option");
@@ -2693,7 +2693,7 @@ async function handleMoveParticipantSubmit(event) {
     const sourceSeason = state.seasons.find((entry) => entry.id === context.sourceSeasonId) || null;
     const targetSeason = state.seasons.find((entry) => entry.id === moveParticipantTargetCourse.value) || null;
     if (!booking || !sourceSeason || !targetSeason) {
-      notify("Die Ziel-Season konnte nicht aufgelÃ¶st werden.", true);
+      notify("Die Ziel-Season konnte nicht aufgelöst werden.", true);
       closeMoveParticipantModal();
       return;
     }
@@ -2713,7 +2713,7 @@ async function handleMoveParticipantSubmit(event) {
     await fetchSupportData();
     persistOfflineCache();
     render();
-    notify(`${booking.full_name} wurde in ${targetSeason.name} Ã¼bernommen.`);
+    notify(`${booking.full_name} wurde in ${targetSeason.name} übernommen.`);
     return;
   }
 
@@ -2722,7 +2722,7 @@ async function handleMoveParticipantSubmit(event) {
     const targetSession = state.sessions.find((entry) => entry.id === moveParticipantTargetCourse.value);
     const targetCourse = targetSession ? state.courses.find((entry) => entry.id === targetSession.course_id) : null;
     if (!trial || !targetSession || !targetCourse) {
-      notify("Der Zieltermin konnte nicht aufgelÃ¶st werden.", true);
+      notify("Der Zieltermin konnte nicht aufgelöst werden.", true);
       closeMoveParticipantModal();
       return;
     }
@@ -2757,7 +2757,7 @@ async function handleMoveParticipantSubmit(event) {
     const targetSession = state.sessions.find((entry) => entry.id === moveParticipantTargetCourse.value);
     const targetCourse = targetSession ? state.courses.find((entry) => entry.id === targetSession.course_id) : null;
     if (!dropIn || !targetSession || !targetCourse) {
-      notify("Der Zieltermin konnte nicht aufgelÃ¶st werden.", true);
+      notify("Der Zieltermin konnte nicht aufgelöst werden.", true);
       closeMoveParticipantModal();
       return;
     }
@@ -2846,7 +2846,7 @@ async function handleMoveParticipantSubmit(event) {
     state.selectedCourseId = targetCourse.id;
     closeMoveParticipantModal();
     render();
-    notify(`${participant.full_name} wurde fÃ¼r ${formatDateLabel(targetSession.session_date)} nach ${targetCourse.name} umgebucht.`);
+    notify(`${participant.full_name} wurde für ${formatDateLabel(targetSession.session_date)} nach ${targetCourse.name} umgebucht.`);
     await refreshVisibleData({ context: "Session override refresh", silent: true });
     return;
   }
@@ -2927,7 +2927,7 @@ async function handleTrialCreate(event) {
   const sessionId = normalizeOptionalId(formData.get("sessionId"));
   const selectedSession = sessionId ? state.sessions.find((entry) => entry.id === sessionId) : null;
   if (!selectedSession) {
-    notify("Bitte zuerst einen gÃ¼ltigen Season-Termin fÃ¼r das Probetraining auswÃ¤hlen.", true);
+    notify("Bitte zuerst einen gültigen Season-Termin für das Probetraining auswählen.", true);
     return;
   }
   const { error } = await state.supabase
@@ -2963,7 +2963,7 @@ async function handleDropInCreate(event) {
   const sessionId = normalizeOptionalId(formData.get("sessionId"));
   const selectedSession = sessionId ? state.sessions.find((entry) => entry.id === sessionId) : null;
   if (!selectedSession) {
-    notify("Bitte zuerst einen gÃ¼ltigen Season-Termin fÃ¼r den DROP-IN auswÃ¤hlen.", true);
+    notify("Bitte zuerst einen gültigen Season-Termin für den DROP-IN auswählen.", true);
     return;
   }
 
@@ -3016,20 +3016,20 @@ function render() {
       ? "Freigabe ausstehend"
       : recoveryMode
         ? "Passwort aktualisieren"
-        : "Bereit fÃ¼r den Einsatz"
+        : "Bereit für den Einsatz"
     : connected
       ? "Bitte anmelden"
       : "Setup erforderlich";
   statusText.textContent = loggedIn
     ? state.profile.role === "pending"
-      ? "Konto angelegt, aber noch ohne gÃ¼ltige Einladung freigeschaltet."
+      ? "Konto angelegt, aber noch ohne gültige Einladung freigeschaltet."
       : `${state.profile.full_name} ist angemeldet`
     : connected
       ? "Supabase ist verbunden. Bitte einloggen oder Konto anlegen."
       : "Bitte config.js und Supabase-Schema einrichten.";
   if (statusMeta && !statusMeta.dataset.locked) {
     statusMeta.textContent = loggedIn
-      ? "Bereit fÃ¼r den Tagesbetrieb"
+      ? "Bereit für den Tagesbetrieb"
       : connected
         ? "Warte auf Anmeldung"
         : "Setup offen";
@@ -3197,10 +3197,10 @@ function getActiveExerciseFilterChips() {
   }
 
   const filterLabels = {
-    category: "KÃ¶rperbereich",
+    category: "Körperbereich",
     focus: "Bewegungsmuster",
     level: "Muskelgruppe",
-    equipment: "AusrÃ¼stung",
+    equipment: "Ausrüstung",
     tag: "Tag",
   };
 
@@ -3247,8 +3247,8 @@ function renderExerciseTableHeader(table) {
   }
 
   const columns = [
-    { field: "title", label: "Ãœbung" },
-    { field: "category", label: "KÃ¶rperbereich" },
+    { field: "title", label: "Übung" },
+    { field: "category", label: "Körperbereich" },
     { field: "focus", label: "Bewegungsmuster" },
     { field: "level", label: "Muskelgruppe" },
   ];
@@ -3259,7 +3259,7 @@ function renderExerciseTableHeader(table) {
         .map(({ field, label }) => {
           const isActive = state.exerciseSort.field === field;
           const direction = isActive ? state.exerciseSort.direction : "none";
-          const arrow = !isActive ? "â†•" : direction === "asc" ? "â†‘" : "â†“";
+          const arrow = !isActive ? "↕" : direction === "asc" ? "↑" : "↓";
           return `
             <th>
               <button type="button" class="table-sort ${isActive ? "is-active" : ""}" data-exercise-sort="${escapeHtml(field)}" aria-label="${escapeHtml(label)} sortieren">
@@ -3382,10 +3382,10 @@ function renderExerciseDetail() {
     return;
   }
 
-  exerciseDetailTitle.textContent = exercise.title || "Ãœbungsdetails";
+  exerciseDetailTitle.textContent = exercise.title || "Übungsdetails";
   const links = [
-    exercise.video_url ? `<a class="ghost" href="${escapeHtml(exercise.video_url)}" target="_blank" rel="noreferrer">Video Ã¶ffnen</a>` : "",
-    exercise.source_url ? `<a class="ghost" href="${escapeHtml(exercise.source_url)}" target="_blank" rel="noreferrer">Notion Ã¶ffnen</a>` : "",
+    exercise.video_url ? `<a class="ghost" href="${escapeHtml(exercise.video_url)}" target="_blank" rel="noreferrer">Video öffnen</a>` : "",
+    exercise.source_url ? `<a class="ghost" href="${escapeHtml(exercise.source_url)}" target="_blank" rel="noreferrer">Notion öffnen</a>` : "",
   ].filter(Boolean).join("");
 
   const sections = [
@@ -3394,7 +3394,7 @@ function renderExerciseDetail() {
     ["Technik-Cues", exercise.technique_cues],
     ["Progression", exercise.progression],
     ["Regression", exercise.regression],
-    ["HÃ¤ufige Fehler", exercise.common_errors],
+    ["Häufige Fehler", exercise.common_errors],
     ["Korrektur", exercise.correction],
     ["Varianten", exercise.variants],
   ]
@@ -3415,7 +3415,7 @@ function renderExerciseDetail() {
       ${exercise.equipment ? `<span class="course-status-pill course-status-pill-warn">${escapeHtml(exercise.equipment)}</span>` : ""}
     </div>
     ${exercise.tags?.length ? `<div class="exercise-tag-row">${exercise.tags.map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
-    ${sections || `<p class="stat-meta">FÃ¼r diese Ãœbung sind noch keine erweiterten Details synchronisiert.</p>`}
+    ${sections || `<p class="stat-meta">Für diese Übung sind noch keine erweiterten Details synchronisiert.</p>`}
     ${links ? `<div class="stat-card-actions exercise-actions">${links}</div>` : ""}
   `;
 
@@ -3433,15 +3433,15 @@ function renderExerciseDetailView() {
     return;
   }
 
-  exerciseDetailTitle.textContent = exercise.title || "Ãœbungsdetails";
+  exerciseDetailTitle.textContent = exercise.title || "Übungsdetails";
   const links = [
-    exercise.video_url ? `<a class="ghost" href="${escapeHtml(exercise.video_url)}" target="_blank" rel="noreferrer">Video Ã¶ffnen</a>` : "",
-    exercise.source_url ? `<a class="ghost" href="${escapeHtml(exercise.source_url)}" target="_blank" rel="noreferrer">Notion Ã¶ffnen</a>` : "",
+    exercise.video_url ? `<a class="ghost" href="${escapeHtml(exercise.video_url)}" target="_blank" rel="noreferrer">Video öffnen</a>` : "",
+    exercise.source_url ? `<a class="ghost" href="${escapeHtml(exercise.source_url)}" target="_blank" rel="noreferrer">Notion öffnen</a>` : "",
   ].filter(Boolean).join("");
 
   const sections = [
     {
-      title: "AusfÃ¼hrung",
+      title: "Ausführung",
       items: [
         ["Beschreibung", exercise.description],
         ["Ablauf-Cues", exercise.coaching_cues],
@@ -3451,7 +3451,7 @@ function renderExerciseDetailView() {
     {
       title: "Coaching",
       items: [
-        ["HÃ¤ufige Fehler", exercise.common_errors],
+        ["Häufige Fehler", exercise.common_errors],
         ["Korrektur", exercise.correction],
       ],
     },
@@ -3498,7 +3498,7 @@ function renderExerciseDetailView() {
       </div>
       ${exercise.tags?.length ? `<div class="exercise-tag-row">${exercise.tags.map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
     </div>
-    ${sections ? `<div class="exercise-detail-grid">${sections}</div>` : `<p class="stat-meta">FÃ¼r diese Ãœbung sind noch keine erweiterten Details synchronisiert.</p>`}
+    ${sections ? `<div class="exercise-detail-grid">${sections}</div>` : `<p class="stat-meta">Für diese Übung sind noch keine erweiterten Details synchronisiert.</p>`}
     ${links ? `<div class="stat-card-actions exercise-actions">${links}</div>` : ""}
   `;
 
@@ -3572,7 +3572,7 @@ function renderExercises() {
   }
   if (exerciseFavoriteFilterBtn) {
     exerciseFavoriteFilterBtn.classList.toggle("is-active", state.exerciseFavoritesOnly);
-    exerciseFavoriteFilterBtn.textContent = state.exerciseFavoritesOnly ? "Alle Ãœbungen zeigen" : "Nur Favoriten";
+    exerciseFavoriteFilterBtn.textContent = state.exerciseFavoritesOnly ? "Alle Übungen zeigen" : "Nur Favoriten";
   }
   if (exercisePinFavoritesBtn) {
     exercisePinFavoritesBtn.classList.toggle("is-active", state.exercisePinFavorites);
@@ -3589,7 +3589,7 @@ function renderExercises() {
           .map((chip, index) => `
             <button type="button" class="exercise-filter-chip" data-exercise-chip="${index}">
               <span>${escapeHtml(chip.label)}</span>
-              <span aria-hidden="true">Ã—</span>
+              <span aria-hidden="true">×</span>
             </button>
           `)
           .join("")
@@ -3610,10 +3610,10 @@ function renderExercises() {
 
   exerciseSyncMeta.innerHTML = `
     <h3>Sync-Status</h3>
-    <p class="stat-meta">${state.exercises.length} aktive Ãœbungen in der App.</p>
+    <p class="stat-meta">${state.exercises.length} aktive Übungen in der App.</p>
     <p class="stat-meta">${state.exerciseFavorites.length} Favoriten gespeichert.</p>
     <p class="stat-meta">${latestSync ? `Zuletzt synchronisiert: ${escapeHtml(formatDateTimeLabel(latestSync))}` : "Noch kein Sync vorhanden."}</p>
-    <p class="stat-meta">${isAdmin() ? "Pflege lÃ¤uft Ã¼ber Notion. Hier synchronisierst du und prÃ¼fst die Bibliothek." : "Pflege lÃ¤uft Ã¼ber Notion. Hier kannst du dir Inspiration und Ideen holen."}</p>
+    <p class="stat-meta">${isAdmin() ? "Pflege läuft über Notion. Hier synchronisierst du und prüfst die Bibliothek." : "Pflege läuft über Notion. Hier kannst du dir Inspiration und Ideen holen."}</p>
   `;
 
   const exercises = getSortedExercises(getFilteredExercises());
@@ -3622,14 +3622,14 @@ function renderExercises() {
       <tr>
         <td colspan="5">
           <div class="empty-state">
-            <p>Noch keine Ãœbungen sichtbar. Lege zuerst den Notion-Sync an oder passe die Filter an.</p>
+            <p>Noch keine Übungen sichtbar. Lege zuerst den Notion-Sync an oder passe die Filter an.</p>
           </div>
         </td>
       </tr>
     `;
     exerciseCards.innerHTML = `
       <div class="empty-state">
-        <p>Noch keine Ãœbungen sichtbar. Lege zuerst den Notion-Sync an oder passe die Filter an.</p>
+        <p>Noch keine Übungen sichtbar. Lege zuerst den Notion-Sync an oder passe die Filter an.</p>
       </div>
     `;
     return;
@@ -3660,15 +3660,15 @@ function renderExercises() {
     const isFavorite = isExerciseFavorite(exercise.id);
     const tags = (exercise.tags || []).map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("");
     const links = [
-      exercise.video_url ? `<a class="ghost" href="${escapeHtml(exercise.video_url)}" target="_blank" rel="noreferrer">Video Ã¶ffnen</a>` : "",
-      exercise.source_url ? `<a class="ghost" href="${escapeHtml(exercise.source_url)}" target="_blank" rel="noreferrer">Notion Ã¶ffnen</a>` : "",
+      exercise.video_url ? `<a class="ghost" href="${escapeHtml(exercise.video_url)}" target="_blank" rel="noreferrer">Video öffnen</a>` : "",
+      exercise.source_url ? `<a class="ghost" href="${escapeHtml(exercise.source_url)}" target="_blank" rel="noreferrer">Notion öffnen</a>` : "",
     ].filter(Boolean).join("");
 
     return `
       <article class="exercise-card ${isFavorite ? "exercise-card-favorite" : ""}">
         <div class="exercise-card-head">
           <div>
-            <p class="eyebrow">Ãœbung</p>
+            <p class="eyebrow">Übung</p>
             <h3>${escapeHtml(exercise.title)}</h3>
           </div>
           <div class="course-status-grid">
@@ -3677,7 +3677,7 @@ function renderExercises() {
           </div>
         </div>
         <div class="exercise-meta-grid">
-          ${exercise.category ? `<p><strong>KÃ¶rperbereich</strong><span>${escapeHtml(exercise.category)}</span></p>` : ""}
+          ${exercise.category ? `<p><strong>Körperbereich</strong><span>${escapeHtml(exercise.category)}</span></p>` : ""}
           ${exercise.focus ? `<p><strong>Bewegungsmuster</strong><span>${escapeHtml(exercise.focus)}</span></p>` : ""}
           ${exercise.level ? `<p><strong>Muskelgruppe</strong><span>${escapeHtml(exercise.level)}</span></p>` : ""}
         </div>
@@ -3710,7 +3710,7 @@ function renderExercises() {
 
 async function handleExerciseSync() {
   if (!isAdmin()) {
-    notify("Der Notion-Sync ist nur fÃ¼r Admins verfÃ¼gbar.", true);
+    notify("Der Notion-Sync ist nur für Admins verfügbar.", true);
     return;
   }
 
@@ -3751,10 +3751,10 @@ async function handleExerciseSync() {
     }
 
     await refreshVisibleData({ context: "Exercise sync refresh", silent: true });
-    notify(payload?.message || `${payload?.synced || 0} Ãœbungen wurden synchronisiert.`);
+    notify(payload?.message || `${payload?.synced || 0} Übungen wurden synchronisiert.`);
   } catch (error) {
     if (error?.name === "AbortError") {
-      notify("Der Notion-Sync dauert zu lange. Bitte Vercel-Logs prÃ¼fen oder den Sync spÃ¤ter erneut starten.", true);
+      notify("Der Notion-Sync dauert zu lange. Bitte Vercel-Logs prüfen oder den Sync später erneut starten.", true);
     } else {
       notify(error.message || "Notion-Sync fehlgeschlagen.", true);
     }
@@ -3805,7 +3805,7 @@ function renderTodayDashboard() {
         : null,
     },
     {
-      title: "NÃ¤chster Fokus",
+      title: "Nächster Fokus",
       value: nextCourse ? nextCourse.name : "Kein weiterer Kurs heute",
       meta: nextCourse?.time ? `${nextCourse.time} Uhr` : "kein Termin geplant",
     },
@@ -3843,7 +3843,7 @@ function renderTodayDashboard() {
     nextCourseCard.className = "stat-card dashboard-card dashboard-card-ok";
     const nextCourseSnapshot = nextCourse ? getCourseStatusSnapshot(nextCourse) : null;
     nextCourseCard.innerHTML = `
-      <h3>NÃ¤chster eigener Termin</h3>
+      <h3>Nächster eigener Termin</h3>
       <p class="hero-stat">${escapeHtml(nextCourse ? nextCourse.name : "Heute nichts mehr geplant")}</p>
       <p class="stat-meta">${escapeHtml(nextCourse?.time ? `${nextCourse.time} Uhr` : "kein weiterer Termin heute")}</p>
       ${nextCourseSnapshot?.session ? `<p class="dashboard-detail-line">${escapeHtml(formatDateLabel(nextCourseSnapshot.session.session_date))} | ${nextCourseSnapshot.participants.length} Teilnehmende</p>` : ""}
@@ -3854,7 +3854,7 @@ function renderTodayDashboard() {
       const openBtn = document.createElement("button");
       openBtn.type = "button";
       openBtn.className = "primary";
-      openBtn.textContent = "Termin Ã¶ffnen";
+      openBtn.textContent = "Termin öffnen";
       openBtn.addEventListener("click", () => {
         state.selectedCourseId = nextCourse.id;
         if (nextCourseSnapshot?.session && attendanceDate) {
@@ -3871,7 +3871,7 @@ function renderTodayDashboard() {
     taskCard.className = "stat-card dashboard-card dashboard-card-neutral";
     taskCard.innerHTML = `
       <h3>Heute nur meine Aufgaben</h3>
-      <p class="stat-meta">Offene Check-ins, Probetrainings, DROP-Ins und Umbuchungen fÃ¼r heute.</p>
+      <p class="stat-meta">Offene Check-ins, Probetrainings, DROP-Ins und Umbuchungen für heute.</p>
     `;
     const taskList = document.createElement("div");
     taskList.className = "stack";
@@ -3887,7 +3887,7 @@ function renderTodayDashboard() {
             <div class="stat-meta">${escapeHtml(task.meta)}</div>
             <div class="dashboard-detail-line">${escapeHtml(task.detail)}</div>
           </div>
-          <span class="status-pill ${task.tone === "warn" ? "status-pill-warn" : task.tone === "info" ? "status-pill-info" : "status-pill-ok"}">Ã–ffnen</span>
+          <span class="status-pill ${task.tone === "warn" ? "status-pill-warn" : task.tone === "info" ? "status-pill-info" : "status-pill-ok"}">Öffnen</span>
         `;
         row.addEventListener("click", task.action);
         taskList.appendChild(row);
@@ -3935,9 +3935,9 @@ function renderTodayDashboard() {
       tone: "ok",
     },
     {
-      title: "VerlÃ¤ngerung",
+      title: "Verlängerung",
       value: nextSeason ? nextSeason.name : "Noch keine Folge-Season",
-      meta: nextSeason ? "VerlÃ¤ngerung mÃ¶glich" : "am besten jetzt duplizieren",
+      meta: nextSeason ? "Verlängerung möglich" : "am besten jetzt duplizieren",
       tone: nextSeason ? "ok" : "warn",
     },
     {
@@ -3978,15 +3978,15 @@ function renderTodayDashboard() {
   const renewalCard = document.createElement("article");
   renewalCard.className = `stat-card dashboard-card ${nextSeason ? "dashboard-card-ok" : "dashboard-card-warn"}`;
   renewalCard.innerHTML = `
-    <h3>NÃ¤chste VerlÃ¤ngerungen</h3>
-    <p class="stat-meta">${escapeHtml(activeSeason.name)} lÃ¤uft bis ${escapeHtml(formatDateLabel(activeSeason.end_date))}</p>
+    <h3>Nächste Verlängerungen</h3>
+    <p class="stat-meta">${escapeHtml(activeSeason.name)} läuft bis ${escapeHtml(formatDateLabel(activeSeason.end_date))}</p>
   `;
   const renewalActions = document.createElement("div");
   renewalActions.className = "stat-card-actions mini-actions";
   const prepareNextSeasonBtn = document.createElement("button");
   prepareNextSeasonBtn.type = "button";
   prepareNextSeasonBtn.className = "ghost";
-  prepareNextSeasonBtn.textContent = nextSeason ? "Folge-Season Ã¶ffnen" : "Folge-Season vorbereiten";
+  prepareNextSeasonBtn.textContent = nextSeason ? "Folge-Season öffnen" : "Folge-Season vorbereiten";
   prepareNextSeasonBtn.addEventListener("click", async () => {
     if (nextSeason) {
       state.selectedSeasonId = nextSeason.id;
@@ -4043,8 +4043,8 @@ function renderTodayDashboard() {
   const recoveryCard = document.createElement("article");
   recoveryCard.className = `stat-card dashboard-card ${renewalCandidates.length ? "dashboard-card-critical" : "dashboard-card-ok"}`;
   recoveryCard.innerHTML = `
-    <h3>RÃ¼ckhol-Workflow</h3>
-    <p class="stat-meta">Personen mit Luft nach oben fÃ¼r die nÃ¤chste Season.</p>
+    <h3>Rückhol-Workflow</h3>
+    <p class="stat-meta">Personen mit Luft nach oben für die nächste Season.</p>
   `;
   const recoveryList = document.createElement("div");
   recoveryList.className = "stack";
@@ -4085,7 +4085,7 @@ function renderTodayDashboard() {
       const carryBtn = document.createElement("button");
       carryBtn.type = "button";
       carryBtn.className = "primary";
-      carryBtn.textContent = "VerlÃ¤ngern";
+      carryBtn.textContent = "Verlängern";
       carryBtn.addEventListener("click", async () => {
         await handleCarryOverBookingToNextSeason(candidate, activeSeason);
       });
@@ -4125,17 +4125,17 @@ function renderTodayDashboard() {
   beatOutCard.className = `stat-card dashboard-card ${bookingsWithBeatOutPressure.some((entry) => entry.reward.availableRewards > 0 || entry.reward.remainingToNext <= 1) ? "dashboard-card-warn" : "dashboard-card-ok"}`;
   beatOutCard.innerHTML = `
     <h3>BEAT-OUT & Gratis-Seasons</h3>
-    <p class="stat-meta">Wer viel gesammelt hat, kurz vor der nÃ¤chsten Freistufe steht oder bereits eine Gratis-Season erreicht hat.</p>
+    <p class="stat-meta">Wer viel gesammelt hat, kurz vor der nächsten Freistufe steht oder bereits eine Gratis-Season erreicht hat.</p>
   `;
   const beatOutList = document.createElement("div");
   beatOutList.className = "stack";
   if (bookingsWithBeatOutPressure.length) {
     bookingsWithBeatOutPressure.slice(0, 5).forEach((entry) => {
       const nextRewardMeta = entry.reward.availableRewards > 0
-        ? `${entry.reward.total} BEAT-OUTs gesamt | ${entry.reward.availableRewards} Gratis-Season${entry.reward.availableRewards > 1 ? "s" : ""} einlÃ¶sbar`
+        ? `${entry.reward.total} BEAT-OUTs gesamt | ${entry.reward.availableRewards} Gratis-Season${entry.reward.availableRewards > 1 ? "s" : ""} einlösbar`
         : entry.reward.nextMilestone
           ? `${entry.reward.total} BEAT-OUTs gesamt | noch ${entry.reward.remainingToNext} bis ${entry.reward.nextMilestone}`
-          : `${entry.reward.total} BEAT-OUTs gesamt | hÃ¶chste Freistufe erreicht`;
+          : `${entry.reward.total} BEAT-OUTs gesamt | höchste Freistufe erreicht`;
       const row = document.createElement("div");
       row.className = "list-row";
       row.innerHTML = `
@@ -4159,7 +4159,7 @@ function renderTodayDashboard() {
         const redeemBtn = document.createElement("button");
         redeemBtn.type = "button";
         redeemBtn.className = "ghost";
-        redeemBtn.textContent = "EinlÃ¶sen";
+        redeemBtn.textContent = "Einlösen";
         redeemBtn.addEventListener("click", async () => {
           await redeemFreeSeasonForBooking(entry.booking);
         });
@@ -4183,14 +4183,14 @@ function renderTodayDashboard() {
   trialReminderCard.className = `stat-card dashboard-card ${openTrialRequests.length ? "dashboard-card-warn" : "dashboard-card-ok"}`;
   trialReminderCard.innerHTML = `
     <h3>Probetraining im Blick</h3>
-    <p class="stat-meta">Offene Probetrainings und anstehende Conversion-FÃ¤lle.</p>
+    <p class="stat-meta">Offene Probetrainings und anstehende Conversion-Fälle.</p>
   `;
   const trialReminderActions = document.createElement("div");
   trialReminderActions.className = "stat-card-actions mini-actions";
   const openTrialsBtn = document.createElement("button");
   openTrialsBtn.type = "button";
   openTrialsBtn.className = "ghost";
-  openTrialsBtn.textContent = "Probetrainings Ã¶ffnen";
+  openTrialsBtn.textContent = "Probetrainings öffnen";
   openTrialsBtn.addEventListener("click", () => {
     setActiveSection("#trialsPanel");
   });
@@ -4304,7 +4304,7 @@ function renderPlanning() {
     card.className = "stat-card";
     card.innerHTML = `
       <h3>${escapeHtml(course.name)}</h3>
-      <p class="stat-meta">Bitte Wochentag im Kurs pflegen, damit Termine geplant werden kÃ¶nnen.</p>
+      <p class="stat-meta">Bitte Wochentag im Kurs pflegen, damit Termine geplant werden können.</p>
     `;
     planningPreview.appendChild(card);
     return;
@@ -4498,10 +4498,10 @@ function renderSeasons() {
       addDateRow.className = "season-extra-date-row";
       addDateRow.innerHTML = `
         <label>
-          <span>Nachholtermin hinzufÃ¼gen</span>
+          <span>Nachholtermin hinzufügen</span>
           <input type="date" class="season-extra-date-input">
         </label>
-        <button type="button" class="ghost season-extra-date-btn">Trainingstag hinzufÃ¼gen</button>
+        <button type="button" class="ghost season-extra-date-btn">Trainingstag hinzufügen</button>
       `;
       const dateInput = addDateRow.querySelector(".season-extra-date-input");
       const addButton = addDateRow.querySelector(".season-extra-date-btn");
@@ -4545,7 +4545,7 @@ function renderSeasons() {
     const carryOverBtn = document.createElement("button");
     carryOverBtn.type = "button";
     carryOverBtn.className = "primary";
-    carryOverBtn.textContent = "Teilnehmer Ã¼bernehmen";
+    carryOverBtn.textContent = "Teilnehmer übernehmen";
     carryOverBtn.addEventListener("click", async () => {
       await handleSeasonCarryOverIntoExisting(season);
     });
@@ -4566,7 +4566,7 @@ function renderSeasons() {
       const archiveBtn = document.createElement("button");
       archiveBtn.type = "button";
       archiveBtn.className = "danger";
-      archiveBtn.textContent = "Season abschlieÃŸen";
+      archiveBtn.textContent = "Season abschließen";
       archiveBtn.addEventListener("click", async () => {
         await handleSeasonArchive(season);
       });
@@ -4576,7 +4576,7 @@ function renderSeasons() {
     const deleteBtn = document.createElement("button");
     deleteBtn.type = "button";
     deleteBtn.className = "danger";
-    deleteBtn.textContent = "Season lÃ¶schen";
+    deleteBtn.textContent = "Season löschen";
     deleteBtn.addEventListener("click", async () => {
       await handleSeasonDelete(season);
     });
@@ -4589,7 +4589,7 @@ function renderSeasons() {
 
 async function handleSeasonExtraDateAdd(season, dateValue) {
   if (!season || !dateValue) {
-    notify("Bitte zuerst ein Datum fÃ¼r den Nachholtermin wÃ¤hlen.", true);
+    notify("Bitte zuerst ein Datum für den Nachholtermin wählen.", true);
     return;
   }
 
@@ -4602,7 +4602,7 @@ async function handleSeasonExtraDateAdd(season, dateValue) {
   });
 
   if (!payload.length) {
-    notify("FÃ¼r dieses Datum gibt es entweder keinen passenden Kurstag oder der Termin ist bereits angelegt.", true);
+    notify("Für dieses Datum gibt es entweder keinen passenden Kurstag oder der Termin ist bereits angelegt.", true);
     return;
   }
 
@@ -4649,7 +4649,7 @@ async function handleSeasonExtraDateAdd(season, dateValue) {
   }
 
   render();
-  notify(`Nachholtermin fÃ¼r ${updatedSeason.name} am ${formatDateLabel(dateValue)} wurde angelegt.`);
+  notify(`Nachholtermin für ${updatedSeason.name} am ${formatDateLabel(dateValue)} wurde angelegt.`);
   await refreshVisibleData({ context: "Season extra date refresh", silent: true });
 }
 
@@ -4776,11 +4776,11 @@ function renderSeasonBookings() {
       <p class="stat-meta">Tage: ${escapeHtml(formatSelectedDays(booking.selected_days))}</p>
       ${booking.start_date ? `<p class="stat-meta">Start ab: ${escapeHtml(formatDateLabel(booking.start_date))}</p>` : ""}
       <p class="stat-meta">BEAT-OUTS: ${beatOutUsage.used}/${beatOutUsage.limit}</p>
-      <p class="stat-meta">Gratis-Season: ${rewardStatus.availableRewards} verfÃ¼gbar | ${rewardStatus.redeemedRewards} eingelÃ¶st</p>
+      <p class="stat-meta">Gratis-Season: ${rewardStatus.availableRewards} verfügbar | ${rewardStatus.redeemedRewards} eingelöst</p>
       <p class="stat-meta">${booking.phone ? escapeHtml(booking.phone) : "Keine Telefonnummer"}</p>
       <div class="trial-pipeline">
         <span class="status-pill ${escapeHtml(contactMeta.tone)}">${escapeHtml(contactMeta.label)}</span>
-        <span class="stat-meta">${rewardStatus.nextMilestone ? `Noch ${rewardStatus.remainingToNext} bis ${rewardStatus.nextMilestone}` : "HÃ¶chste Freistufe erreicht"}</span>
+        <span class="stat-meta">${rewardStatus.nextMilestone ? `Noch ${rewardStatus.remainingToNext} bis ${rewardStatus.nextMilestone}` : "Höchste Freistufe erreicht"}</span>
       </div>
     `;
     const actions = document.createElement("div");
@@ -4816,7 +4816,7 @@ function renderSeasonBookings() {
     const carryBtn = document.createElement("button");
     carryBtn.type = "button";
     carryBtn.className = "ghost";
-    carryBtn.textContent = "VerlÃ¤ngern";
+    carryBtn.textContent = "Verlängern";
     carryBtn.addEventListener("click", async () => {
       if (season) {
         await handleCarryOverBookingToNextSeason(booking, season);
@@ -4827,7 +4827,7 @@ function renderSeasonBookings() {
     const redeemBtn = document.createElement("button");
     redeemBtn.type = "button";
     redeemBtn.className = rewardStatus.availableRewards > 0 ? "primary" : "ghost";
-    redeemBtn.textContent = rewardStatus.availableRewards > 0 ? "Gratis-Season einlÃ¶sen" : "Keine Gratis-Season";
+    redeemBtn.textContent = rewardStatus.availableRewards > 0 ? "Gratis-Season einlösen" : "Keine Gratis-Season";
     redeemBtn.disabled = rewardStatus.availableRewards <= 0;
     redeemBtn.addEventListener("click", async () => {
       await redeemFreeSeasonForBooking(booking);
@@ -4837,7 +4837,7 @@ function renderSeasonBookings() {
     const deleteBtn = document.createElement("button");
     deleteBtn.type = "button";
     deleteBtn.className = "danger";
-    deleteBtn.textContent = "Buchung lÃ¶schen";
+    deleteBtn.textContent = "Buchung löschen";
     deleteBtn.addEventListener("click", async () => {
       await handleBookingDelete(booking);
     });
@@ -4936,7 +4936,7 @@ function renderTrainerDirectory() {
       const deleteBtn = document.createElement("button");
       deleteBtn.type = "button";
       deleteBtn.className = "danger";
-      deleteBtn.textContent = "Trainer lÃ¶schen";
+      deleteBtn.textContent = "Trainer löschen";
       deleteBtn.addEventListener("click", async () => {
         await handleTrainerDirectoryDelete(entry);
       });
@@ -4948,7 +4948,7 @@ function renderTrainerDirectory() {
       const deleteBtn = document.createElement("button");
       deleteBtn.type = "button";
       deleteBtn.className = "danger";
-      deleteBtn.textContent = "Trainer lÃ¶schen";
+      deleteBtn.textContent = "Trainer löschen";
       deleteBtn.addEventListener("click", async () => {
         await handleTrainerDirectoryDelete(entry);
       });
@@ -5007,8 +5007,8 @@ function renderSingleSessionSelect(selectElement) {
     const option = document.createElement("option");
     option.value = "";
     option.textContent = preferredSeasonId
-      ? "Keine Termine in der gewÃ¤hlten Season"
-      : "Keine kommenden Termine verfÃ¼gbar";
+      ? "Keine Termine in der gewählten Season"
+      : "Keine kommenden Termine verfügbar";
     selectElement.appendChild(option);
     return;
   }
@@ -5087,7 +5087,7 @@ function renderTrials() {
         <button type="button" class="ghost" data-trial-action="attended">Teilgenommen</button>
         <button type="button" class="ghost" data-trial-action="move">Umbuchen</button>
         <button type="button" class="primary" data-trial-action="convert">Konvertieren</button>
-        <button type="button" class="danger" data-trial-action="delete">LÃ¶schen</button>
+        <button type="button" class="danger" data-trial-action="delete">Löschen</button>
       </div>
     `;
 
@@ -5151,7 +5151,7 @@ function renderDropIns() {
         <button type="button" class="ghost" data-dropin-action="open">Zum Kurs</button>
         <button type="button" class="ghost" data-dropin-action="move">Umbuchen</button>
         ${isPast || isArchived ? `<button type="button" class="ghost" data-dropin-action="archive">${isArchived ? "Wiederherstellen" : "Archivieren"}</button>` : ""}
-        <button type="button" class="danger" data-dropin-action="cancel">LÃ¶schen</button>
+        <button type="button" class="danger" data-dropin-action="cancel">Löschen</button>
       </div>
     `;
 
@@ -5221,7 +5221,7 @@ async function handleTrialDelete(trial) {
     return;
   }
 
-  const shouldDelete = window.confirm(`Probetraining von ${trial.full_name} wirklich lÃ¶schen?`);
+  const shouldDelete = window.confirm(`Probetraining von ${trial.full_name} wirklich löschen?`);
   if (!shouldDelete) {
     return;
   }
@@ -5232,13 +5232,13 @@ async function handleTrialDelete(trial) {
     .eq("id", trial.id);
 
   if (error) {
-    notify(getFriendlySupabaseMessage(error, "Probetraining konnte nicht gelÃ¶scht werden."), true);
+    notify(getFriendlySupabaseMessage(error, "Probetraining konnte nicht gelöscht werden."), true);
     return;
   }
 
   state.trialRequests = state.trialRequests.filter((entry) => entry.id !== trial.id);
   render();
-  notify("Probetraining wurde gelÃ¶scht.");
+  notify("Probetraining wurde gelöscht.");
 }
 
 async function updateDropInStatus(dropInId, status) {
@@ -5259,12 +5259,12 @@ async function updateDropInStatus(dropInId, status) {
 
 async function openTrialMoveModal(trial) {
   if (!trial || state.isOffline) {
-    notify("Umbuchungen sind nur online mÃ¶glich.", true);
+    notify("Umbuchungen sind nur online möglich.", true);
     return;
   }
 
   if (!moveParticipantModal || !moveParticipantTargetCourse || !moveParticipantText) {
-    notify("Umbuchungsfenster konnte nicht geÃ¶ffnet werden.", true);
+    notify("Umbuchungsfenster konnte nicht geöffnet werden.", true);
     return;
   }
 
@@ -5272,7 +5272,7 @@ async function openTrialMoveModal(trial) {
     ? state.sessions.find((entry) => entry.id === trial.attendance_session_id) || null
     : null;
   if (!currentSession) {
-    notify("FÃ¼r dieses Probetraining ist noch kein gÃ¼ltiger Termin hinterlegt.", true);
+    notify("Für dieses Probetraining ist noch kein gültiger Termin hinterlegt.", true);
     return;
   }
 
@@ -5312,12 +5312,12 @@ async function openTrialMoveModal(trial) {
 
 async function openDropInMoveModal(dropIn) {
   if (!dropIn || state.isOffline) {
-    notify("Umbuchungen sind nur online mÃ¶glich.", true);
+    notify("Umbuchungen sind nur online möglich.", true);
     return;
   }
 
   if (!moveParticipantModal || !moveParticipantTargetCourse || !moveParticipantText) {
-    notify("Umbuchungsfenster konnte nicht geÃ¶ffnet werden.", true);
+    notify("Umbuchungsfenster konnte nicht geöffnet werden.", true);
     return;
   }
 
@@ -5325,7 +5325,7 @@ async function openDropInMoveModal(dropIn) {
     ? state.sessions.find((entry) => entry.id === dropIn.attendance_session_id) || null
     : null;
   if (!currentSession) {
-    notify("FÃ¼r diesen DROP-IN ist noch kein gÃ¼ltiger Termin hinterlegt.", true);
+    notify("Für diesen DROP-IN ist noch kein gültiger Termin hinterlegt.", true);
     return;
   }
 
@@ -5410,7 +5410,7 @@ async function handleCarryOverBookingToNextSeason(booking, sourceSeason) {
 
   const availableSeasons = getAvailableRenewalSeasons(sourceSeason);
   if (!availableSeasons.length) {
-    notify("Bitte lege zuerst eine Ziel-Season an, bevor du den Teilnehmer verlÃ¤ngerst.", true);
+    notify("Bitte lege zuerst eine Ziel-Season an, bevor du den Teilnehmer verlängerst.", true);
     return;
   }
 
@@ -5422,16 +5422,16 @@ async function handleCarryOverBookingToNextSeason(booking, sourceSeason) {
   };
 
   if (moveParticipantTitle) {
-    moveParticipantTitle.textContent = "Teilnehmer verlÃ¤ngern";
+    moveParticipantTitle.textContent = "Teilnehmer verlängern";
   }
   if (moveParticipantTargetLabel) {
     moveParticipantTargetLabel.textContent = "Ziel-Season";
   }
   if (moveParticipantSubmitBtn) {
-    moveParticipantSubmitBtn.textContent = "In Season Ã¼bernehmen";
+    moveParticipantSubmitBtn.textContent = "In Season übernehmen";
   }
 
-  moveParticipantText.textContent = `${booking.full_name} wird aus ${sourceSeason.name} in eine bereits angelegte Ziel-Season Ã¼bernommen.`;
+  moveParticipantText.textContent = `${booking.full_name} wird aus ${sourceSeason.name} in eine bereits angelegte Ziel-Season übernommen.`;
   moveParticipantTargetCourse.innerHTML = "";
   availableSeasons.forEach((season) => {
     const option = document.createElement("option");
@@ -5641,7 +5641,7 @@ function renderCourseList() {
     const selectBtn = document.createElement("button");
     selectBtn.type = "button";
     selectBtn.className = "ghost";
-    selectBtn.textContent = "Kurs Ã¶ffnen";
+    selectBtn.textContent = "Kurs öffnen";
     selectBtn.addEventListener("click", (event) => {
       event.stopPropagation();
       openCourse();
@@ -5668,7 +5668,7 @@ function renderCourseList() {
       const deleteBtn = document.createElement("button");
       deleteBtn.type = "button";
       deleteBtn.className = "danger";
-      deleteBtn.textContent = "Kurs lÃ¶schen";
+      deleteBtn.textContent = "Kurs löschen";
       deleteBtn.addEventListener("click", async (event) => {
         event.stopPropagation();
         state.selectedCourseId = course.id;
@@ -5689,7 +5689,7 @@ function renderParticipants() {
   participantCards.innerHTML = "";
 
   if (!course) {
-    participantSectionTitle.textContent = "Bitte zuerst einen Kurs auswÃ¤hlen";
+    participantSectionTitle.textContent = "Bitte zuerst einen Kurs auswählen";
     courseActions.classList.add("hidden");
     return;
   }
@@ -5740,7 +5740,7 @@ function renderParticipants() {
 
   if (!sessionParticipants.length) {
     const row = document.createElement("tr");
-      row.innerHTML = `<td colspan="5"><div class="empty-state"><p>Keine Teilnehmer fÃ¼r die aktuelle Suche gefunden.</p></div></td>`;
+      row.innerHTML = `<td colspan="5"><div class="empty-state"><p>Keine Teilnehmer für die aktuelle Suche gefunden.</p></div></td>`;
     participantTableBody.appendChild(row);
     participantCards.appendChild(emptyStateTemplate.content.cloneNode(true));
     return;
@@ -5799,7 +5799,7 @@ function renderParticipants() {
         <div class="mini-actions table-actions">
           <button type="button" class="ghost participant-beatout-btn${beatOutEntry ? " is-active" : ""}">${beatOutEntry ? "BEAT-OUT aktiv" : "BEAT-OUT"}</button>
           <button type="button" class="ghost participant-move-btn">${targetOverride ? "Terminwechsel aufheben" : booking ? "Termin umbuchen" : "Umbuchen"}</button>
-          <button type="button" class="danger participant-delete-btn">${booking ? "Entfernen" : "LÃ¶schen"}</button>
+          <button type="button" class="danger participant-delete-btn">${booking ? "Entfernen" : "Löschen"}</button>
         </div>
       </td>
     `;
@@ -5897,14 +5897,14 @@ function renderParticipants() {
           <div class="participant-card-status-copy">
             <span class="participant-card-section-label">Anwesenheit</span>
             <strong>${escapeHtml(mobileStatusLabel)}</strong>
-            <span class="participant-card-status-hint">${isTrialParticipant ? "Nur Ansicht" : isDropInParticipant ? "Tippen fÃ¼r Teilnahme" : "Tippen fÃ¼r schnellen Check-in"}</span>
+            <span class="participant-card-status-hint">${isTrialParticipant ? "Nur Ansicht" : isDropInParticipant ? "Tippen für Teilnahme" : "Tippen für schnellen Check-in"}</span>
           </div>
           <button type="button" class="attendance-toggle${isPresent ? " is-present" : ""}" aria-label="Anwesenheit umschalten"></button>
         </div>
       <div class="participant-card-actions participant-card-actions-secondary">
         <button type="button" class="ghost participant-beatout-btn${beatOutEntry ? " is-active" : ""}">${beatOutEntry ? "BEAT-OUT aktiv" : "BEAT-OUT"}</button>
         <button type="button" class="ghost participant-move-btn">${targetOverride ? "Terminwechsel aufheben" : booking ? "Termin umbuchen" : "Umbuchen"}</button>
-        <button type="button" class="danger participant-delete-btn">${booking ? "Entfernen" : "LÃ¶schen"}</button>
+        <button type="button" class="danger participant-delete-btn">${booking ? "Entfernen" : "Löschen"}</button>
       </div>
     `;
 
@@ -6050,17 +6050,17 @@ function renderParticipantProfile(fallbackBookingId = null) {
       <article class="stat-card">
         <h3>BEAT-OUTS</h3>
         <p class="hero-stat">${booking ? `${beatOutUsage.used}/${beatOutUsage.limit}` : "-"}</p>
-        <p class="stat-meta">${booking ? `${beatOutUsage.remaining} verbleibend in dieser Season` : "Nur bei Season-Buchung verfÃ¼gbar"}</p>
+        <p class="stat-meta">${booking ? `${beatOutUsage.remaining} verbleibend in dieser Season` : "Nur bei Season-Buchung verfügbar"}</p>
       </article>
       <article class="stat-card">
         <h3>Gratis-Season Status</h3>
         <p class="hero-stat">${rewardStatus.availableRewards}</p>
-        <p class="stat-meta">${rewardStatus.redeemedRewards} eingelÃ¶st | ${rewardStatus.nextMilestone ? `NÃ¤chste Schwelle bei ${rewardStatus.nextMilestone} BEAT-OUTs` : "12 BEAT-OUTs erreicht"}</p>
+        <p class="stat-meta">${rewardStatus.redeemedRewards} eingelöst | ${rewardStatus.nextMilestone ? `Nächste Schwelle bei ${rewardStatus.nextMilestone} BEAT-OUTs` : "12 BEAT-OUTs erreicht"}</p>
       </article>
       <article class="stat-card">
         <h3>Kontaktstatus</h3>
         <p class="hero-stat">${escapeHtml(contactMeta.label)}</p>
-        <p class="stat-meta">VerlÃ¤ngerung und Follow-up im Blick behalten</p>
+        <p class="stat-meta">Verlängerung und Follow-up im Blick behalten</p>
       </article>
     </div>
     <article class="stat-card">
@@ -6208,12 +6208,12 @@ function renderBusinessDashboard() {
 
   const insightCards = [
     {
-      title: "StÃ¤rkster Kurs",
+      title: "Stärkster Kurs",
       value: topCourse ? `${topCourse.name} (${topCourse.rate}%)` : "Noch keine Daten",
       meta: "beste Anwesenheitsquote",
     },
     {
-      title: "StÃ¤rkster Trainer",
+      title: "Stärkster Trainer",
       value: topTrainer ? `${topTrainer.name} (${topTrainer.rate}%)` : "Noch keine Daten",
       meta: "durchschnittliche Anwesenheit",
     },
@@ -6224,7 +6224,7 @@ function renderBusinessDashboard() {
     },
     {
       title: "Handlungsbedarf",
-      value: weakestCourse ? `${weakestCourse.name} (${weakestCourse.rate}%)` : "Kein AusreiÃŸer",
+      value: weakestCourse ? `${weakestCourse.name} (${weakestCourse.rate}%)` : "Kein Ausreißer",
       meta: "niedrigste Anwesenheitsquote",
     },
   ];
@@ -6269,7 +6269,7 @@ function renderBusinessDashboard() {
       trialSeasonList.appendChild(row);
     });
   } else {
-    trialSeasonList.innerHTML = '<p class="stat-meta">Noch keine Probetrainings mit Season-Bezug im gewÃ¤hlten Monat.</p>';
+    trialSeasonList.innerHTML = '<p class="stat-meta">Noch keine Probetrainings mit Season-Bezug im gewählten Monat.</p>';
   }
   trialSeasonCard.appendChild(trialSeasonList);
   businessInsights.appendChild(trialSeasonCard);
@@ -6424,7 +6424,7 @@ function renderMonthlyCalendarView(monthValue) {
     if (dayEvents.length) {
       const countLabel = document.createElement("span");
       countLabel.className = "monthly-calendar-day-count";
-      countLabel.textContent = `${dayEvents.length} EintrÃ¤ge`;
+      countLabel.textContent = `${dayEvents.length} Einträge`;
       dayMeta.appendChild(countLabel);
     }
     dayHeader.appendChild(dayNumber);
@@ -6588,7 +6588,7 @@ function renderReportPreview() {
     {
       title: "Suchfilter",
       value: state.participantSearch || "Kein Filter",
-      meta: "fÃ¼r Teilnehmerlisten und Ranking",
+      meta: "für Teilnehmerlisten und Ranking",
     },
     {
       title: "Aufmerksamkeiten",
@@ -6646,7 +6646,7 @@ async function toggleAttendance(courseId, participantId) {
 
   persistOfflineCache();
   render();
-  notify(nextPresent ? "Anwesenheit bestÃ¤tigt." : "Anwesenheit entfernt.");
+  notify(nextPresent ? "Anwesenheit bestätigt." : "Anwesenheit entfernt.");
 
   await refreshVisibleData({ context: "Attendance refresh", silent: true });
 }
@@ -6659,13 +6659,13 @@ async function toggleBeatOut(courseId, participantId) {
   }
 
   if (state.isOffline) {
-    notify("BEAT-OUTs kÃ¶nnen aktuell nur online eingetragen werden.", true);
+    notify("BEAT-OUTs können aktuell nur online eingetragen werden.", true);
     return;
   }
 
   const booking = getParticipantSeasonBooking(participant);
   if (!booking) {
-    notify("BEAT-OUT ist nur fÃ¼r Season-Buchungen verfÃ¼gbar.", true);
+    notify("BEAT-OUT ist nur für Season-Buchungen verfügbar.", true);
     return;
   }
 
@@ -6699,7 +6699,7 @@ async function toggleBeatOut(courseId, participantId) {
     state.acceptEmptyFetch.beatOutEntries = false;
     persistOfflineCache();
     render();
-    notify(`BEAT-OUT fÃ¼r ${participant.full_name} wurde entfernt.`);
+    notify(`BEAT-OUT für ${participant.full_name} wurde entfernt.`);
     await refreshVisibleData({ context: "Beat-out refresh", silent: true });
     return;
   }
@@ -6741,7 +6741,7 @@ async function toggleBeatOut(courseId, participantId) {
   state.acceptEmptyFetch.beatOutEntries = false;
   persistOfflineCache();
   render();
-  notify(`BEAT-OUT fÃ¼r ${participant.full_name} wurde eingetragen.`);
+  notify(`BEAT-OUT für ${participant.full_name} wurde eingetragen.`);
   await refreshVisibleData({ context: "Beat-out refresh", silent: true });
 }
 
@@ -6765,7 +6765,7 @@ async function setAttendanceForAll(value) {
     });
     persistOfflineCache();
     render();
-    notify("SammelÃ¤nderung offline gespeichert.");
+    notify("Sammeländerung offline gespeichert.");
     return;
   }
 
@@ -6877,7 +6877,7 @@ async function createPlannedSessions(mode) {
     : getUpcomingCourseDates(course, 4);
 
   if (!dates.length) {
-    notify("FÃ¼r diesen Kurs konnten keine Termine berechnet werden.", true);
+    notify("Für diesen Kurs konnten keine Termine berechnet werden.", true);
     return;
   }
 
@@ -6930,7 +6930,7 @@ async function createPlannedSessions(mode) {
 function exportSelectedCourseCsv() {
   const course = getSelectedCourse();
   if (!course) {
-    notify("Bitte zuerst einen Kurs auswÃ¤hlen.", true);
+    notify("Bitte zuerst einen Kurs auswählen.", true);
     return;
   }
 
@@ -7420,7 +7420,7 @@ function getTrialPipelineMeta(trial) {
   if (status === "angefragt") {
     return {
       label: "Anfrage offen",
-      meta: "Termin bestÃ¤tigen oder rÃ¼ckmelden",
+      meta: "Termin bestätigen oder rückmelden",
       tone: "status-pill-info",
     };
   }
@@ -7434,20 +7434,20 @@ function getTrialPipelineMeta(trial) {
   if (status === "teilgenommen") {
     return {
       label: "Conversion offen",
-      meta: "Nachfassen und in Teilnehmer Ã¼bernehmen",
+      meta: "Nachfassen und in Teilnehmer übernehmen",
       tone: "status-pill-warn",
     };
   }
   if (status === "konvertiert") {
     return {
       label: "Konvertiert",
-      meta: "bereits in Teilnehmer Ã¼bernommen",
+      meta: "bereits in Teilnehmer übernommen",
       tone: "status-pill-info",
     };
   }
   return {
     label: "Abgesagt",
-      meta: "kein weiterer Schritt nÃ¶tig",
+      meta: "kein weiterer Schritt nötig",
     tone: "status-pill-critical",
   };
 }
@@ -7457,7 +7457,7 @@ function getDropInPipelineMeta(dropIn) {
   if (status === "gebucht") {
     return {
       label: "Einzelstunde gebucht",
-      meta: "nur fÃ¼r diesen einen Termin aktiv",
+      meta: "nur für diesen einen Termin aktiv",
       tone: "status-pill-info",
     };
   }
@@ -7470,7 +7470,7 @@ function getDropInPipelineMeta(dropIn) {
   }
   return {
     label: "Storniert",
-    meta: "kein weiterer Schritt nÃ¶tig",
+    meta: "kein weiterer Schritt nötig",
     tone: "status-pill-critical",
   };
 }
@@ -7701,7 +7701,7 @@ function getSessionOverrideLabel(override) {
     return "Einzeltermin umgebucht";
   }
 
-  return `Ersatz fÃ¼r ${sourceCourse.weekday} ${formatDateLabel(sourceSession.session_date)}`;
+  return `Ersatz für ${sourceCourse.weekday} ${formatDateLabel(sourceSession.session_date)}`;
 }
 
 function getBeatOutLimitForPackage(packageType) {
@@ -7960,7 +7960,7 @@ function getLatestInviteForTrainer(entry) {
 
 function openTrainerInviteEmailDraft(entry, invite) {
   if (!entry?.email || !invite?.code) {
-    notify("FÃ¼r diesen Trainer ist aktuell keine Einladung mit Link verfÃ¼gbar.", true);
+    notify("Für diesen Trainer ist aktuell keine Einladung mit Link verfügbar.", true);
     return;
   }
 
@@ -7970,19 +7970,19 @@ function openTrainerInviteEmailDraft(entry, invite) {
   const body = encodeURIComponent([
     trainerName ? `Hallo ${trainerName},` : "Hallo,",
     "",
-    "dein Trainerzugang fÃ¼r BEATFIELD wurde vorbereitet.",
+    "dein Trainerzugang für BEATFIELD wurde vorbereitet.",
     "",
     "Nutze bitte diesen Einladungslink, um deinen Zugang abzuschliessen:",
     inviteLink,
     "",
-    `Falls du den Code lieber manuell eingeben mÃ¶chtest: ${invite.code}`,
+    `Falls du den Code lieber manuell eingeben möchtest: ${invite.code}`,
     "",
     "Bis gleich bei BEATFIELD.",
   ].join("\n"));
   const recipient = encodeURIComponent(String(entry.email).trim());
 
   window.location.href = `mailto:${recipient}?subject=${subject}&body=${body}`;
-  notify(`E-Mail fÃ¼r ${entry.email} wurde vorbereitet.`);
+  notify(`E-Mail für ${entry.email} wurde vorbereitet.`);
 }
 
 function getTrainerAccessState(entry) {
@@ -8807,7 +8807,7 @@ function notify(message, isError = false) {
   statusHeadline.textContent = isError ? "Aktion fehlgeschlagen" : "Status aktualisiert";
   statusText.textContent = message;
   if (statusMeta) {
-    statusMeta.textContent = `${isError ? "Fehler" : "Letzte Aktion"} â€¢ ${formatStatusTimestamp()}`;
+    statusMeta.textContent = `${isError ? "Fehler" : "Letzte Aktion"} • ${formatStatusTimestamp()}`;
     statusMeta.dataset.locked = "true";
     window.clearTimeout(notify.resetTimerId);
     notify.resetTimerId = window.setTimeout(() => {
@@ -8816,7 +8816,7 @@ function notify(message, isError = false) {
       }
       delete statusMeta.dataset.locked;
       if (state.session && state.profile) {
-        statusMeta.textContent = "Bereit fÃ¼r den Tagesbetrieb";
+        statusMeta.textContent = "Bereit für den Tagesbetrieb";
       } else if (state.supabase) {
         statusMeta.textContent = "Warte auf Anmeldung";
       } else {
@@ -8845,7 +8845,7 @@ async function refreshVisibleData({ includeCourses = false, context = "Refresh",
   } catch (error) {
     console.error(`${context} failed`, error);
     if (!silent) {
-      notify("Daten konnten nicht vollstÃ¤ndig aktualisiert werden.", true);
+      notify("Daten konnten nicht vollständig aktualisiert werden.", true);
     }
     return false;
   }
@@ -8955,11 +8955,11 @@ function getFriendlySupabaseMessage(error, fallback) {
     || normalized.includes("exercise_library")
     || normalized.includes("notion_page_id")
   ) {
-    return "Die App braucht das neueste Supabase-Schema. Bitte `supabase-schema.sql` noch einmal komplett im SQL Editor ausfÃ¼hren.";
+    return "Die App braucht das neueste Supabase-Schema. Bitte `supabase-schema.sql` noch einmal komplett im SQL Editor ausführen.";
   }
 
   if (normalized.includes("relation") && normalized.includes("does not exist")) {
-    return "In Supabase fehlt noch mindestens eine Tabelle. Bitte `supabase-schema.sql` noch einmal komplett ausfÃ¼hren.";
+    return "In Supabase fehlt noch mindestens eine Tabelle. Bitte `supabase-schema.sql` noch einmal komplett ausführen.";
   }
 
   return message || fallback || "Aktion fehlgeschlagen.";
@@ -9135,20 +9135,20 @@ function handleGenerateSeasonDates() {
 
   const startDate = String(new FormData(seasonForm).get("startDate") || "").trim();
   if (!startDate) {
-    notify("Bitte zuerst ein Startdatum fÃ¼r die Season setzen.", true);
+    notify("Bitte zuerst ein Startdatum für die Season setzen.", true);
     return;
   }
 
   const endDate = calculateSeasonEndDate(startDate);
   state.seasonDraftDates = getGeneratedSeasonDates(startDate, endDate);
   renderSeasonDateEditor();
-  notify(`${state.seasonDraftDates.length} Standardtermine fÃ¼r die Season geladen.`);
+  notify(`${state.seasonDraftDates.length} Standardtermine für die Season geladen.`);
 }
 
 function handleAddSeasonDraftDate() {
   const dateValue = String(seasonDateDraftInput?.value || "").trim();
   if (!dateValue) {
-    notify("Bitte zuerst ein Datum fÃ¼r den Season-Termin wÃ¤hlen.", true);
+    notify("Bitte zuerst ein Datum für den Season-Termin wählen.", true);
     return;
   }
 
@@ -9231,7 +9231,7 @@ function resolveRelevantCoursesForDays(selectedDays) {
   if (missingWeekdays.length) {
     return {
       ok: false,
-      message: `FÃ¼r diese Trainingstage fehlt noch ein Kurs: ${missingWeekdays.join(", ")}.`,
+      message: `Für diese Trainingstage fehlt noch ein Kurs: ${missingWeekdays.join(", ")}.`,
     };
   }
 
@@ -9239,7 +9239,7 @@ function resolveRelevantCoursesForDays(selectedDays) {
   if (ambiguousWeekdays.length) {
     return {
       ok: false,
-      message: `Bitte pro Trainingstag genau einen Kurs pflegen. Mehrfach gefunden fÃ¼r: ${ambiguousWeekdays.join(", ")}.`,
+      message: `Bitte pro Trainingstag genau einen Kurs pflegen. Mehrfach gefunden für: ${ambiguousWeekdays.join(", ")}.`,
     };
   }
 
@@ -9304,7 +9304,7 @@ async function removeSessionOverride(override, participantName = "Teilnehmer") {
 
   state.sessionOverrides = state.sessionOverrides.filter((entry) => entry.id !== override.id);
   render();
-  notify(`Termin-Umbuchung fÃ¼r ${participantName} wurde aufgehoben.`);
+  notify(`Termin-Umbuchung für ${participantName} wurde aufgehoben.`);
   await refreshVisibleData({ context: "Session override delete refresh", silent: true });
 }
 
