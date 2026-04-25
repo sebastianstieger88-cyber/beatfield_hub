@@ -1594,6 +1594,31 @@ button.danger {
   overflow-x: auto;
 }
 
+.beatout-table-wrap {
+  max-height: 460px;
+  overflow: auto;
+  margin-top: 8px;
+  border-radius: 18px;
+  border: 1px solid rgba(103, 193, 47, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.beatout-table {
+  min-width: 980px;
+}
+
+.beatout-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #111212;
+}
+
+.beatout-table td strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

@@ -6202,8 +6202,9 @@ function renderBusinessDashboard() {
       title: "Aktuelle BEAT-OUTs & Gratis-Seasons",
       subtitle: `${activeSeason.name}: aktuelle Season-Nutzung plus seasonübergreifende Freistufen pro Teilnehmer.`,
       emptyText: "Noch keine BEAT-OUTs oder Gratis-Season-Dynamik in der aktiven Season.",
-      maxItems: 12,
+      maxItems: 999,
       includeRedeemAction: true,
+      tableLayout: true,
     }));
   } else {
     const beatOutCard = document.createElement("article");
@@ -7760,6 +7761,7 @@ function buildBeatOutOverviewCard(activeSeason, options = {}) {
     emptyText = "Noch keine BEAT-OUT-Dynamik in der aktiven Season.",
     maxItems = 5,
     includeRedeemAction = true,
+    tableLayout = false,
   } = options;
 
   const activeBookings = state.seasonBookings.filter((booking) => booking.season_id === activeSeason.id);
@@ -7788,11 +7790,96 @@ function buildBeatOutOverviewCard(activeSeason, options = {}) {
     <p class="stat-meta">${escapeHtml(subtitle)}</p>
   `;
 
+  const visibleEntries = entries.slice(0, maxItems);
+
+  if (tableLayout) {
+    const tableWrap = document.createElement("div");
+    tableWrap.className = "table-wrap beatout-table-wrap";
+
+    if (!visibleEntries.length) {
+      tableWrap.innerHTML = `<p class="stat-meta">${escapeHtml(emptyText)}</p>`;
+      card.appendChild(tableWrap);
+      return card;
+    }
+
+    const table = document.createElement("table");
+    table.className = "beatout-table";
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Teilnehmer</th>
+          <th>Paket</th>
+          <th>Season</th>
+          <th>Gesamt</th>
+          <th>Gratis-Seasons</th>
+          <th>Aktion</th>
+        </tr>
+      </thead>
+    `;
+    const tbody = document.createElement("tbody");
+
+    visibleEntries.forEach((entry) => {
+      const nextRewardMeta = entry.reward.availableRewards > 0
+        ? `${entry.reward.availableRewards} einlösbar`
+        : entry.reward.nextMilestone
+          ? `noch ${entry.reward.remainingToNext} bis ${entry.reward.nextMilestone}`
+          : "höchste Freistufe";
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>
+          <strong>${escapeHtml(entry.booking.full_name)}</strong>
+          <div class="stat-meta">${entry.reward.redeemedRewards} bereits eingelöst</div>
+        </td>
+        <td>${escapeHtml(entry.booking.package_type)}</td>
+        <td>${entry.usage.used}/${entry.usage.limit}</td>
+        <td>${entry.reward.total} BEAT-OUTs</td>
+        <td>${escapeHtml(nextRewardMeta)}</td>
+        <td></td>
+      `;
+
+      const actionCell = tr.lastElementChild;
+      const rowActions = document.createElement("div");
+      rowActions.className = "mini-actions table-actions";
+
+      const usagePill = document.createElement("span");
+      usagePill.className = `status-pill ${entry.usage.used >= entry.usage.limit ? "status-pill-warn" : "status-pill-info"}`;
+      usagePill.textContent = `Season ${entry.usage.used}/${entry.usage.limit}`;
+      rowActions.appendChild(usagePill);
+
+      if (entry.reward.availableRewards > 0) {
+        const rewardPill = document.createElement("span");
+        rewardPill.className = "status-pill status-pill-warn";
+        rewardPill.textContent = `${entry.reward.availableRewards} Gratis`;
+        rowActions.appendChild(rewardPill);
+
+        if (includeRedeemAction) {
+          const redeemBtn = document.createElement("button");
+          redeemBtn.type = "button";
+          redeemBtn.className = "ghost";
+          redeemBtn.textContent = "Einlösen";
+          redeemBtn.addEventListener("click", async () => {
+            await redeemFreeSeasonForBooking(entry.booking);
+          });
+          rowActions.appendChild(redeemBtn);
+        }
+      }
+
+      actionCell.appendChild(rowActions);
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    tableWrap.appendChild(table);
+    card.appendChild(tableWrap);
+    return card;
+  }
+
   const beatOutList = document.createElement("div");
   beatOutList.className = "stack";
 
-  if (entries.length) {
-    entries.slice(0, maxItems).forEach((entry) => {
+  if (visibleEntries.length) {
+    visibleEntries.forEach((entry) => {
       const nextRewardMeta = entry.reward.availableRewards > 0
         ? `${entry.reward.total} BEAT-OUTs gesamt | ${entry.reward.availableRewards} Gratis-Season${entry.reward.availableRewards > 1 ? "s" : ""} einlösbar`
         : entry.reward.nextMilestone
