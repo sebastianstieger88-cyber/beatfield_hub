@@ -4099,85 +4099,7 @@ function renderTodayDashboard() {
   recoveryCard.appendChild(recoveryList);
   todayInsights.appendChild(recoveryCard);
 
-  const beatOutCard = document.createElement("article");
-  const bookingsWithBeatOutPressure = activeBookings
-    .map((booking) => {
-      const usage = getBeatOutUsageForBooking(booking.id);
-      const reward = getFreeSeasonRewardStatus(booking);
-      return {
-        booking,
-        usage,
-        reward,
-      };
-    })
-    .filter((entry) => entry.usage.limit > 0)
-    .sort((left, right) => {
-      const rewardCompare = right.reward.availableRewards - left.reward.availableRewards;
-      if (rewardCompare !== 0) {
-        return rewardCompare;
-      }
-      if (left.reward.remainingToNext !== right.reward.remainingToNext) {
-        return left.reward.remainingToNext - right.reward.remainingToNext;
-      }
-      return right.usage.used - left.usage.used;
-    });
-
-  beatOutCard.className = `stat-card dashboard-card ${bookingsWithBeatOutPressure.some((entry) => entry.reward.availableRewards > 0 || entry.reward.remainingToNext <= 1) ? "dashboard-card-warn" : "dashboard-card-ok"}`;
-  beatOutCard.innerHTML = `
-    <h3>BEAT-OUT & Gratis-Seasons</h3>
-    <p class="stat-meta">Wer viel gesammelt hat, kurz vor der nächsten Freistufe steht oder bereits eine Gratis-Season erreicht hat.</p>
-  `;
-  const beatOutList = document.createElement("div");
-  beatOutList.className = "stack";
-  if (bookingsWithBeatOutPressure.length) {
-    bookingsWithBeatOutPressure.slice(0, 5).forEach((entry) => {
-      const nextRewardMeta = entry.reward.availableRewards > 0
-        ? `${entry.reward.total} BEAT-OUTs gesamt | ${entry.reward.availableRewards} Gratis-Season${entry.reward.availableRewards > 1 ? "s" : ""} einlösbar`
-        : entry.reward.nextMilestone
-          ? `${entry.reward.total} BEAT-OUTs gesamt | noch ${entry.reward.remainingToNext} bis ${entry.reward.nextMilestone}`
-          : `${entry.reward.total} BEAT-OUTs gesamt | höchste Freistufe erreicht`;
-      const row = document.createElement("div");
-      row.className = "list-row";
-      row.innerHTML = `
-        <div>
-          <strong>${escapeHtml(entry.booking.full_name)}</strong>
-          <div class="stat-meta">${escapeHtml(entry.booking.package_type)} | ${entry.usage.used}/${entry.usage.limit} BEAT-OUTs in dieser Season</div>
-          <div class="stat-meta dashboard-detail-line">${escapeHtml(nextRewardMeta)}</div>
-        </div>
-      `;
-      const rowActions = document.createElement("div");
-      rowActions.className = "mini-actions";
-      const usagePill = document.createElement("span");
-      usagePill.className = `status-pill ${entry.usage.used >= entry.usage.limit ? "status-pill-warn" : "status-pill-info"}`;
-      usagePill.textContent = `Season ${entry.usage.used}/${entry.usage.limit}`;
-      rowActions.appendChild(usagePill);
-      if (entry.reward.availableRewards > 0) {
-        const rewardPill = document.createElement("span");
-        rewardPill.className = "status-pill status-pill-warn";
-        rewardPill.textContent = `${entry.reward.availableRewards} Gratis`;
-        rowActions.appendChild(rewardPill);
-        const redeemBtn = document.createElement("button");
-        redeemBtn.type = "button";
-        redeemBtn.className = "ghost";
-        redeemBtn.textContent = "Einlösen";
-        redeemBtn.addEventListener("click", async () => {
-          await redeemFreeSeasonForBooking(entry.booking);
-        });
-        rowActions.appendChild(redeemBtn);
-      } else if (entry.reward.nextMilestone) {
-        const nextPill = document.createElement("span");
-        nextPill.className = "status-pill status-pill-info";
-        nextPill.textContent = `noch ${entry.reward.remainingToNext}`;
-        rowActions.appendChild(nextPill);
-      }
-      row.appendChild(rowActions);
-      beatOutList.appendChild(row);
-    });
-  } else {
-    beatOutList.innerHTML = '<p class="stat-meta">Noch keine BEAT-OUT-Dynamik in der aktiven Season.</p>';
-  }
-  beatOutCard.appendChild(beatOutList);
-  todayInsights.appendChild(beatOutCard);
+  todayInsights.appendChild(buildBeatOutOverviewCard(activeSeason));
 
   const trialReminderCard = document.createElement("article");
   trialReminderCard.className = `stat-card dashboard-card ${openTrialRequests.length ? "dashboard-card-warn" : "dashboard-card-ok"}`;
@@ -6273,6 +6195,25 @@ function renderBusinessDashboard() {
   }
   trialSeasonCard.appendChild(trialSeasonList);
   businessInsights.appendChild(trialSeasonCard);
+
+  const activeSeason = getSelectedSeason() || state.seasons.find((season) => season.status === "aktiv") || null;
+  if (activeSeason) {
+    businessInsights.appendChild(buildBeatOutOverviewCard(activeSeason, {
+      title: "Aktuelle BEAT-OUTs & Gratis-Seasons",
+      subtitle: `${activeSeason.name}: aktuelle Season-Nutzung plus seasonübergreifende Freistufen pro Teilnehmer.`,
+      emptyText: "Noch keine BEAT-OUTs oder Gratis-Season-Dynamik in der aktiven Season.",
+      maxItems: 12,
+      includeRedeemAction: true,
+    }));
+  } else {
+    const beatOutCard = document.createElement("article");
+    beatOutCard.className = "stat-card";
+    beatOutCard.innerHTML = `
+      <h3>Aktuelle BEAT-OUTs & Gratis-Seasons</h3>
+      <p class="stat-meta">Sobald eine aktive Season vorhanden ist, siehst du hier die aktuelle Übersicht.</p>
+    `;
+    businessInsights.appendChild(beatOutCard);
+  }
 }
 
 function renderMonthlyOverview() {
@@ -7787,11 +7728,18 @@ function getLifetimeBeatOutCount(bookingOrParticipant) {
   return state.beatOutEntries.filter((entry) => bookingIds.includes(entry.season_booking_id)).length;
 }
 
+function getLifetimeRedeemedRewardCount(bookingOrParticipant) {
+  const key = getPersonKey(bookingOrParticipant);
+  return state.seasonBookings
+    .filter((entry) => getPersonKey(entry) === key)
+    .reduce((sum, entry) => sum + Math.max(Number(entry.free_seasons_redeemed || 0), 0), 0);
+}
+
 function getFreeSeasonRewardStatus(bookingOrParticipant) {
   const total = getLifetimeBeatOutCount(bookingOrParticipant);
   const milestones = [4, 8, 12];
   const achievedRewards = Math.min(Math.floor(total / 4), 3);
-  const redeemedRewards = Math.max(Number(bookingOrParticipant?.free_seasons_redeemed || 0), 0);
+  const redeemedRewards = getLifetimeRedeemedRewardCount(bookingOrParticipant);
   const availableRewards = Math.max(achievedRewards - redeemedRewards, 0);
   const nextMilestone = milestones.find((value) => value > total) || null;
   const remainingToNext = nextMilestone ? Math.max(nextMilestone - total, 0) : 0;
@@ -7803,6 +7751,105 @@ function getFreeSeasonRewardStatus(bookingOrParticipant) {
     nextMilestone,
     remainingToNext,
   };
+}
+
+function buildBeatOutOverviewCard(activeSeason, options = {}) {
+  const {
+    title = "BEAT-OUT & Gratis-Seasons",
+    subtitle = "Wer viel gesammelt hat, kurz vor der nächsten Freistufe steht oder bereits eine Gratis-Season erreicht hat.",
+    emptyText = "Noch keine BEAT-OUT-Dynamik in der aktiven Season.",
+    maxItems = 5,
+    includeRedeemAction = true,
+  } = options;
+
+  const activeBookings = state.seasonBookings.filter((booking) => booking.season_id === activeSeason.id);
+  const entries = activeBookings
+    .map((booking) => {
+      const usage = getBeatOutUsageForBooking(booking.id);
+      const reward = getFreeSeasonRewardStatus(booking);
+      return { booking, usage, reward };
+    })
+    .filter((entry) => entry.usage.limit > 0)
+    .sort((left, right) => {
+      const rewardCompare = right.reward.availableRewards - left.reward.availableRewards;
+      if (rewardCompare !== 0) {
+        return rewardCompare;
+      }
+      if (left.reward.remainingToNext !== right.reward.remainingToNext) {
+        return left.reward.remainingToNext - right.reward.remainingToNext;
+      }
+      return right.usage.used - left.usage.used;
+    });
+
+  const card = document.createElement("article");
+  card.className = `stat-card dashboard-card ${entries.some((entry) => entry.reward.availableRewards > 0 || entry.reward.remainingToNext <= 1) ? "dashboard-card-warn" : "dashboard-card-ok"}`;
+  card.innerHTML = `
+    <h3>${escapeHtml(title)}</h3>
+    <p class="stat-meta">${escapeHtml(subtitle)}</p>
+  `;
+
+  const beatOutList = document.createElement("div");
+  beatOutList.className = "stack";
+
+  if (entries.length) {
+    entries.slice(0, maxItems).forEach((entry) => {
+      const nextRewardMeta = entry.reward.availableRewards > 0
+        ? `${entry.reward.total} BEAT-OUTs gesamt | ${entry.reward.availableRewards} Gratis-Season${entry.reward.availableRewards > 1 ? "s" : ""} einlösbar`
+        : entry.reward.nextMilestone
+          ? `${entry.reward.total} BEAT-OUTs gesamt | noch ${entry.reward.remainingToNext} bis ${entry.reward.nextMilestone}`
+          : `${entry.reward.total} BEAT-OUTs gesamt | höchste Freistufe erreicht`;
+
+      const row = document.createElement("div");
+      row.className = "list-row";
+      row.innerHTML = `
+        <div>
+          <strong>${escapeHtml(entry.booking.full_name)}</strong>
+          <div class="stat-meta">${escapeHtml(entry.booking.package_type)} | ${entry.usage.used}/${entry.usage.limit} BEAT-OUTs in dieser Season</div>
+          <div class="stat-meta dashboard-detail-line">${escapeHtml(nextRewardMeta)}</div>
+          <div class="stat-meta dashboard-detail-line">${entry.reward.redeemedRewards} Gratis-Seasons bereits eingelöst</div>
+        </div>
+      `;
+
+      const rowActions = document.createElement("div");
+      rowActions.className = "mini-actions";
+
+      const usagePill = document.createElement("span");
+      usagePill.className = `status-pill ${entry.usage.used >= entry.usage.limit ? "status-pill-warn" : "status-pill-info"}`;
+      usagePill.textContent = `Season ${entry.usage.used}/${entry.usage.limit}`;
+      rowActions.appendChild(usagePill);
+
+      if (entry.reward.availableRewards > 0) {
+        const rewardPill = document.createElement("span");
+        rewardPill.className = "status-pill status-pill-warn";
+        rewardPill.textContent = `${entry.reward.availableRewards} Gratis`;
+        rowActions.appendChild(rewardPill);
+
+        if (includeRedeemAction) {
+          const redeemBtn = document.createElement("button");
+          redeemBtn.type = "button";
+          redeemBtn.className = "ghost";
+          redeemBtn.textContent = "Einlösen";
+          redeemBtn.addEventListener("click", async () => {
+            await redeemFreeSeasonForBooking(entry.booking);
+          });
+          rowActions.appendChild(redeemBtn);
+        }
+      } else if (entry.reward.nextMilestone) {
+        const nextPill = document.createElement("span");
+        nextPill.className = "status-pill status-pill-info";
+        nextPill.textContent = `noch ${entry.reward.remainingToNext}`;
+        rowActions.appendChild(nextPill);
+      }
+
+      row.appendChild(rowActions);
+      beatOutList.appendChild(row);
+    });
+  } else {
+    beatOutList.innerHTML = `<p class="stat-meta">${escapeHtml(emptyText)}</p>`;
+  }
+
+  card.appendChild(beatOutList);
+  return card;
 }
 
 function getContactStatusMeta(status = "offen") {
