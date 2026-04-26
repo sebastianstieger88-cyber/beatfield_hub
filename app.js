@@ -22,6 +22,7 @@ const state = {
   trialRequests: [],
   dropInBookings: [],
   exercises: [],
+  finishers: [],
   exerciseFavorites: [],
   showArchivedDropIns: false,
   sessions: [],
@@ -42,6 +43,8 @@ const state = {
   exerciseFavoritesOnly: false,
   exercisePinFavorites: false,
   exerciseSyncing: false,
+  finisherSearch: "",
+  finisherSyncing: false,
   selectedCourseId: null,
   editingCourseId: null,
   editingSeasonId: null,
@@ -89,6 +92,7 @@ const bookingPanel = document.querySelector("#bookingPanel");
 const todayPanel = document.querySelector("#todayPanel");
 const courseListPanel = document.querySelector("#courseListPanel");
 const exercisePanel = document.querySelector("#exercisePanel");
+const finisherPanel = document.querySelector("#finisherPanel");
 const planningPanel = document.querySelector("#planningPanel");
 const attendancePanel = document.querySelector("#attendancePanel");
 const monthlyPanel = document.querySelector("#monthlyPanel");
@@ -166,7 +170,9 @@ const courseList = document.querySelector("#courseList");
 const trialCards = document.querySelector("#trialCards");
 const dropInCards = document.querySelector("#dropInCards");
 const exerciseCards = document.querySelector("#exerciseCards");
+const finisherCards = document.querySelector("#finisherCards");
 const exerciseSearch = document.querySelector("#exerciseSearch");
+const finisherSearch = document.querySelector("#finisherSearch");
 const exerciseCategoryFilter = document.querySelector("#exerciseCategoryFilter");
 const exerciseFocusFilter = document.querySelector("#exerciseFocusFilter");
 const exerciseLevelFilter = document.querySelector("#exerciseLevelFilter");
@@ -174,6 +180,8 @@ const exerciseEquipmentFilter = document.querySelector("#exerciseEquipmentFilter
 const exerciseTagFilter = document.querySelector("#exerciseTagFilter");
 const exerciseSyncBtn = document.querySelector("#exerciseSyncBtn");
 const exerciseSyncMeta = document.querySelector("#exerciseSyncMeta");
+const finisherSyncBtn = document.querySelector("#finisherSyncBtn");
+const finisherSyncMeta = document.querySelector("#finisherSyncMeta");
 const exerciseActiveFilters = document.querySelector("#exerciseActiveFilters");
 const exerciseFavoriteFilterBtn = document.querySelector("#exerciseFavoriteFilterBtn");
 const exercisePinFavoritesBtn = document.querySelector("#exercisePinFavoritesBtn");
@@ -234,6 +242,7 @@ const contentPanels = [
   todayPanel,
   trialsPanel,
   exercisePanel,
+  finisherPanel,
   courseListPanel,
   planningPanel,
   attendancePanel,
@@ -355,6 +364,11 @@ exerciseResetFiltersBtn?.addEventListener("click", () => {
   renderExercises();
 });
 exerciseSyncBtn?.addEventListener("click", handleExerciseSync);
+finisherSearch?.addEventListener("input", () => {
+  state.finisherSearch = finisherSearch.value || "";
+  renderFinishers();
+});
+finisherSyncBtn?.addEventListener("click", handleFinisherSync);
 toggleArchivedDropInsBtn?.addEventListener("click", () => {
   state.showArchivedDropIns = !state.showArchivedDropIns;
   renderDropIns();
@@ -645,6 +659,11 @@ async function fetchSupportData() {
     .select("id, notion_page_id, title, category, focus, level, equipment, coaching_cues, technique_cues, progression, regression, common_errors, correction, variants, description, video_url, source_url, tags, notion_last_edited_at, notion_archived, synced_at")
     .order("title");
 
+  const finisherQuery = state.supabase
+    .from("finisher_library")
+    .select("id, notion_page_id, title, category, focus, level, equipment, coaching_cues, description, video_url, source_url, tags, notion_last_edited_at, notion_archived, synced_at")
+    .order("title");
+
   const exerciseFavoritesQuery = state.session?.user?.id
     ? state.supabase
       .from("exercise_favorites")
@@ -652,7 +671,7 @@ async function fetchSupportData() {
       .eq("user_id", state.session.user.id)
     : Promise.resolve({ data: [], error: null });
 
-  const [seasonResult, seasonBookingResult, trainerResult, trainerDirectoryResult, inviteResult, participantResult, sessionResult, trialResult, dropInResult, exerciseResult, exerciseFavoritesResult] = await Promise.all([
+  const [seasonResult, seasonBookingResult, trainerResult, trainerDirectoryResult, inviteResult, participantResult, sessionResult, trialResult, dropInResult, exerciseResult, finisherResult, exerciseFavoritesResult] = await Promise.all([
     seasonsQuery,
     seasonBookingsQuery,
     trainerQuery,
@@ -663,6 +682,7 @@ async function fetchSupportData() {
     trialsQuery,
     dropInQuery,
     exerciseQuery,
+    finisherQuery,
     exerciseFavoritesQuery,
   ]);
 
@@ -695,6 +715,9 @@ async function fetchSupportData() {
   }
   if (exerciseResult.error) {
     notify(getFriendlySupabaseMessage(exerciseResult.error, "Übungen konnten nicht geladen werden."), true);
+  }
+  if (finisherResult.error) {
+    notify(getFriendlySupabaseMessage(finisherResult.error, "Finisher konnten nicht geladen werden."), true);
   }
   if (exerciseFavoritesResult.error) {
     notify(getFriendlySupabaseMessage(exerciseFavoritesResult.error, "Übungsfavoriten konnten nicht geladen werden."), true);
@@ -760,6 +783,9 @@ async function fetchSupportData() {
   }
   if (!exerciseResult.error) {
     state.exercises = (exerciseResult.data || []).filter((exercise) => !exercise.notion_archived);
+  }
+  if (!finisherResult.error) {
+    state.finishers = (finisherResult.data || []).filter((finisher) => !finisher.notion_archived);
   }
   if (!exerciseFavoritesResult.error) {
     state.exerciseFavorites = exerciseFavoritesResult.data || [];
@@ -3061,6 +3087,7 @@ function render() {
   renderTrials();
   renderDropIns();
   renderExercises();
+  renderFinishers();
   renderTodayDashboard();
   renderCourseList();
   renderPlanning();
@@ -3765,6 +3792,160 @@ async function handleExerciseSync() {
   } finally {
     state.exerciseSyncing = false;
     renderExercises();
+  }
+}
+
+function getFilteredFinishers() {
+  const searchNeedle = String(state.finisherSearch || "").trim().toLowerCase();
+  if (!searchNeedle) {
+    return [...state.finishers].sort((left, right) => String(left.title || "").localeCompare(String(right.title || ""), "de"));
+  }
+
+  return [...state.finishers]
+    .filter((finisher) => {
+      const haystack = [
+        finisher.title,
+        finisher.category,
+        finisher.focus,
+        finisher.level,
+        finisher.equipment,
+        finisher.coaching_cues,
+        finisher.description,
+        ...(finisher.tags || []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(searchNeedle);
+    })
+    .sort((left, right) => String(left.title || "").localeCompare(String(right.title || ""), "de"));
+}
+
+function renderFinishers() {
+  if (!finisherCards || !finisherSyncMeta) {
+    return;
+  }
+
+  if (finisherSearch) {
+    finisherSearch.value = state.finisherSearch || "";
+  }
+
+  if (finisherSyncBtn) {
+    finisherSyncBtn.classList.toggle("hidden", !isAdmin());
+    finisherSyncBtn.disabled = state.finisherSyncing;
+    finisherSyncBtn.textContent = state.finisherSyncing ? "Synchronisiert..." : "Jetzt mit Notion synchronisieren";
+  }
+
+  const latestSync = state.finishers
+    .map((finisher) => finisher.synced_at)
+    .filter(Boolean)
+    .sort((left, right) => String(right).localeCompare(String(left)))[0] || null;
+
+  finisherSyncMeta.innerHTML = `
+    <h3>Sync-Status</h3>
+    <p class="stat-meta">${state.finishers.length} aktive Finisher in der App.</p>
+    <p class="stat-meta">${latestSync ? `Zuletzt synchronisiert: ${escapeHtml(formatDateTimeLabel(latestSync))}` : "Noch kein Sync vorhanden."}</p>
+    <p class="stat-meta">${isAdmin() ? "Pflege läuft über Notion. Hier synchronisierst du und prüfst die Finisher-Bibliothek." : "Pflege läuft über Notion. Hier können Trainer schnell Ideen für Abschlussblöcke sammeln."}</p>
+  `;
+
+  const finishers = getFilteredFinishers();
+  if (!finishers.length) {
+    finisherCards.innerHTML = `
+      <div class="empty-state">
+        <p>Noch keine Finisher sichtbar. Lege zuerst den Notion-Sync an oder passe die Suche an.</p>
+      </div>
+    `;
+    return;
+  }
+
+  finisherCards.innerHTML = finishers.map((finisher) => {
+    const tags = (finisher.tags || []).map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("");
+    const links = [
+      finisher.video_url ? `<a class="ghost" href="${escapeHtml(finisher.video_url)}" target="_blank" rel="noreferrer">Video öffnen</a>` : "",
+      finisher.source_url ? `<a class="ghost" href="${escapeHtml(finisher.source_url)}" target="_blank" rel="noreferrer">Notion öffnen</a>` : "",
+    ].filter(Boolean).join("");
+
+    return `
+      <article class="exercise-card">
+        <div class="exercise-card-head">
+          <div>
+            <p class="eyebrow">Finisher</p>
+            <h3>${escapeHtml(finisher.title || "Ohne Titel")}</h3>
+          </div>
+          <div class="course-status-grid">
+            ${finisher.category ? `<span class="course-status-pill">${escapeHtml(finisher.category)}</span>` : ""}
+            ${finisher.focus ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(finisher.focus)}</span>` : ""}
+          </div>
+        </div>
+        <div class="exercise-meta-grid">
+          ${finisher.category ? `<p><strong>Kategorie</strong><span>${escapeHtml(finisher.category)}</span></p>` : ""}
+          ${finisher.focus ? `<p><strong>Fokus</strong><span>${escapeHtml(finisher.focus)}</span></p>` : ""}
+          ${finisher.level ? `<p><strong>Level</strong><span>${escapeHtml(finisher.level)}</span></p>` : ""}
+          ${finisher.equipment ? `<p><strong>Equipment</strong><span>${escapeHtml(finisher.equipment)}</span></p>` : ""}
+        </div>
+        ${String(finisher.description || finisher.coaching_cues || "").trim() ? `<p class="exercise-copy">${escapeHtml(finisher.description || finisher.coaching_cues || "")}</p>` : ""}
+        ${tags ? `<div class="exercise-tag-row">${tags}</div>` : ""}
+        ${links ? `<div class="stat-card-actions exercise-actions">${links}</div>` : ""}
+      </article>
+    `;
+  }).join("");
+}
+
+async function handleFinisherSync() {
+  if (!isAdmin()) {
+    notify("Der Notion-Sync ist nur für Admins verfügbar.", true);
+    return;
+  }
+
+  if (!state.session?.access_token) {
+    notify("Bitte zuerst neu einloggen, damit der Sync autorisiert werden kann.", true);
+    return;
+  }
+
+  state.finisherSyncing = true;
+  renderFinishers();
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 45000);
+    const response = await fetch("/api/sync-finishers", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${state.session.access_token}`,
+      },
+      signal: controller.signal,
+    });
+    window.clearTimeout(timeoutId);
+
+    const rawText = await response.text();
+    let payload = {};
+    try {
+      payload = rawText ? JSON.parse(rawText) : {};
+    } catch (parseError) {
+      payload = { error: rawText || null };
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        payload?.error
+        || payload?.message
+        || `Finisher-Sync fehlgeschlagen (${response.status}).`,
+      );
+    }
+
+    await refreshVisibleData({ context: "Finisher sync refresh", silent: true });
+    notify(payload?.message || `${payload?.synced || 0} Finisher wurden synchronisiert.`);
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      notify("Der Finisher-Sync dauert zu lange. Bitte Vercel-Logs prüfen oder den Sync später erneut starten.", true);
+    } else {
+      notify(error.message || "Finisher-Sync fehlgeschlagen.", true);
+    }
+  } finally {
+    state.finisherSyncing = false;
+    renderFinishers();
   }
 }
 
@@ -8577,6 +8758,7 @@ function getAvailableSections({ connected, loggedIn, appUnlocked }) {
         "#todayPanel",
         "#trialsPanel",
         "#exercisePanel",
+        "#finisherPanel",
         "#courseListPanel",
         "#planningPanel",
         "#attendancePanel",
@@ -8590,6 +8772,7 @@ function getAvailableSections({ connected, loggedIn, appUnlocked }) {
         "#todayPanel",
         "#trialsPanel",
         "#exercisePanel",
+        "#finisherPanel",
         "#courseListPanel",
         "#attendancePanel",
       );
@@ -8607,6 +8790,7 @@ function getNavigationSections(availableSections, { connected, loggedIn, appUnlo
   return availableSections.filter((sectionId) => [
     "#todayPanel",
     "#exercisePanel",
+    "#finisherPanel",
     "#courseListPanel",
     "#attendancePanel",
     "#trialsPanel",
@@ -9091,6 +9275,7 @@ function getFriendlySupabaseMessage(error, fallback) {
     || normalized.includes("source_session_id")
     || normalized.includes("target_session_id")
     || normalized.includes("exercise_library")
+    || normalized.includes("finisher_library")
     || normalized.includes("notion_page_id")
   ) {
     return "Die App braucht das neueste Supabase-Schema. Bitte `supabase-schema.sql` noch einmal komplett im SQL Editor ausführen.";
