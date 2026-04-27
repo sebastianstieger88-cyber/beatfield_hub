@@ -1389,6 +1389,96 @@ button.danger {
   background: rgba(255, 255, 255, 0.03);
 }
 
+.workout-builder-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+  gap: 18px;
+}
+
+.workout-builder-form,
+.workout-builder-preview {
+  min-height: 100%;
+}
+
+.workout-builder-toolbar {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.workout-stations {
+  display: grid;
+  gap: 12px;
+}
+
+.workout-stations-head {
+  display: grid;
+  gap: 4px;
+}
+
+.workout-stations-head h3 {
+  margin: 0;
+}
+
+.workout-station-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.workout-station-field {
+  display: grid;
+  gap: 8px;
+}
+
+.workout-builder-actions {
+  justify-content: flex-start;
+}
+
+.workout-preview-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.workout-preview-section {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(103, 193, 47, 0.1);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.workout-preview-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.workout-preview-head h4 {
+  margin: 2px 0 0;
+}
+
+.workout-preview-list {
+  display: grid;
+  gap: 10px;
+}
+
+.workout-preview-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(103, 193, 47, 0.08);
+  background: rgba(9, 9, 9, 0.55);
+}
+
+.workout-preview-item.is-empty {
+  opacity: 0.72;
+}
+
 .specials-layout {
   display: grid;
   gap: 16px;
@@ -1940,6 +2030,15 @@ th {
     grid-template-columns: 1fr 1fr;
   }
 
+  .workout-builder-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .workout-builder-toolbar,
+  .workout-station-grid {
+    grid-template-columns: 1fr;
+  }
+
   .exercise-table-wrap {
     display: none;
   }
@@ -2108,6 +2207,11 @@ th {
 
   .exercise-toolbar {
     grid-template-columns: 1fr;
+  }
+
+  .workout-preview-head,
+  .workout-preview-item {
+    flex-direction: column;
   }
 
   .exercise-card-head {

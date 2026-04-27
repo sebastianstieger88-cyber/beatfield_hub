@@ -85,6 +85,15 @@ const state = {
   selectedFinisherId: null,
   selectedWarmupId: null,
   selectedSpecialId: null,
+  workoutBuilder: {
+    title: "",
+    focus: "",
+    duration: "",
+    notes: "",
+    warmupId: "",
+    finisherId: "",
+    exerciseIds: Array.from({ length: 7 }, () => ""),
+  },
   specialSignedUrls: {},
   specialUrlLoadingId: null,
   campusRecentItems: loadCampusRecentItems(),
@@ -121,6 +130,7 @@ const bookingPanel = document.querySelector("#bookingPanel");
 const todayPanel = document.querySelector("#todayPanel");
 const courseListPanel = document.querySelector("#courseListPanel");
 const campusPanel = document.querySelector("#campusPanel");
+const workoutBuilderPanel = document.querySelector("#workoutBuilderPanel");
 const exercisePanel = document.querySelector("#exercisePanel");
 const finisherPanel = document.querySelector("#finisherPanel");
 const warmupPanel = document.querySelector("#warmupPanel");
@@ -312,6 +322,19 @@ const specialDetailModal = document.querySelector("#specialDetailModal");
 const specialDetailTitle = document.querySelector("#specialDetailTitle");
 const specialDetailBody = document.querySelector("#specialDetailBody");
 const closeSpecialDetailModalBtn = document.querySelector("#closeSpecialDetailModalBtn");
+const workoutBuilderForm = document.querySelector("#workoutBuilderForm");
+const workoutTitleInput = document.querySelector("#workoutTitleInput");
+const workoutFocusInput = document.querySelector("#workoutFocusInput");
+const workoutDurationInput = document.querySelector("#workoutDurationInput");
+const workoutWarmupSelect = document.querySelector("#workoutWarmupSelect");
+const workoutExerciseSelects = document.querySelector("#workoutExerciseSelects");
+const workoutFinisherSelect = document.querySelector("#workoutFinisherSelect");
+const workoutNotesInput = document.querySelector("#workoutNotesInput");
+const workoutResetBtn = document.querySelector("#workoutResetBtn");
+const workoutPdfBtn = document.querySelector("#workoutPdfBtn");
+const workoutExcelBtn = document.querySelector("#workoutExcelBtn");
+const workoutPreviewTitle = document.querySelector("#workoutPreviewTitle");
+const workoutPreviewBody = document.querySelector("#workoutPreviewBody");
 const contentPanels = [
   authPanel,
   sessionPanel,
@@ -321,6 +344,7 @@ const contentPanels = [
   bookingPanel,
   todayPanel,
   campusPanel,
+  workoutBuilderPanel,
   trialsPanel,
   exercisePanel,
   finisherPanel,
@@ -494,6 +518,15 @@ campusResetSearchBtn?.addEventListener("click", () => {
   resetCampusSearch();
   renderCampusOverview();
 });
+workoutTitleInput?.addEventListener("input", () => updateWorkoutBuilderField("title", workoutTitleInput.value || ""));
+workoutFocusInput?.addEventListener("input", () => updateWorkoutBuilderField("focus", workoutFocusInput.value || ""));
+workoutDurationInput?.addEventListener("input", () => updateWorkoutBuilderField("duration", workoutDurationInput.value || ""));
+workoutWarmupSelect?.addEventListener("change", () => updateWorkoutBuilderField("warmupId", workoutWarmupSelect.value || ""));
+workoutFinisherSelect?.addEventListener("change", () => updateWorkoutBuilderField("finisherId", workoutFinisherSelect.value || ""));
+workoutNotesInput?.addEventListener("input", () => updateWorkoutBuilderField("notes", workoutNotesInput.value || ""));
+workoutResetBtn?.addEventListener("click", resetWorkoutBuilder);
+workoutPdfBtn?.addEventListener("click", handleWorkoutPdfExport);
+workoutExcelBtn?.addEventListener("click", handleWorkoutExcelExport);
 specialsSortSelect?.addEventListener("change", () => {
   state.specialsSort = specialsSortSelect.value || "updated_desc";
   renderSpecials();
@@ -3314,6 +3347,7 @@ function render() {
   renderTrials();
   renderDropIns();
   renderCampusOverview();
+  renderWorkoutBuilder();
   renderExercises();
   renderFinishers();
   renderWarmups();
@@ -4763,6 +4797,15 @@ function renderCampusOverview() {
   const cards = [
     {
       eyebrow: "CAMPUS",
+      title: "Workout Builder",
+      count: state.workoutBuilder.exerciseIds.filter(Boolean).length,
+      favorites: state.exerciseFavorites.length + state.finisherFavorites.length + state.warmupFavorites.length,
+      sync: state.workoutBuilder.title ? `Aktiv: ${state.workoutBuilder.title}` : "Noch kein Workout zusammengestellt",
+      panel: "#workoutBuilderPanel",
+      copy: "Baue aus Warm-Up, sieben Übungen und einem Finisher direkt einen exportierbaren Zirkel."
+    },
+    {
+      eyebrow: "CAMPUS",
       title: "Übungen",
       count: state.exercises.length,
       favorites: state.exerciseFavorites.length,
@@ -4977,6 +5020,352 @@ function renderCampusOverview() {
       }
     });
   });
+}
+
+function updateWorkoutBuilderField(field, value) {
+  state.workoutBuilder = {
+    ...state.workoutBuilder,
+    [field]: value,
+  };
+  renderCampusOverview();
+  renderWorkoutBuilder();
+}
+
+function updateWorkoutBuilderExercise(index, value) {
+  const exerciseIds = [...state.workoutBuilder.exerciseIds];
+  exerciseIds[index] = value;
+  state.workoutBuilder = {
+    ...state.workoutBuilder,
+    exerciseIds,
+  };
+  renderCampusOverview();
+  renderWorkoutBuilder();
+}
+
+function resetWorkoutBuilder() {
+  state.workoutBuilder = {
+    title: "",
+    focus: "",
+    duration: "",
+    notes: "",
+    warmupId: "",
+    finisherId: "",
+    exerciseIds: Array.from({ length: 7 }, () => ""),
+  };
+  renderCampusOverview();
+  renderWorkoutBuilder();
+}
+
+function getWorkoutBuilderSelection() {
+  const selectedWarmup = getWarmupById(state.workoutBuilder.warmupId);
+  const selectedFinisher = getFinisherById(state.workoutBuilder.finisherId);
+  const selectedExercises = state.workoutBuilder.exerciseIds
+    .map((exerciseId, index) => ({
+      station: index + 1,
+      item: getExerciseById(exerciseId),
+    }))
+    .filter((entry) => entry.item);
+
+  return {
+    title: String(state.workoutBuilder.title || "").trim() || "BEATFIELD Workout Builder",
+    focus: String(state.workoutBuilder.focus || "").trim(),
+    duration: String(state.workoutBuilder.duration || "").trim(),
+    notes: String(state.workoutBuilder.notes || "").trim(),
+    warmup: selectedWarmup || null,
+    exercises: selectedExercises,
+    finisher: selectedFinisher || null,
+  };
+}
+
+function validateWorkoutBuilderSelection() {
+  const missingStations = state.workoutBuilder.exerciseIds
+    .map((exerciseId, index) => (!exerciseId ? index + 1 : null))
+    .filter(Boolean);
+
+  if (!state.workoutBuilder.warmupId) {
+    notify("Bitte zuerst ein Warm-Up auswählen.", true);
+    return null;
+  }
+  if (missingStations.length) {
+    notify(`Bitte alle 7 Stationen belegen. Es fehlen: ${missingStations.join(", ")}.`, true);
+    return null;
+  }
+  const uniqueExerciseIds = new Set(state.workoutBuilder.exerciseIds.filter(Boolean));
+  if (uniqueExerciseIds.size !== state.workoutBuilder.exerciseIds.filter(Boolean).length) {
+    notify("Bitte jede Übung nur einmal im Zirkel verwenden.", true);
+    return null;
+  }
+  if (!state.workoutBuilder.finisherId) {
+    notify("Bitte einen Finisher auswählen.", true);
+    return null;
+  }
+  const selection = getWorkoutBuilderSelection();
+  if (!selection.warmup || selection.exercises.length !== 7 || !selection.finisher) {
+    notify("Das Workout konnte nicht vollständig aus den Bibliotheken aufgebaut werden.", true);
+    return null;
+  }
+  return selection;
+}
+
+function renderWorkoutBuilder() {
+  if (!workoutBuilderPanel || !workoutPreviewBody) {
+    return;
+  }
+
+  if (workoutTitleInput) {
+    workoutTitleInput.value = state.workoutBuilder.title || "";
+  }
+  if (workoutFocusInput) {
+    workoutFocusInput.value = state.workoutBuilder.focus || "";
+  }
+  if (workoutDurationInput) {
+    workoutDurationInput.value = state.workoutBuilder.duration || "";
+  }
+  if (workoutNotesInput) {
+    workoutNotesInput.value = state.workoutBuilder.notes || "";
+  }
+
+  if (workoutWarmupSelect) {
+    workoutWarmupSelect.innerHTML = `
+      <option value="">Bitte wählen</option>
+      ${state.warmups.map((warmup) => `<option value="${escapeHtml(warmup.id)}"${warmup.id === state.workoutBuilder.warmupId ? " selected" : ""}>${escapeHtml(warmup.title || "Ohne Titel")}${warmup.level ? ` • ${escapeHtml(warmup.level)}` : ""}</option>`).join("")}
+    `;
+  }
+
+  if (workoutFinisherSelect) {
+    workoutFinisherSelect.innerHTML = `
+      <option value="">Bitte wählen</option>
+      ${state.finishers.map((finisher) => `<option value="${escapeHtml(finisher.id)}"${finisher.id === state.workoutBuilder.finisherId ? " selected" : ""}>${escapeHtml(finisher.title || "Ohne Titel")}${finisher.level ? ` • ${escapeHtml(finisher.level)}` : ""}</option>`).join("")}
+    `;
+  }
+
+  if (workoutExerciseSelects) {
+    workoutExerciseSelects.innerHTML = Array.from({ length: 7 }, (_, index) => `
+      <label class="workout-station-field">
+        <span>Station ${index + 1}</span>
+        <select data-workout-station="${index}">
+          <option value="">Bitte wählen</option>
+          ${state.exercises.map((exercise) => `<option value="${escapeHtml(exercise.id)}"${exercise.id === state.workoutBuilder.exerciseIds[index] ? " selected" : ""}>${escapeHtml(exercise.title || "Ohne Titel")}${exercise.focus ? ` • ${escapeHtml(exercise.focus)}` : ""}</option>`).join("")}
+        </select>
+      </label>
+    `).join("");
+
+    workoutExerciseSelects.querySelectorAll("[data-workout-station]").forEach((select) => {
+      select.addEventListener("change", () => {
+        updateWorkoutBuilderExercise(Number(select.dataset.workoutStation), select.value || "");
+      });
+    });
+  }
+
+  const selection = getWorkoutBuilderSelection();
+  if (workoutPreviewTitle) {
+    workoutPreviewTitle.textContent = selection.title || "Workout-Vorschau";
+  }
+
+  const stationRows = Array.from({ length: 7 }, (_, index) => {
+    const exercise = getExerciseById(state.workoutBuilder.exerciseIds[index]);
+    if (!exercise) {
+      return `
+        <div class="workout-preview-item is-empty">
+          <div>
+            <p class="exercise-detail-label">Station ${index + 1}</p>
+            <p class="exercise-copy-muted">Noch nicht belegt</p>
+          </div>
+        </div>
+      `;
+    }
+    return `
+      <div class="workout-preview-item">
+        <div>
+          <p class="exercise-detail-label">Station ${index + 1}</p>
+          <strong>${escapeHtml(exercise.title || "Ohne Titel")}</strong>
+          <p class="stat-meta">${escapeHtml([exercise.category, exercise.focus, exercise.level].filter(Boolean).join(" • ") || "Übung")}</p>
+        </div>
+        <div class="mini-actions">
+          <button type="button" class="ghost" data-workout-exercise-detail="${escapeHtml(exercise.id)}">Details</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  workoutPreviewBody.innerHTML = `
+    <div class="workout-preview-meta">
+      ${selection.focus ? `<span class="course-status-pill">${escapeHtml(selection.focus)}</span>` : ""}
+      ${selection.duration ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(selection.duration)}</span>` : ""}
+      <span class="course-status-pill course-status-pill-warn">${selection.exercises.length}/7 Stationen gewählt</span>
+    </div>
+    <div class="workout-preview-section">
+      <div class="workout-preview-head">
+        <div>
+          <p class="eyebrow">Warm-Up</p>
+          <h4>${escapeHtml(selection.warmup?.title || "Noch nicht gewählt")}</h4>
+          <p class="stat-meta">${selection.warmup ? escapeHtml([selection.warmup.level, selection.warmup.equipment].filter(Boolean).join(" • ") || "Warm-Up") : "Wähle ein Warm-Up für den Einstieg."}</p>
+        </div>
+        ${selection.warmup ? `<button type="button" class="ghost" data-workout-warmup-detail="${escapeHtml(selection.warmup.id)}">Details</button>` : ""}
+      </div>
+    </div>
+    <div class="workout-preview-section">
+      <div class="workout-preview-head">
+        <div>
+          <p class="eyebrow">Zirkel</p>
+          <h4>7 Stationen Circuit</h4>
+        </div>
+      </div>
+      <div class="workout-preview-list">${stationRows}</div>
+    </div>
+    <div class="workout-preview-section">
+      <div class="workout-preview-head">
+        <div>
+          <p class="eyebrow">Finisher</p>
+          <h4>${escapeHtml(selection.finisher?.title || "Noch nicht gewählt")}</h4>
+          <p class="stat-meta">${selection.finisher ? escapeHtml([selection.finisher.category, selection.finisher.level, selection.finisher.equipment].filter(Boolean).join(" • ") || "Finisher") : "Wähle einen Finisher für den Abschluss."}</p>
+        </div>
+        ${selection.finisher ? `<button type="button" class="ghost" data-workout-finisher-detail="${escapeHtml(selection.finisher.id)}">Details</button>` : ""}
+      </div>
+    </div>
+    <div class="workout-preview-section">
+      <div class="workout-preview-head">
+        <div>
+          <p class="eyebrow">Coach-Notiz</p>
+          <p class="exercise-copy">${selection.notes ? escapeHtml(selection.notes) : "Noch keine zusätzliche Coach-Notiz hinterlegt."}</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  workoutPreviewBody.querySelectorAll("[data-workout-warmup-detail]").forEach((button) => {
+    button.addEventListener("click", () => openWarmupDetailModal(button.dataset.workoutWarmupDetail));
+  });
+  workoutPreviewBody.querySelectorAll("[data-workout-exercise-detail]").forEach((button) => {
+    button.addEventListener("click", () => openExerciseDetailModal(button.dataset.workoutExerciseDetail));
+  });
+  workoutPreviewBody.querySelectorAll("[data-workout-finisher-detail]").forEach((button) => {
+    button.addEventListener("click", () => openFinisherDetailModal(button.dataset.workoutFinisherDetail));
+  });
+}
+
+function buildWorkoutPrintHtml(selection) {
+  const stationMarkup = selection.exercises.map(({ station, item }) => `
+    <tr>
+      <td>${station}</td>
+      <td>${escapeHtml(item.title || "Ohne Titel")}</td>
+      <td>${escapeHtml(item.category || "-")}</td>
+      <td>${escapeHtml(item.focus || "-")}</td>
+      <td>${escapeHtml(item.level || "-")}</td>
+    </tr>
+  `).join("");
+
+  return `<!doctype html>
+  <html lang="de">
+    <head>
+      <meta charset="utf-8">
+      <title>${escapeHtml(selection.title)}</title>
+      <style>
+        body { font-family: Arial, sans-serif; color: #111; margin: 32px; }
+        h1, h2, h3, h4, p { margin: 0; }
+        .meta { margin: 12px 0 24px; color: #555; font-size: 14px; }
+        .section { margin-top: 24px; }
+        .card { border: 1px solid #d7d7d7; border-radius: 12px; padding: 16px; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        th, td { border: 1px solid #d7d7d7; padding: 10px; text-align: left; font-size: 14px; }
+        th { background: #f3f4f4; }
+      </style>
+    </head>
+    <body>
+      <h1>${escapeHtml(selection.title)}</h1>
+      <p class="meta">${escapeHtml([selection.focus, selection.duration, new Date().toLocaleDateString("de-DE")].filter(Boolean).join(" • "))}</p>
+      <div class="section">
+        <h3>Warm-Up</h3>
+        <div class="card">
+          <strong>${escapeHtml(selection.warmup.title || "Ohne Titel")}</strong>
+          <p>${escapeHtml(selection.warmup.description || [selection.warmup.level, selection.warmup.equipment].filter(Boolean).join(" • ") || "")}</p>
+        </div>
+      </div>
+      <div class="section">
+        <h3>7 Stationen Zirkel</h3>
+        <table>
+          <thead>
+            <tr><th>Station</th><th>Übung</th><th>Körperbereich</th><th>Bewegungsmuster</th><th>Muskelgruppe</th></tr>
+          </thead>
+          <tbody>${stationMarkup}</tbody>
+        </table>
+      </div>
+      <div class="section">
+        <h3>Finisher</h3>
+        <div class="card">
+          <strong>${escapeHtml(selection.finisher.title || "Ohne Titel")}</strong>
+          <p>${escapeHtml(selection.finisher.description || [selection.finisher.category, selection.finisher.level, selection.finisher.equipment].filter(Boolean).join(" • ") || "")}</p>
+        </div>
+      </div>
+      <div class="section">
+        <h3>Coach-Notiz</h3>
+        <div class="card">
+          <p>${escapeHtml(selection.notes || "Keine zusätzliche Coach-Notiz hinterlegt.")}</p>
+        </div>
+      </div>
+    </body>
+  </html>`;
+}
+
+function handleWorkoutPdfExport() {
+  const selection = validateWorkoutBuilderSelection();
+  if (!selection) {
+    return;
+  }
+
+  const printWindow = window.open("", "_blank", "noopener,noreferrer,width=1024,height=900");
+  if (!printWindow) {
+    notify("Die PDF-Druckansicht konnte nicht geöffnet werden. Bitte Pop-ups erlauben.", true);
+    return;
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(buildWorkoutPrintHtml(selection));
+  printWindow.document.close();
+  printWindow.focus();
+  window.setTimeout(() => {
+    printWindow.print();
+  }, 250);
+}
+
+function handleWorkoutExcelExport() {
+  const selection = validateWorkoutBuilderSelection();
+  if (!selection) {
+    return;
+  }
+
+  const rows = [
+    ["Bereich", "Titel", "Kategorie", "Fokus", "Level / Dauer", "Equipment", "Beschreibung"],
+    ["Warm-Up", selection.warmup.title || "", "", "", selection.warmup.level || "", selection.warmup.equipment || "", selection.warmup.description || ""],
+    ...selection.exercises.map(({ station, item }) => [
+      `Station ${station}`,
+      item.title || "",
+      item.category || "",
+      item.focus || "",
+      item.level || "",
+      item.equipment || "",
+      item.description || "",
+    ]),
+    ["Finisher", selection.finisher.title || "", selection.finisher.category || "", selection.finisher.focus || "", selection.finisher.level || "", selection.finisher.equipment || "", selection.finisher.description || ""],
+    ["Coach-Notiz", selection.notes || "", "", "", "", "", ""],
+  ];
+
+  const workbookHtml = `
+    <html xmlns:o="urn:schemas-microsoft-com:office:office"
+          xmlns:x="urn:schemas-microsoft-com:office:excel"
+          xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8">
+      </head>
+      <body>
+        <table>
+          ${rows.map((row) => `<tr>${row.map((value) => `<td>${escapeHtml(value)}</td>`).join("")}</tr>`).join("")}
+        </table>
+      </body>
+    </html>
+  `;
+  downloadBlob(`${slugify(selection.title || "workout") || "workout"}-builder.xls`, new Blob([workbookHtml], { type: "application/vnd.ms-excel;charset=utf-8;" }));
+  notify(`Workout "${selection.title}" wurde als Excel exportiert.`);
 }
 
 function getFilteredSpecials() {
@@ -9156,6 +9545,10 @@ function exportTrainerReportCsv() {
 function downloadCsv(filename, rows) {
   const csvContent = rows.map((row) => row.map(escapeCsvValue).join(";")).join("\n");
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  downloadBlob(filename, blob);
+}
+
+function downloadBlob(filename, blob) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -10772,6 +11165,7 @@ function getAvailableSections({ connected, loggedIn, appUnlocked }) {
         "#todayPanel",
         "#trialsPanel",
         "#campusPanel",
+        "#workoutBuilderPanel",
         "#exercisePanel",
         "#finisherPanel",
         "#warmupPanel",
@@ -10789,6 +11183,7 @@ function getAvailableSections({ connected, loggedIn, appUnlocked }) {
         "#todayPanel",
         "#trialsPanel",
         "#campusPanel",
+        "#workoutBuilderPanel",
         "#exercisePanel",
         "#finisherPanel",
         "#warmupPanel",
@@ -10810,6 +11205,7 @@ function getNavigationSections(availableSections, { connected, loggedIn, appUnlo
   return availableSections.filter((sectionId) => [
     "#todayPanel",
     "#campusPanel",
+    "#workoutBuilderPanel",
     "#exercisePanel",
     "#finisherPanel",
     "#warmupPanel",

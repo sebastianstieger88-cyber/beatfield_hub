@@ -44,6 +44,7 @@
           <summary><span class="nav-icon">&#9679;</span><span>CAMPUS</span></summary>
           <div class="nav-submenu">
             <a href="#campusPanel">Dashboard</a>
+            <a href="#workoutBuilderPanel">Workout Builder</a>
             <a href="#exercisePanel">&#220;bungen</a>
             <a href="#finisherPanel">Finisher</a>
             <a href="#warmupPanel">Warm-Up</a>
@@ -490,6 +491,70 @@
         <div id="campusSearchResults" class="stats-grid campus-grid"></div>
         <div id="campusOverviewGrid" class="stats-grid campus-grid"></div>
         <div id="campusRecentGrid" class="stats-grid campus-grid"></div>
+      </section>
+
+      <section class="panel wide hidden" id="workoutBuilderPanel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">CAMPUS</p>
+            <h2>Build Your Own Workout</h2>
+          </div>
+        </div>
+        <div class="workout-builder-layout">
+          <form id="workoutBuilderForm" class="stack workout-builder-form">
+            <div class="exercise-toolbar workout-builder-toolbar">
+              <label>
+                <span>Titel</span>
+                <input id="workoutTitleInput" name="title" type="text" placeholder="z. B. Full Body Outdoor Circuit">
+              </label>
+              <label>
+                <span>Fokus</span>
+                <input id="workoutFocusInput" name="focus" type="text" placeholder="z. B. Beine, Core, Teamwork">
+              </label>
+              <label>
+                <span>Dauer</span>
+                <input id="workoutDurationInput" name="duration" type="text" placeholder="z. B. 45 Minuten">
+              </label>
+            </div>
+            <label>
+              <span>Warm-Up</span>
+              <select id="workoutWarmupSelect" name="warmupId">
+                <option value="">Bitte wählen</option>
+              </select>
+            </label>
+            <div class="workout-stations">
+              <div class="workout-stations-head">
+                <h3>7 Stationen Zirkel</h3>
+                <p class="stat-meta">Wähle genau sieben Übungen für den Circuit aus.</p>
+              </div>
+              <div id="workoutExerciseSelects" class="workout-station-grid"></div>
+            </div>
+            <label>
+              <span>Finisher</span>
+              <select id="workoutFinisherSelect" name="finisherId">
+                <option value="">Bitte wählen</option>
+              </select>
+            </label>
+            <label>
+              <span>Coach-Notiz</span>
+              <textarea id="workoutNotesInput" name="notes" rows="4" placeholder="Optional: Ablauf, Runden, Pausen, Hinweise"></textarea>
+            </label>
+            <div class="mini-actions workout-builder-actions">
+              <button id="workoutResetBtn" type="button" class="ghost">Zurücksetzen</button>
+              <button id="workoutPdfBtn" type="button" class="primary">PDF exportieren</button>
+              <button id="workoutExcelBtn" type="button" class="ghost">Excel exportieren</button>
+            </div>
+          </form>
+          <div class="stat-card workout-builder-preview">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Vorschau</p>
+                <h3 id="workoutPreviewTitle">Workout-Vorschau</h3>
+              </div>
+            </div>
+            <div id="workoutPreviewBody" class="stack"></div>
+          </div>
+        </div>
       </section>
 
       <section class="panel wide hidden" id="exercisePanel">
