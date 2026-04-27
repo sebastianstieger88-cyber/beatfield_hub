@@ -3767,6 +3767,7 @@ function registerCampusRecentItem({ type, id, title, panel }) {
 }
 
 function closeSpecialDetailModal() {
+  state.selectedSpecialId = null;
   specialDetailModal?.classList.add("hidden");
 }
 
@@ -5029,6 +5030,10 @@ function renderSpecials() {
 
 function renderSpecialDetailView() {
   if (!specialDetailModal || !specialDetailBody || !specialDetailTitle) {
+    return;
+  }
+
+  if (specialDetailModal.classList.contains("hidden")) {
     return;
   }
 
