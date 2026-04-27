@@ -279,6 +279,50 @@ create table if not exists public.campus_specials (
   updated_at timestamptz not null default now()
 );
 
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'campus_specials_pdf_mime_type_check'
+  ) then
+    alter table public.campus_specials
+      add constraint campus_specials_pdf_mime_type_check
+      check (mime_type = 'application/pdf');
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'campus_specials_file_size_range_check'
+  ) then
+    alter table public.campus_specials
+      add constraint campus_specials_file_size_range_check
+      check (file_size is null or (file_size > 0 and file_size <= 31457280));
+  end if;
+end
+$$;
+
+drop trigger if exists set_campus_specials_updated_at on public.campus_specials;
+create trigger set_campus_specials_updated_at
+before update on public.campus_specials
+for each row execute procedure public.set_updated_at();
+
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('campus-specials', 'campus-specials', false, 31457280, array['application/pdf'])
 on conflict (id) do update
@@ -312,6 +356,13 @@ create table if not exists public.warmup_favorites (
   warmup_id uuid not null references public.warmup_library(id) on delete cascade,
   created_at timestamptz not null default now(),
   primary key (user_id, warmup_id)
+);
+
+create table if not exists public.special_favorites (
+  user_id uuid not null references public.profiles(user_id) on delete cascade,
+  special_id uuid not null references public.campus_specials(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, special_id)
 );
 
 create or replace function public.current_user_role()
@@ -688,6 +739,16 @@ with check (user_id = auth.uid());
 drop policy if exists "users manage own warmup favorites" on public.warmup_favorites;
 create policy "users manage own warmup favorites"
 on public.warmup_favorites
+for all
+to authenticated
+using (user_id = auth.uid())
+with check (user_id = auth.uid());
+
+alter table public.special_favorites enable row level security;
+
+drop policy if exists "users manage own special favorites" on public.special_favorites;
+create policy "users manage own special favorites"
+on public.special_favorites
 for all
 to authenticated
 using (user_id = auth.uid())

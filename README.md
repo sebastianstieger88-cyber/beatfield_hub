@@ -52,6 +52,8 @@ Das ist fuer bestehende Projekte die sicherere Update-Datei fuer:
 - Seasons und Buchungen
 - Teilnehmer-Verknuepfung zu Buchungen
 - BEAT-OUTs
+- CAMPUS-Specials, Storage-Policies und PDF-Haertung
+- `updated_at`-Trigger fuer robustere Datenpflege
 - aktuelle Trainer-/RLS-Fixes wie `current_user_role()` und Teilnehmerrechte fuer Trainer
 
 `supabase-schema.sql` bleibt die Datei fuer Neuaufsetzungen.
