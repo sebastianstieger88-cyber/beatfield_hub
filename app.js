@@ -23,6 +23,7 @@ const state = {
   dropInBookings: [],
   exercises: [],
   finishers: [],
+  warmups: [],
   exerciseFavorites: [],
   showArchivedDropIns: false,
   sessions: [],
@@ -45,6 +46,8 @@ const state = {
   exerciseSyncing: false,
   finisherSearch: "",
   finisherSyncing: false,
+  warmupSearch: "",
+  warmupSyncing: false,
   selectedCourseId: null,
   editingCourseId: null,
   editingSeasonId: null,
@@ -60,6 +63,7 @@ const state = {
   participantSearch: "",
   isOffline: !navigator.onLine,
   selectedFinisherId: null,
+  selectedWarmupId: null,
   pendingActions: loadOfflineQueue(),
   optimisticVisibilityUntil: {
     courses: 0,
@@ -94,6 +98,7 @@ const todayPanel = document.querySelector("#todayPanel");
 const courseListPanel = document.querySelector("#courseListPanel");
 const exercisePanel = document.querySelector("#exercisePanel");
 const finisherPanel = document.querySelector("#finisherPanel");
+const warmupPanel = document.querySelector("#warmupPanel");
 const planningPanel = document.querySelector("#planningPanel");
 const attendancePanel = document.querySelector("#attendancePanel");
 const monthlyPanel = document.querySelector("#monthlyPanel");
@@ -172,8 +177,10 @@ const trialCards = document.querySelector("#trialCards");
 const dropInCards = document.querySelector("#dropInCards");
 const exerciseCards = document.querySelector("#exerciseCards");
 const finisherCards = document.querySelector("#finisherCards");
+const warmupCards = document.querySelector("#warmupCards");
 const exerciseSearch = document.querySelector("#exerciseSearch");
 const finisherSearch = document.querySelector("#finisherSearch");
+const warmupSearch = document.querySelector("#warmupSearch");
 const exerciseCategoryFilter = document.querySelector("#exerciseCategoryFilter");
 const exerciseFocusFilter = document.querySelector("#exerciseFocusFilter");
 const exerciseLevelFilter = document.querySelector("#exerciseLevelFilter");
@@ -183,12 +190,15 @@ const exerciseSyncBtn = document.querySelector("#exerciseSyncBtn");
 const exerciseSyncMeta = document.querySelector("#exerciseSyncMeta");
 const finisherSyncBtn = document.querySelector("#finisherSyncBtn");
 const finisherSyncMeta = document.querySelector("#finisherSyncMeta");
+const warmupSyncBtn = document.querySelector("#warmupSyncBtn");
+const warmupSyncMeta = document.querySelector("#warmupSyncMeta");
 const exerciseActiveFilters = document.querySelector("#exerciseActiveFilters");
 const exerciseFavoriteFilterBtn = document.querySelector("#exerciseFavoriteFilterBtn");
 const exercisePinFavoritesBtn = document.querySelector("#exercisePinFavoritesBtn");
 const exerciseResetFiltersBtn = document.querySelector("#exerciseResetFiltersBtn");
 const exerciseTableBody = document.querySelector("#exerciseTableBody");
 const finisherTableBody = document.querySelector("#finisherTableBody");
+const warmupTableBody = document.querySelector("#warmupTableBody");
 const planningPreview = document.querySelector("#planningPreview");
 const planNextBtn = document.querySelector("#planNextBtn");
 const planMonthBtn = document.querySelector("#planMonthBtn");
@@ -238,6 +248,10 @@ const finisherDetailModal = document.querySelector("#finisherDetailModal");
 const finisherDetailTitle = document.querySelector("#finisherDetailTitle");
 const finisherDetailBody = document.querySelector("#finisherDetailBody");
 const closeFinisherDetailModalBtn = document.querySelector("#closeFinisherDetailModalBtn");
+const warmupDetailModal = document.querySelector("#warmupDetailModal");
+const warmupDetailTitle = document.querySelector("#warmupDetailTitle");
+const warmupDetailBody = document.querySelector("#warmupDetailBody");
+const closeWarmupDetailModalBtn = document.querySelector("#closeWarmupDetailModalBtn");
 const contentPanels = [
   authPanel,
   sessionPanel,
@@ -249,6 +263,7 @@ const contentPanels = [
   trialsPanel,
   exercisePanel,
   finisherPanel,
+  warmupPanel,
   courseListPanel,
   planningPanel,
   attendancePanel,
@@ -375,6 +390,11 @@ finisherSearch?.addEventListener("input", () => {
   renderFinishers();
 });
 finisherSyncBtn?.addEventListener("click", handleFinisherSync);
+warmupSearch?.addEventListener("input", () => {
+  state.warmupSearch = warmupSearch.value || "";
+  renderWarmups();
+});
+warmupSyncBtn?.addEventListener("click", handleWarmupSync);
 toggleArchivedDropInsBtn?.addEventListener("click", () => {
   state.showArchivedDropIns = !state.showArchivedDropIns;
   renderDropIns();
@@ -398,6 +418,12 @@ closeFinisherDetailModalBtn?.addEventListener("click", closeFinisherDetailModal)
 finisherDetailModal?.addEventListener("click", (event) => {
   if (event.target === finisherDetailModal) {
     closeFinisherDetailModal();
+  }
+});
+closeWarmupDetailModalBtn?.addEventListener("click", closeWarmupDetailModal);
+warmupDetailModal?.addEventListener("click", (event) => {
+  if (event.target === warmupDetailModal) {
+    closeWarmupDetailModal();
   }
 });
 seasonFilterAllBtn?.addEventListener("click", () => setSeasonFilter("all"));
@@ -676,6 +702,11 @@ async function fetchSupportData() {
     .select("id, notion_page_id, title, category, focus, level, equipment, coaching_cues, description, video_url, source_url, tags, notion_last_edited_at, notion_archived, synced_at")
     .order("title");
 
+  const warmupQuery = state.supabase
+    .from("warmup_library")
+    .select("id, notion_page_id, title, category, focus, level, equipment, coaching_cues, description, video_url, source_url, tags, notion_last_edited_at, notion_archived, synced_at")
+    .order("title");
+
   const exerciseFavoritesQuery = state.session?.user?.id
     ? state.supabase
       .from("exercise_favorites")
@@ -683,7 +714,7 @@ async function fetchSupportData() {
       .eq("user_id", state.session.user.id)
     : Promise.resolve({ data: [], error: null });
 
-  const [seasonResult, seasonBookingResult, trainerResult, trainerDirectoryResult, inviteResult, participantResult, sessionResult, trialResult, dropInResult, exerciseResult, finisherResult, exerciseFavoritesResult] = await Promise.all([
+  const [seasonResult, seasonBookingResult, trainerResult, trainerDirectoryResult, inviteResult, participantResult, sessionResult, trialResult, dropInResult, exerciseResult, finisherResult, warmupResult, exerciseFavoritesResult] = await Promise.all([
     seasonsQuery,
     seasonBookingsQuery,
     trainerQuery,
@@ -695,6 +726,7 @@ async function fetchSupportData() {
     dropInQuery,
     exerciseQuery,
     finisherQuery,
+    warmupQuery,
     exerciseFavoritesQuery,
   ]);
 
@@ -730,6 +762,9 @@ async function fetchSupportData() {
   }
   if (finisherResult.error) {
     notify(getFriendlySupabaseMessage(finisherResult.error, "Finisher konnten nicht geladen werden."), true);
+  }
+  if (warmupResult.error) {
+    notify(getFriendlySupabaseMessage(warmupResult.error, "Warm-Ups konnten nicht geladen werden."), true);
   }
   if (exerciseFavoritesResult.error) {
     notify(getFriendlySupabaseMessage(exerciseFavoritesResult.error, "Übungsfavoriten konnten nicht geladen werden."), true);
@@ -798,6 +833,9 @@ async function fetchSupportData() {
   }
   if (!finisherResult.error) {
     state.finishers = (finisherResult.data || []).filter((finisher) => !finisher.notion_archived);
+  }
+  if (!warmupResult.error) {
+    state.warmups = (warmupResult.data || []).filter((warmup) => !warmup.notion_archived);
   }
   if (!exerciseFavoritesResult.error) {
     state.exerciseFavorites = exerciseFavoritesResult.data || [];
@@ -3100,6 +3138,7 @@ function render() {
   renderDropIns();
   renderExercises();
   renderFinishers();
+  renderWarmups();
   renderTodayDashboard();
   renderCourseList();
   renderPlanning();
@@ -3426,6 +3465,20 @@ function closeFinisherDetailModal() {
 function openFinisherDetailModal(finisherId) {
   state.selectedFinisherId = finisherId;
   renderFinisherDetailView();
+}
+
+function getWarmupById(warmupId) {
+  return state.warmups.find((warmup) => warmup.id === warmupId) || null;
+}
+
+function closeWarmupDetailModal() {
+  state.selectedWarmupId = null;
+  warmupDetailModal?.classList.add("hidden");
+}
+
+function openWarmupDetailModal(warmupId) {
+  state.selectedWarmupId = warmupId;
+  renderWarmupDetailView();
 }
 
 function renderExerciseDetail() {
@@ -3903,6 +3956,88 @@ function renderFinisherDetailView() {
   finisherDetailModal.classList.remove("hidden");
 }
 
+function getFilteredWarmups() {
+  const searchNeedle = String(state.warmupSearch || "").trim().toLowerCase();
+  if (!searchNeedle) {
+    return [...state.warmups].sort((left, right) => String(left.title || "").localeCompare(String(right.title || ""), "de"));
+  }
+
+  return [...state.warmups]
+    .filter((warmup) => {
+      const haystack = [
+        warmup.title,
+        warmup.category,
+        warmup.focus,
+        warmup.level,
+        warmup.equipment,
+        warmup.coaching_cues,
+        warmup.description,
+        ...(warmup.tags || []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(searchNeedle);
+    })
+    .sort((left, right) => String(left.title || "").localeCompare(String(right.title || ""), "de"));
+}
+
+function renderWarmupDetailView() {
+  if (!warmupDetailModal || !warmupDetailBody || !warmupDetailTitle) {
+    return;
+  }
+
+  const warmup = getWarmupById(state.selectedWarmupId);
+  if (!warmup) {
+    warmupDetailModal.classList.add("hidden");
+    return;
+  }
+
+  warmupDetailTitle.textContent = warmup.title || "Warm-Up-Details";
+  const links = [
+    warmup.video_url ? `<a class="ghost" href="${escapeHtml(warmup.video_url)}" target="_blank" rel="noreferrer">Video öffnen</a>` : "",
+    warmup.source_url ? `<a class="ghost" href="${escapeHtml(warmup.source_url)}" target="_blank" rel="noreferrer">Notion öffnen</a>` : "",
+  ].filter(Boolean).join("");
+
+  warmupDetailBody.innerHTML = `
+    <div class="exercise-detail-hero">
+      <div class="course-status-grid">
+        ${warmup.category ? `<span class="course-status-pill">${escapeHtml(warmup.category)}</span>` : ""}
+        ${warmup.focus ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(warmup.focus)}</span>` : ""}
+        ${warmup.level ? `<span class="course-status-pill course-status-pill-warn">${escapeHtml(warmup.level)}</span>` : ""}
+        ${warmup.equipment ? `<span class="course-status-pill">${escapeHtml(warmup.equipment)}</span>` : ""}
+      </div>
+      ${warmup.tags?.length ? `<div class="exercise-tag-row">${warmup.tags.map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
+    </div>
+    <div class="exercise-detail-grid">
+      ${String(warmup.description || "").trim() ? `
+        <section class="exercise-detail-card">
+          <h4>Beschreibung</h4>
+          <div class="exercise-detail-list">
+            <div class="exercise-detail-item">
+              <p class="exercise-copy">${escapeHtml(warmup.description)}</p>
+            </div>
+          </div>
+        </section>
+      ` : ""}
+      ${String(warmup.coaching_cues || "").trim() ? `
+        <section class="exercise-detail-card">
+          <h4>Coaching</h4>
+          <div class="exercise-detail-list">
+            <div class="exercise-detail-item">
+              <p class="exercise-copy">${escapeHtml(warmup.coaching_cues)}</p>
+            </div>
+          </div>
+        </section>
+      ` : ""}
+    </div>
+    ${links ? `<div class="stat-card-actions exercise-actions">${links}</div>` : ""}
+  `;
+
+  warmupDetailModal.classList.remove("hidden");
+}
+
 function renderFinishers() {
   if (!finisherCards || !finisherSyncMeta || !finisherTableBody) {
     return;
@@ -4061,6 +4196,167 @@ async function handleFinisherSync() {
   } finally {
     state.finisherSyncing = false;
     renderFinishers();
+  }
+}
+
+function renderWarmups() {
+  if (!warmupCards || !warmupSyncMeta || !warmupTableBody) {
+    return;
+  }
+
+  if (warmupSearch) {
+    warmupSearch.value = state.warmupSearch || "";
+  }
+
+  if (warmupSyncBtn) {
+    warmupSyncBtn.classList.toggle("hidden", !isAdmin());
+    warmupSyncBtn.disabled = state.warmupSyncing;
+    warmupSyncBtn.textContent = state.warmupSyncing ? "Synchronisiert..." : "Jetzt mit Notion synchronisieren";
+  }
+
+  const latestSync = state.warmups
+    .map((warmup) => warmup.synced_at)
+    .filter(Boolean)
+    .sort((left, right) => String(right).localeCompare(String(left)))[0] || null;
+
+  warmupSyncMeta.innerHTML = `
+    <h3>Sync-Status</h3>
+    <p class="stat-meta">${state.warmups.length} aktive Warm-Ups in der App.</p>
+    <p class="stat-meta">${latestSync ? `Zuletzt synchronisiert: ${escapeHtml(formatDateTimeLabel(latestSync))}` : "Noch kein Sync vorhanden."}</p>
+    <p class="stat-meta">${isAdmin() ? "Pflege läuft über Notion. Hier synchronisierst du und prüfst die Warm-Up-Bibliothek." : "Pflege läuft über Notion. Hier können Trainer schnell Warm-Up-Ideen sammeln."}</p>
+  `;
+
+  const warmups = getFilteredWarmups();
+  if (!warmups.length) {
+    warmupTableBody.innerHTML = `
+      <tr>
+        <td colspan="6">
+          <div class="empty-state">
+            <p>Noch keine Warm-Ups sichtbar. Lege zuerst den Notion-Sync an oder passe die Suche an.</p>
+          </div>
+        </td>
+      </tr>
+    `;
+    warmupCards.innerHTML = `
+      <div class="empty-state">
+        <p>Noch keine Warm-Ups sichtbar. Lege zuerst den Notion-Sync an oder passe die Suche an.</p>
+      </div>
+    `;
+    return;
+  }
+
+  warmupTableBody.innerHTML = warmups.map((warmup) => `
+    <tr>
+      <td><strong>${escapeHtml(warmup.title || "Ohne Titel")}</strong></td>
+      <td>${escapeHtml(warmup.category || "-")}</td>
+      <td>${escapeHtml(warmup.level || "-")}</td>
+      <td>${warmup.focus ? `<span class="exercise-table-emphasis">${escapeHtml(warmup.focus)}</span>` : "-"}</td>
+      <td>${escapeHtml(warmup.equipment || "-")}</td>
+      <td>
+        <div class="mini-actions table-actions">
+          <button type="button" class="ghost" data-warmup-detail="${escapeHtml(warmup.id)}">Details</button>
+        </div>
+      </td>
+    </tr>
+  `).join("");
+
+  warmupCards.innerHTML = warmups.map((warmup) => {
+    const tags = (warmup.tags || []).map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("");
+    const links = [
+      warmup.video_url ? `<a class="ghost" href="${escapeHtml(warmup.video_url)}" target="_blank" rel="noreferrer">Video öffnen</a>` : "",
+      warmup.source_url ? `<a class="ghost" href="${escapeHtml(warmup.source_url)}" target="_blank" rel="noreferrer">Notion öffnen</a>` : "",
+    ].filter(Boolean).join("");
+
+    return `
+      <article class="exercise-card">
+        <div class="exercise-card-head">
+          <div>
+            <p class="eyebrow">Warm-Up</p>
+            <h3>${escapeHtml(warmup.title || "Ohne Titel")}</h3>
+          </div>
+          <div class="course-status-grid">
+            ${warmup.category ? `<span class="course-status-pill">${escapeHtml(warmup.category)}</span>` : ""}
+            ${warmup.focus ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(warmup.focus)}</span>` : ""}
+          </div>
+        </div>
+        <div class="exercise-meta-grid">
+          ${warmup.category ? `<p><strong>Typ</strong><span>${escapeHtml(warmup.category)}</span></p>` : ""}
+          ${warmup.focus ? `<p><strong>Intensität</strong><span>${escapeHtml(warmup.focus)}</span></p>` : ""}
+          ${warmup.level ? `<p><strong>Dauer</strong><span>${escapeHtml(warmup.level)}</span></p>` : ""}
+          ${warmup.equipment ? `<p><strong>Equipment</strong><span>${escapeHtml(warmup.equipment)}</span></p>` : ""}
+        </div>
+        ${String(warmup.description || warmup.coaching_cues || "").trim() ? `<p class="exercise-copy">${escapeHtml(warmup.description || warmup.coaching_cues || "")}</p>` : ""}
+        ${tags ? `<div class="exercise-tag-row">${tags}</div>` : ""}
+        <div class="stat-card-actions exercise-actions">
+          <button type="button" class="ghost" data-warmup-detail="${escapeHtml(warmup.id)}">Details</button>
+          ${links}
+        </div>
+      </article>
+    `;
+  }).join("");
+
+  warmupTableBody.querySelectorAll("[data-warmup-detail]").forEach((button) => {
+    button.addEventListener("click", () => openWarmupDetailModal(button.dataset.warmupDetail));
+  });
+  warmupCards.querySelectorAll("[data-warmup-detail]").forEach((button) => {
+    button.addEventListener("click", () => openWarmupDetailModal(button.dataset.warmupDetail));
+  });
+}
+
+async function handleWarmupSync() {
+  if (!isAdmin()) {
+    notify("Der Notion-Sync ist nur für Admins verfügbar.", true);
+    return;
+  }
+
+  if (!state.session?.access_token) {
+    notify("Bitte zuerst neu einloggen, damit der Sync autorisiert werden kann.", true);
+    return;
+  }
+
+  state.warmupSyncing = true;
+  renderWarmups();
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 45000);
+    const response = await fetch("/api/sync-warmups", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${state.session.access_token}`,
+      },
+      signal: controller.signal,
+    });
+    window.clearTimeout(timeoutId);
+
+    const rawText = await response.text();
+    let payload = {};
+    try {
+      payload = rawText ? JSON.parse(rawText) : {};
+    } catch (parseError) {
+      payload = { error: rawText || null };
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        payload?.error
+        || payload?.message
+        || `Warm-Up-Sync fehlgeschlagen (${response.status}).`,
+      );
+    }
+
+    await refreshVisibleData({ context: "Warmup sync refresh", silent: true });
+    notify(payload?.message || `${payload?.synced || 0} Warm-Ups wurden synchronisiert.`);
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      notify("Der Warm-Up-Sync dauert zu lange. Bitte Vercel-Logs prüfen oder den Sync später erneut starten.", true);
+    } else {
+      notify(error.message || "Warm-Up-Sync fehlgeschlagen.", true);
+    }
+  } finally {
+    state.warmupSyncing = false;
+    renderWarmups();
   }
 }
 
@@ -8874,6 +9170,7 @@ function getAvailableSections({ connected, loggedIn, appUnlocked }) {
         "#trialsPanel",
         "#exercisePanel",
         "#finisherPanel",
+        "#warmupPanel",
         "#courseListPanel",
         "#planningPanel",
         "#attendancePanel",
@@ -8888,6 +9185,7 @@ function getAvailableSections({ connected, loggedIn, appUnlocked }) {
         "#trialsPanel",
         "#exercisePanel",
         "#finisherPanel",
+        "#warmupPanel",
         "#courseListPanel",
         "#attendancePanel",
       );
@@ -8906,6 +9204,7 @@ function getNavigationSections(availableSections, { connected, loggedIn, appUnlo
     "#todayPanel",
     "#exercisePanel",
     "#finisherPanel",
+    "#warmupPanel",
     "#courseListPanel",
     "#attendancePanel",
     "#trialsPanel",
@@ -9391,6 +9690,7 @@ function getFriendlySupabaseMessage(error, fallback) {
     || normalized.includes("target_session_id")
     || normalized.includes("exercise_library")
     || normalized.includes("finisher_library")
+    || normalized.includes("warmup_library")
     || normalized.includes("notion_page_id")
   ) {
     return "Die App braucht das neueste Supabase-Schema. Bitte `supabase-schema.sql` noch einmal komplett im SQL Editor ausführen.";

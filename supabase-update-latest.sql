@@ -288,6 +288,27 @@ create table if not exists public.finisher_library (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.warmup_library (
+  id uuid primary key default gen_random_uuid(),
+  notion_page_id text not null unique,
+  title text not null,
+  category text,
+  focus text,
+  level text,
+  equipment text,
+  coaching_cues text,
+  description text,
+  video_url text,
+  source_url text,
+  tags text[] not null default '{}',
+  notion_last_edited_at timestamptz,
+  notion_archived boolean not null default false,
+  sync_source text not null default 'notion',
+  raw_properties jsonb,
+  synced_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
 alter table public.exercise_library add column if not exists technique_cues text;
 alter table public.exercise_library add column if not exists progression text;
 alter table public.exercise_library add column if not exists regression text;
@@ -398,6 +419,7 @@ alter table public.session_overrides enable row level security;
 alter table public.drop_in_bookings enable row level security;
 alter table public.exercise_library enable row level security;
 alter table public.finisher_library enable row level security;
+alter table public.warmup_library enable row level security;
 alter table public.exercise_favorites enable row level security;
 
 drop policy if exists "admins see all courses" on public.courses;
@@ -492,6 +514,21 @@ using (public.current_user_role() in ('admin', 'trainer'));
 drop policy if exists "admins manage finisher library" on public.finisher_library;
 create policy "admins manage finisher library"
 on public.finisher_library
+for all
+to authenticated
+using (public.current_user_role() = 'admin')
+with check (public.current_user_role() = 'admin');
+
+drop policy if exists "authenticated can read warmup library" on public.warmup_library;
+create policy "authenticated can read warmup library"
+on public.warmup_library
+for select
+to authenticated
+using (public.current_user_role() in ('admin', 'trainer'));
+
+drop policy if exists "admins manage warmup library" on public.warmup_library;
+create policy "admins manage warmup library"
+on public.warmup_library
 for all
 to authenticated
 using (public.current_user_role() = 'admin')

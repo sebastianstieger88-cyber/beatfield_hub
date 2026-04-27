@@ -45,6 +45,7 @@
           <div class="nav-submenu">
             <a href="#exercisePanel">&#220;bungen</a>
             <a href="#finisherPanel">Finisher</a>
+            <a href="#warmupPanel">Warm-Up</a>
           </div>
         </details>
         <details class="nav-group">
@@ -565,6 +566,39 @@
         <div id="finisherCards" class="exercise-grid"></div>
       </section>
 
+      <section class="panel wide hidden" id="warmupPanel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">CAMPUS</p>
+            <h2>Warm-Up aus Notion</h2>
+          </div>
+          <button id="warmupSyncBtn" type="button" class="primary">Jetzt mit Notion synchronisieren</button>
+        </div>
+        <div class="exercise-toolbar finisher-toolbar">
+          <label>
+            <span>Suche</span>
+            <input id="warmupSearch" type="search" placeholder="Name, Fokus, Equipment oder Tag">
+          </label>
+        </div>
+        <div id="warmupSyncMeta" class="stat-card exercise-sync-meta"></div>
+        <div class="table-wrap exercise-table-wrap">
+          <table class="exercise-table">
+            <thead>
+              <tr>
+                <th>Warm-Up</th>
+                <th>Typ</th>
+                <th>Dauer</th>
+                <th>Intensität</th>
+                <th>Ausrüstung</th>
+                <th>Aktion</th>
+              </tr>
+            </thead>
+            <tbody id="warmupTableBody"></tbody>
+          </table>
+        </div>
+        <div id="warmupCards" class="exercise-grid"></div>
+      </section>
+
       <section class="panel hidden" id="courseListPanel">
         <div class="panel-heading">
           <div>
@@ -789,6 +823,19 @@
         <button id="closeFinisherDetailModalBtn" type="button" class="ghost">Schließen</button>
       </div>
       <div id="finisherDetailBody" class="stack"></div>
+    </div>
+  </div>
+
+  <div id="warmupDetailModal" class="overlay hidden">
+    <div class="modal-card">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Warm-Up</p>
+          <h2 id="warmupDetailTitle">Warm-Up-Details</h2>
+        </div>
+        <button id="closeWarmupDetailModalBtn" type="button" class="ghost">Schlie&#223;en</button>
+      </div>
+      <div id="warmupDetailBody" class="stack"></div>
     </div>
   </div>
 

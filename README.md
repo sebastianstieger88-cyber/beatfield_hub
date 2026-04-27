@@ -23,6 +23,7 @@ Produktionsnaehere Web-App fuer Outdoor-Fitnesskurse mit Supabase Auth und Verce
 - `vercel.json`: einfaches Vercel-Setup
 - `api/sync-exercises.js`: geschützter Notion -> Supabase Sync für die Übungsbibliothek
 - `api/sync-finishers.js`: geschützter Notion -> Supabase Sync für die Finisher-Bibliothek
+- `api/sync-warmups.js`: geschützter Notion -> Supabase Sync für die Warm-Up-Bibliothek
 
 ## Supabase einrichten
 
@@ -95,6 +96,7 @@ Pflicht:
 - `NOTION_TOKEN`
 - `NOTION_EXERCISE_DATABASE_ID`
 - `NOTION_FINISHER_DATABASE_ID`
+- `NOTION_WARMUP_DATABASE_ID`
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
@@ -126,6 +128,16 @@ Optional für exakte Feldzuordnung:
 - `NOTION_FINISHER_VIDEO_FIELD`
 - `NOTION_FINISHER_SOURCE_FIELD`
 - `NOTION_FINISHER_TAGS_FIELD`
+- `NOTION_WARMUP_TITLE_FIELD`
+- `NOTION_WARMUP_CATEGORY_FIELD`
+- `NOTION_WARMUP_FOCUS_FIELD`
+- `NOTION_WARMUP_LEVEL_FIELD`
+- `NOTION_WARMUP_EQUIPMENT_FIELD`
+- `NOTION_WARMUP_COACHING_FIELD`
+- `NOTION_WARMUP_DESCRIPTION_FIELD`
+- `NOTION_WARMUP_VIDEO_FIELD`
+- `NOTION_WARMUP_SOURCE_FIELD`
+- `NOTION_WARMUP_TAGS_FIELD`
 
 Wenn die Feldnamen in Notion klar benannt sind, reichen oft schon die eingebauten Standardnamen wie:
 - `Übung`
