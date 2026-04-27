@@ -1381,6 +1381,14 @@ button.danger {
   grid-template-columns: minmax(0, 1.4fr) minmax(180px, 0.7fr) auto auto auto;
 }
 
+.campus-search-toolbar {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.campus-saved-searches .exercise-filter-chip {
+  background: rgba(255, 255, 255, 0.03);
+}
+
 .specials-layout {
   display: grid;
   gap: 16px;

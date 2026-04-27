@@ -477,12 +477,16 @@
             <h2>Bibliotheken & Schnellzugriff</h2>
           </div>
         </div>
-        <div class="exercise-toolbar specials-toolbar">
+        <div class="exercise-toolbar campus-search-toolbar">
           <label>
             <span>CAMPUS-Suche</span>
             <input id="campusSearch" type="search" placeholder="Übungen, Finisher, Warm-Ups oder Specials durchsuchen">
           </label>
+          <button id="campusSaveSearchBtn" type="button" class="ghost">Suche speichern</button>
+          <button id="campusResetSearchBtn" type="button" class="ghost">Zurücksetzen</button>
         </div>
+        <div id="campusActiveFilters" class="exercise-active-filters"></div>
+        <div id="campusSavedSearches" class="exercise-active-filters campus-saved-searches"></div>
         <div id="campusSearchResults" class="stats-grid campus-grid"></div>
         <div id="campusOverviewGrid" class="stats-grid campus-grid"></div>
         <div id="campusRecentGrid" class="stats-grid campus-grid"></div>

@@ -7,6 +7,7 @@ const OFFLINE_CACHE_KEY = "beatfield-offline-cache-v2";
 const OFFLINE_QUEUE_KEY = "beatfield-offline-queue-v2";
 const SPECIALS_BUCKET = "campus-specials";
 const CAMPUS_RECENT_KEY = "beatfield-campus-recent-v1";
+const CAMPUS_SAVED_SEARCHES_KEY = "beatfield-campus-saved-searches-v1";
 
 const state = {
   supabase: null,
@@ -60,6 +61,8 @@ const state = {
   warmupSyncing: false,
   specialsSearch: "",
   campusSearch: "",
+  campusSearchType: "all",
+  campusSavedSearches: loadCampusSavedSearches(),
   specialsFavoritesOnly: false,
   specialsPinFavorites: false,
   specialsSort: "updated_desc",
@@ -206,6 +209,10 @@ const campusOverviewGrid = document.querySelector("#campusOverviewGrid");
 const campusRecentGrid = document.querySelector("#campusRecentGrid");
 const campusSearchResults = document.querySelector("#campusSearchResults");
 const campusSearch = document.querySelector("#campusSearch");
+const campusActiveFilters = document.querySelector("#campusActiveFilters");
+const campusSavedSearches = document.querySelector("#campusSavedSearches");
+const campusSaveSearchBtn = document.querySelector("#campusSaveSearchBtn");
+const campusResetSearchBtn = document.querySelector("#campusResetSearchBtn");
 const exerciseSearch = document.querySelector("#exerciseSearch");
 const finisherSearch = document.querySelector("#finisherSearch");
 const warmupSearch = document.querySelector("#warmupSearch");
@@ -480,6 +487,11 @@ specialsSearch?.addEventListener("input", () => {
 });
 campusSearch?.addEventListener("input", () => {
   state.campusSearch = campusSearch.value || "";
+  renderCampusOverview();
+});
+campusSaveSearchBtn?.addEventListener("click", handleCampusSaveSearch);
+campusResetSearchBtn?.addEventListener("click", () => {
+  resetCampusSearch();
   renderCampusOverview();
 });
 specialsSortSelect?.addEventListener("change", () => {
@@ -4736,6 +4748,12 @@ function renderCampusOverview() {
   if (campusSearch) {
     campusSearch.value = state.campusSearch || "";
   }
+  if (campusSaveSearchBtn) {
+    campusSaveSearchBtn.disabled = !String(state.campusSearch || "").trim();
+  }
+  if (campusResetSearchBtn) {
+    campusResetSearchBtn.disabled = !String(state.campusSearch || "").trim() && state.campusSearchType === "all";
+  }
 
   const latestExerciseSync = state.exercises.map((item) => item.synced_at).filter(Boolean).sort((a, b) => String(b).localeCompare(String(a)))[0] || null;
   const latestFinisherSync = state.finishers.map((item) => item.synced_at).filter(Boolean).sort((a, b) => String(b).localeCompare(String(a)))[0] || null;
@@ -4833,6 +4851,93 @@ function renderCampusOverview() {
     });
   }
 
+  if (campusActiveFilters) {
+    const chips = [
+      {
+        label: "Alle",
+        active: state.campusSearchType === "all",
+        action: () => {
+          state.campusSearchType = "all";
+          renderCampusOverview();
+        },
+      },
+      {
+        label: "Übungen",
+        active: state.campusSearchType === "exercise",
+        action: () => {
+          state.campusSearchType = "exercise";
+          renderCampusOverview();
+        },
+      },
+      {
+        label: "Finisher",
+        active: state.campusSearchType === "finisher",
+        action: () => {
+          state.campusSearchType = "finisher";
+          renderCampusOverview();
+        },
+      },
+      {
+        label: "Warm-Ups",
+        active: state.campusSearchType === "warmup",
+        action: () => {
+          state.campusSearchType = "warmup";
+          renderCampusOverview();
+        },
+      },
+      {
+        label: "Specials",
+        active: state.campusSearchType === "special",
+        action: () => {
+          state.campusSearchType = "special";
+          renderCampusOverview();
+        },
+      },
+      ...getActiveCampusFilterChips().map((chip) => ({ ...chip, removable: true })),
+    ];
+
+    campusActiveFilters.innerHTML = chips.map((chip, index) => `
+      <button type="button" class="exercise-filter-chip${chip.active ? " is-active" : ""}" data-campus-chip="${index}">
+        <span>${escapeHtml(chip.label)}</span>
+        ${chip.removable ? '<span aria-hidden="true">×</span>' : ""}
+      </button>
+    `).join("");
+
+    campusActiveFilters.querySelectorAll("[data-campus-chip]").forEach((button) => {
+      button.addEventListener("click", () => {
+        chips[Number(button.dataset.campusChip)]?.action?.();
+      });
+    });
+  }
+
+  if (campusSavedSearches) {
+    const saved = state.campusSavedSearches || [];
+    campusSavedSearches.innerHTML = saved.length
+      ? saved.map((entry, index) => `
+          <button type="button" class="exercise-filter-chip" data-campus-saved="${index}">
+            <span>${escapeHtml(entry.query)}</span>
+            <span class="exercise-copy-muted">${escapeHtml(getCampusTypeLabel(entry.type || "all"))}</span>
+          </button>
+          <button type="button" class="exercise-filter-chip" data-campus-saved-remove="${index}">
+            <span>Gespeicherte Suche entfernen</span>
+            <span aria-hidden="true">×</span>
+          </button>
+        `).join("")
+      : "";
+    campusSavedSearches.classList.toggle("hidden", !saved.length);
+
+    campusSavedSearches.querySelectorAll("[data-campus-saved]").forEach((button) => {
+      button.addEventListener("click", () => {
+        applyCampusSavedSearch(saved[Number(button.dataset.campusSaved)]);
+      });
+    });
+    campusSavedSearches.querySelectorAll("[data-campus-saved-remove]").forEach((button) => {
+      button.addEventListener("click", () => {
+        removeCampusSavedSearch(Number(button.dataset.campusSavedRemove));
+      });
+    });
+  }
+
   if (!campusRecentGrid) {
     return;
   }
@@ -4907,7 +5012,10 @@ function getCampusSearchResults() {
     ...state.specials.map((item) => ({ type: "special", id: item.id, title: item.title, meta: [item.file_name, formatFileSize(item.file_size)].filter(Boolean).join(" • "), panel: "#specialsPanel", search: [item.title, item.file_name, item.description].filter(Boolean).join(" ") })),
   ];
 
-  return buckets.filter((entry) => entry.search.toLowerCase().includes(needle)).slice(0, 12);
+  return buckets
+    .filter((entry) => (state.campusSearchType === "all" || entry.type === state.campusSearchType))
+    .filter((entry) => entry.search.toLowerCase().includes(needle))
+    .slice(0, 12);
 }
 
 function openCampusResult(result) {
@@ -4921,6 +5029,80 @@ function openCampusResult(result) {
   } else if (result.type === "special") {
     openSpecialDetailModal(result.id);
   }
+}
+
+function getCampusTypeLabel(type) {
+  return {
+    all: "Alle",
+    exercise: "Übungen",
+    finisher: "Finisher",
+    warmup: "Warm-Ups",
+    special: "Specials",
+  }[type] || type;
+}
+
+function getActiveCampusFilterChips() {
+  const chips = [];
+  const search = String(state.campusSearch || "").trim();
+  if (search) {
+    chips.push({
+      label: `Suche: ${search}`,
+      action: () => {
+        state.campusSearch = "";
+        renderCampusOverview();
+      },
+    });
+  }
+  if (state.campusSearchType !== "all") {
+    chips.push({
+      label: `Bereich: ${getCampusTypeLabel(state.campusSearchType)}`,
+      action: () => {
+        state.campusSearchType = "all";
+        renderCampusOverview();
+      },
+    });
+  }
+  return chips;
+}
+
+function resetCampusSearch() {
+  state.campusSearch = "";
+  state.campusSearchType = "all";
+}
+
+function applyCampusSavedSearch(entry) {
+  state.campusSearch = entry?.query || "";
+  state.campusSearchType = entry?.type || "all";
+  renderCampusOverview();
+}
+
+function removeCampusSavedSearch(index) {
+  state.campusSavedSearches = state.campusSavedSearches.filter((_, itemIndex) => itemIndex !== index);
+  persistCampusSavedSearches();
+  renderCampusOverview();
+}
+
+function handleCampusSaveSearch() {
+  const query = String(state.campusSearch || "").trim();
+  if (!query) {
+    notify("Bitte zuerst einen Suchbegriff für CAMPUS eingeben.", true);
+    return;
+  }
+
+  const entry = {
+    query,
+    type: state.campusSearchType || "all",
+    saved_at: new Date().toISOString(),
+  };
+
+  state.campusSavedSearches = [
+    entry,
+    ...state.campusSavedSearches.filter((item) => !(item.query === entry.query && item.type === entry.type)),
+  ].slice(0, 12);
+
+  persistCampusSavedSearches();
+  renderCampusOverview();
+  notify(`CAMPUS-Suche "${query}" wurde gespeichert.`);
 }
 
 function resetSpecialForm() {
@@ -11169,6 +11351,25 @@ function persistCampusRecentItems() {
     window.localStorage.setItem(CAMPUS_RECENT_KEY, JSON.stringify(state.campusRecentItems || []));
   } catch (error) {
     console.warn("Campus recent items could not be persisted", error);
+  }
+}
+
+function loadCampusSavedSearches() {
+  try {
+    const rawValue = window.localStorage.getItem(CAMPUS_SAVED_SEARCHES_KEY);
+    const parsed = rawValue ? JSON.parse(rawValue) : [];
+    return Array.isArray(parsed) ? parsed.slice(0, 12) : [];
+  } catch (error) {
+    console.warn("Campus saved searches could not be loaded", error);
+    return [];
+  }
+}
+
+function persistCampusSavedSearches() {
+  try {
+    window.localStorage.setItem(CAMPUS_SAVED_SEARCHES_KEY, JSON.stringify(state.campusSavedSearches || []));
+  } catch (error) {
+    console.warn("Campus saved searches could not be persisted", error);
   }
 }
 
