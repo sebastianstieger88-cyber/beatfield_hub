@@ -5313,19 +5313,36 @@ function handleWorkoutPdfExport() {
     return;
   }
 
-  const printWindow = window.open("", "_blank", "noopener,noreferrer,width=1024,height=900");
+  const blob = new Blob([buildWorkoutPrintHtml(selection)], { type: "text/html;charset=utf-8;" });
+  const printUrl = URL.createObjectURL(blob);
+  const printWindow = window.open(printUrl, "_blank", "noopener,noreferrer,width=1024,height=900");
   if (!printWindow) {
+    URL.revokeObjectURL(printUrl);
     notify("Die PDF-Druckansicht konnte nicht geöffnet werden. Bitte Pop-ups erlauben.", true);
     return;
   }
 
-  printWindow.document.open();
-  printWindow.document.write(buildWorkoutPrintHtml(selection));
-  printWindow.document.close();
-  printWindow.focus();
-  window.setTimeout(() => {
-    printWindow.print();
-  }, 250);
+  const cleanupPrintUrl = () => {
+    window.setTimeout(() => URL.revokeObjectURL(printUrl), 60000);
+  };
+
+  printWindow.addEventListener("load", () => {
+    try {
+      printWindow.focus();
+      window.setTimeout(() => {
+        try {
+          printWindow.print();
+        } finally {
+          cleanupPrintUrl();
+        }
+      }, 350);
+    } catch (error) {
+      cleanupPrintUrl();
+      notify("Die PDF-Druckansicht wurde geöffnet. Bitte im neuen Tab manuell drucken oder als PDF speichern.", false);
+    }
+  }, { once: true });
+
+  notify(`Workout "${selection.title}" wird für den PDF-Export vorbereitet.`);
 }
 
 function handleWorkoutExcelExport() {
