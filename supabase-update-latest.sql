@@ -323,6 +323,20 @@ create table if not exists public.exercise_favorites (
   primary key (user_id, exercise_id)
 );
 
+create table if not exists public.finisher_favorites (
+  user_id uuid not null references public.profiles(user_id) on delete cascade,
+  finisher_id uuid not null references public.finisher_library(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, finisher_id)
+);
+
+create table if not exists public.warmup_favorites (
+  user_id uuid not null references public.profiles(user_id) on delete cascade,
+  warmup_id uuid not null references public.warmup_library(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, warmup_id)
+);
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -421,6 +435,8 @@ alter table public.exercise_library enable row level security;
 alter table public.finisher_library enable row level security;
 alter table public.warmup_library enable row level security;
 alter table public.exercise_favorites enable row level security;
+alter table public.finisher_favorites enable row level security;
+alter table public.warmup_favorites enable row level security;
 
 drop policy if exists "admins see all courses" on public.courses;
 create policy "admins see all courses"
@@ -537,6 +553,22 @@ with check (public.current_user_role() = 'admin');
 drop policy if exists "users manage own exercise favorites" on public.exercise_favorites;
 create policy "users manage own exercise favorites"
 on public.exercise_favorites
+for all
+to authenticated
+using (user_id = auth.uid())
+with check (user_id = auth.uid());
+
+drop policy if exists "users manage own finisher favorites" on public.finisher_favorites;
+create policy "users manage own finisher favorites"
+on public.finisher_favorites
+for all
+to authenticated
+using (user_id = auth.uid())
+with check (user_id = auth.uid());
+
+drop policy if exists "users manage own warmup favorites" on public.warmup_favorites;
+create policy "users manage own warmup favorites"
+on public.warmup_favorites
 for all
 to authenticated
 using (user_id = auth.uid())
