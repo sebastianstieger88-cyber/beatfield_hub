@@ -1,4 +1,4 @@
-const NOTION_VERSION = "2022-06-28";
+﻿const NOTION_VERSION = "2022-06-28";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -21,14 +21,14 @@ export default async function handler(req, res) {
     NOTION_WARMUP_DESCRIPTION_FIELD,
     NOTION_WARMUP_VIDEO_FIELD,
     NOTION_WARMUP_SOURCE_FIELD,
-    NOTION_WARMUP_TAGS_FIELD,
+    NOTION_WARMUP_TAGS_FIELD
   } = process.env;
 
   const notionDatabaseId = normalizeNotionDatabaseId(NOTION_WARMUP_DATABASE_ID);
 
   if (!NOTION_TOKEN || !notionDatabaseId || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
     return res.status(500).json({
-      error: "Fuer den Warm-Up-Sync fehlen noch Umgebungsvariablen in Vercel.",
+      error: "Fuer den Warm-Up-Sync fehlen noch Umgebungsvariablen in Vercel."
     });
   }
 
@@ -55,7 +55,7 @@ export default async function handler(req, res) {
       description: splitFieldNames(NOTION_WARMUP_DESCRIPTION_FIELD, ["Beschreibung", "Description", "Details", "Notizen"]),
       video: splitFieldNames(NOTION_WARMUP_VIDEO_FIELD, ["Video", "Video URL", "Video-Link", "Video Link"]),
       source: splitFieldNames(NOTION_WARMUP_SOURCE_FIELD, ["Link", "URL", "Quelle", "Source"]),
-      tags: splitFieldNames(NOTION_WARMUP_TAGS_FIELD, ["Tags", "Schlagwoerter"]),
+      tags: splitFieldNames(NOTION_WARMUP_TAGS_FIELD, ["Tags", "Schlagwoerter"])
     };
 
     const nowIso = new Date().toISOString();
@@ -73,17 +73,17 @@ export default async function handler(req, res) {
       SUPABASE_SERVICE_ROLE_KEY,
       existingPageIds,
       warmups.map((warmup) => warmup.notion_page_id),
-      nowIso,
+      nowIso
     );
 
     return res.status(200).json({
       synced: warmups.length,
-      message: `${warmups.length} Warm-Ups wurden mit Notion synchronisiert.`,
+      message: `${warmups.length} Warm-Ups wurden mit Notion synchronisiert.`
     });
   } catch (error) {
     console.error("Warmup sync failed", error);
     return res.status(500).json({
-      error: error.message || "Der Warm-Up-Sync ist fehlgeschlagen.",
+      error: error.message || "Der Warm-Up-Sync ist fehlgeschlagen."
     });
   }
 }
@@ -100,8 +100,8 @@ async function getSupabaseUser(supabaseUrl, anonKey, accessToken) {
   const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
     headers: {
       apikey: anonKey,
-      Authorization: `Bearer ${accessToken}`,
-    },
+      Authorization: `Bearer ${accessToken}`
+    }
   });
 
   if (!response.ok) {
@@ -116,8 +116,8 @@ async function getSupabaseProfile(supabaseUrl, serviceRoleKey, userId) {
   const response = await fetch(`${supabaseUrl}/rest/v1/profiles?user_id=eq.${encodeURIComponent(userId)}&select=user_id,role,full_name`, {
     headers: {
       apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
-    },
+      Authorization: `Bearer ${serviceRoleKey}`
+    }
   });
 
   if (!response.ok) {
@@ -138,9 +138,9 @@ async function fetchAllNotionPages(notionToken, databaseId) {
       headers: {
         Authorization: `Bearer ${notionToken}`,
         "Notion-Version": NOTION_VERSION,
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
       },
-      body: JSON.stringify(cursor ? { start_cursor: cursor } : {}),
+      body: JSON.stringify(cursor ? { start_cursor: cursor } : {})
     });
 
     if (!response.ok) {
@@ -162,7 +162,7 @@ function normalizeNotionDatabaseId(rawValue) {
     return "";
   }
 
-  const urlMatch = value.match(/[0-9a-fA-F]{32}(?=\\?|$)/);
+  const urlMatch = value.match(/[0-9a-fA-F]{32}(?=\?|$)/);
   if (urlMatch) {
     return urlMatch[0];
   }
@@ -212,7 +212,7 @@ function mapNotionPageToWarmup(page, fieldMap, nowIso) {
     notion_archived: Boolean(page.archived || page.in_trash),
     sync_source: "notion",
     raw_properties: properties,
-    synced_at: nowIso,
+    synced_at: nowIso
   };
 }
 
@@ -273,7 +273,7 @@ function getPropertyUrl(property) {
   }
 
   const text = getPropertyText(property).trim();
-  return /^https?:\\/\\//i.test(text) ? text : "";
+  return /^https?:\/\//i.test(text) ? text : "";
 }
 
 function getPropertyArray(property) {
@@ -303,8 +303,8 @@ async function fetchExistingWarmupPageIds(supabaseUrl, serviceRoleKey) {
   const response = await fetch(`${supabaseUrl}/rest/v1/warmup_library?select=notion_page_id&sync_source=eq.notion`, {
     headers: {
       apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
-    },
+      Authorization: `Bearer ${serviceRoleKey}`
+    }
   });
 
   if (!response.ok) {
@@ -330,12 +330,12 @@ async function archiveMissingWarmups(supabaseUrl, serviceRoleKey, existingPageId
       apikey: serviceRoleKey,
       Authorization: `Bearer ${serviceRoleKey}`,
       "Content-Type": "application/json",
-      Prefer: "return=minimal",
+      Prefer: "return=minimal"
     },
     body: JSON.stringify({
       notion_archived: true,
-      synced_at: syncedAt,
-    }),
+      synced_at: syncedAt
+    })
   });
 
   if (!response.ok) {
@@ -350,9 +350,9 @@ async function upsertWarmups(supabaseUrl, serviceRoleKey, warmups) {
       apikey: serviceRoleKey,
       Authorization: `Bearer ${serviceRoleKey}`,
       "Content-Type": "application/json",
-      Prefer: "resolution=merge-duplicates,return=minimal",
+      Prefer: "resolution=merge-duplicates,return=minimal"
     },
-    body: JSON.stringify(warmups),
+    body: JSON.stringify(warmups)
   });
 
   if (!response.ok) {
