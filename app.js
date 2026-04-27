@@ -59,10 +59,12 @@ const state = {
   warmupPinFavorites: false,
   warmupSyncing: false,
   specialsSearch: "",
+  campusSearch: "",
   specialsFavoritesOnly: false,
   specialsPinFavorites: false,
   specialsSort: "updated_desc",
   specialsUploading: false,
+  editingSpecialId: null,
   selectedCourseId: null,
   editingCourseId: null,
   editingSeasonId: null,
@@ -202,6 +204,8 @@ const warmupCards = document.querySelector("#warmupCards");
 const specialsCards = document.querySelector("#specialsCards");
 const campusOverviewGrid = document.querySelector("#campusOverviewGrid");
 const campusRecentGrid = document.querySelector("#campusRecentGrid");
+const campusSearchResults = document.querySelector("#campusSearchResults");
+const campusSearch = document.querySelector("#campusSearch");
 const exerciseSearch = document.querySelector("#exerciseSearch");
 const finisherSearch = document.querySelector("#finisherSearch");
 const warmupSearch = document.querySelector("#warmupSearch");
@@ -223,6 +227,7 @@ const specialsPreviewCard = document.querySelector("#specialsPreviewCard");
 const specialsUploadForm = document.querySelector("#specialsUploadForm");
 const specialsUploadBtn = document.querySelector("#specialsUploadBtn");
 const specialsFileInput = document.querySelector("#specialsFileInput");
+const specialsCancelEditBtn = document.querySelector("#specialsCancelEditBtn");
 const specialsActiveFilters = document.querySelector("#specialsActiveFilters");
 const specialsFavoriteFilterBtn = document.querySelector("#specialsFavoriteFilterBtn");
 const specialsPinFavoritesBtn = document.querySelector("#specialsPinFavoritesBtn");
@@ -473,6 +478,10 @@ specialsSearch?.addEventListener("input", () => {
   state.specialsSearch = specialsSearch.value || "";
   renderSpecials();
 });
+campusSearch?.addEventListener("input", () => {
+  state.campusSearch = campusSearch.value || "";
+  renderCampusOverview();
+});
 specialsSortSelect?.addEventListener("change", () => {
   state.specialsSort = specialsSortSelect.value || "updated_desc";
   renderSpecials();
@@ -490,6 +499,7 @@ specialsResetFiltersBtn?.addEventListener("click", () => {
   renderSpecials();
 });
 specialsUploadForm?.addEventListener("submit", handleSpecialUpload);
+specialsCancelEditBtn?.addEventListener("click", resetSpecialForm);
 toggleArchivedDropInsBtn?.addEventListener("click", () => {
   state.showArchivedDropIns = !state.showArchivedDropIns;
   renderDropIns();
@@ -4723,6 +4733,10 @@ function renderCampusOverview() {
     return;
   }
 
+  if (campusSearch) {
+    campusSearch.value = state.campusSearch || "";
+  }
+
   const latestExerciseSync = state.exercises.map((item) => item.synced_at).filter(Boolean).sort((a, b) => String(b).localeCompare(String(a)))[0] || null;
   const latestFinisherSync = state.finishers.map((item) => item.synced_at).filter(Boolean).sort((a, b) => String(b).localeCompare(String(a)))[0] || null;
   const latestWarmupSync = state.warmups.map((item) => item.synced_at).filter(Boolean).sort((a, b) => String(b).localeCompare(String(a)))[0] || null;
@@ -4787,6 +4801,38 @@ function renderCampusOverview() {
     button.addEventListener("click", () => setActiveSection(button.dataset.campusOpen));
   });
 
+  if (campusSearchResults) {
+    const results = getCampusSearchResults();
+    campusSearchResults.innerHTML = results.length
+      ? results.map((result) => `
+          <article class="stat-card campus-card">
+            <p class="eyebrow">CAMPUS-Suche</p>
+            <h3>${escapeHtml(result.title || "Eintrag")}</h3>
+            <p class="stat-meta">${escapeHtml(result.meta || "Direkter Treffer")}</p>
+            <div class="stat-card-actions campus-card-actions">
+              <button type="button" class="ghost" data-campus-result="${escapeHtml(result.id)}" data-campus-result-type="${escapeHtml(result.type)}">Öffnen</button>
+            </div>
+          </article>
+        `).join("")
+      : (String(state.campusSearch || "").trim()
+        ? `<article class="stat-card campus-card"><h3>Keine Treffer</h3><p class="stat-meta">Für deine CAMPUS-Suche wurde aktuell nichts gefunden.</p></article>`
+        : "");
+
+    campusSearchResults.querySelectorAll("[data-campus-result]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const type = button.dataset.campusResultType;
+        const id = button.dataset.campusResult;
+        const panelMap = {
+          exercise: "#exercisePanel",
+          finisher: "#finisherPanel",
+          warmup: "#warmupPanel",
+          special: "#specialsPanel",
+        };
+        openCampusResult({ type, id, panel: panelMap[type] });
+      });
+    });
+  }
+
   if (!campusRecentGrid) {
     return;
   }
@@ -4848,6 +4894,90 @@ function getFilteredSpecials() {
   });
 }
 
+function getCampusSearchResults() {
+  const needle = String(state.campusSearch || "").trim().toLowerCase();
+  if (!needle) {
+    return [];
+  }
+
+  const buckets = [
+    ...state.exercises.map((item) => ({ type: "exercise", id: item.id, title: item.title, meta: [item.category, item.focus, item.level].filter(Boolean).join(" • "), panel: "#exercisePanel", search: [item.title, item.category, item.focus, item.level, item.description].filter(Boolean).join(" ") })),
+    ...state.finishers.map((item) => ({ type: "finisher", id: item.id, title: item.title, meta: [item.category, item.focus, item.level].filter(Boolean).join(" • "), panel: "#finisherPanel", search: [item.title, item.category, item.focus, item.level, item.description].filter(Boolean).join(" ") })),
+    ...state.warmups.map((item) => ({ type: "warmup", id: item.id, title: item.title, meta: [item.level, item.equipment].filter(Boolean).join(" • "), panel: "#warmupPanel", search: [item.title, item.level, item.equipment, item.description].filter(Boolean).join(" ") })),
+    ...state.specials.map((item) => ({ type: "special", id: item.id, title: item.title, meta: [item.file_name, formatFileSize(item.file_size)].filter(Boolean).join(" • "), panel: "#specialsPanel", search: [item.title, item.file_name, item.description].filter(Boolean).join(" ") })),
+  ];
+
+  return buckets.filter((entry) => entry.search.toLowerCase().includes(needle)).slice(0, 12);
+}
+
+function openCampusResult(result) {
+  setActiveSection(result.panel);
+  if (result.type === "exercise") {
+    openExerciseDetailModal(result.id);
+  } else if (result.type === "finisher") {
+    openFinisherDetailModal(result.id);
+  } else if (result.type === "warmup") {
+    openWarmupDetailModal(result.id);
+  } else if (result.type === "special") {
+    openSpecialDetailModal(result.id);
+  }
+}
+
+function resetSpecialForm() {
+  state.editingSpecialId = null;
+  specialsUploadForm?.reset();
+  specialsCancelEditBtn?.classList.add("hidden");
+  if (specialsUploadBtn) {
+    specialsUploadBtn.textContent = "PDF hochladen";
+  }
+}
+
+function openSpecialEditForm(specialId) {
+  const special = getSpecialById(specialId);
+  if (!special || !specialsUploadForm) {
+    return;
+  }
+  state.editingSpecialId = special.id;
+  specialsUploadForm.elements.specialId.value = special.id;
+  specialsUploadForm.elements.title.value = special.title || "";
+  specialsUploadForm.elements.description.value = special.description || "";
+  if (specialsFileInput) {
+    specialsFileInput.value = "";
+  }
+  specialsCancelEditBtn?.classList.remove("hidden");
+  if (specialsUploadBtn) {
+    specialsUploadBtn.textContent = "Special speichern";
+  }
+}
+
+async function handleSpecialDelete(specialId) {
+  const special = getSpecialById(specialId);
+  if (!special || !isAdmin() || !state.supabase) {
+    return;
+  }
+  const confirmed = window.confirm(`Soll "${special.title}" wirklich gelöscht werden?`);
+  if (!confirmed) {
+    return;
+  }
+
+  const deleteDbResult = await state.supabase.from("campus_specials").delete().eq("id", special.id);
+  if (deleteDbResult.error) {
+    notify(getFriendlySupabaseMessage(deleteDbResult.error, "Special konnte nicht gelöscht werden."), true);
+    return;
+  }
+
+  await state.supabase.storage.from(SPECIALS_BUCKET).remove([special.storage_path]);
+  if (state.selectedSpecialId === special.id) {
+    state.selectedSpecialId = null;
+  }
+  state.specialSignedUrls[special.id] = null;
+  await refreshVisibleData({ context: "Special delete refresh", silent: true });
+  resetSpecialForm();
+  renderSpecials();
+  closeSpecialDetailModal();
+  notify(`Special "${special.title}" wurde gelöscht.`);
+}
+
 function renderSpecials() {
   if (!specialsMeta || !specialsPreviewCard || !specialsTableBody || !specialsCards) {
     return;
@@ -4863,7 +4993,7 @@ function renderSpecials() {
   specialsUploadForm?.classList.toggle("hidden", !isAdmin());
   if (specialsUploadBtn) {
     specialsUploadBtn.disabled = state.specialsUploading;
-    specialsUploadBtn.textContent = state.specialsUploading ? "Lädt hoch..." : "PDF hochladen";
+    specialsUploadBtn.textContent = state.specialsUploading ? "Lädt hoch..." : state.editingSpecialId ? "Special speichern" : "PDF hochladen";
   }
   if (specialsFavoriteFilterBtn) {
     specialsFavoriteFilterBtn.classList.toggle("is-active", state.specialsFavoritesOnly);
@@ -4937,6 +5067,7 @@ function renderSpecials() {
         <button type="button" class="ghost" data-special-detail="${escapeHtml(selectedSpecial.id)}">Details</button>
         <button type="button" class="${isSpecialFavorite(selectedSpecial.id) ? "primary" : "ghost"}" data-special-favorite="${escapeHtml(selectedSpecial.id)}">${isSpecialFavorite(selectedSpecial.id) ? "Favorit entfernt" : "Als Favorit"}</button>
         <button type="button" class="ghost" data-special-download="${escapeHtml(selectedSpecial.id)}">Download</button>
+        ${isAdmin() ? `<button type="button" class="ghost" data-special-edit="${escapeHtml(selectedSpecial.id)}">Bearbeiten</button><button type="button" class="danger" data-special-delete="${escapeHtml(selectedSpecial.id)}">Löschen</button>` : ""}
       </div>
       <div class="specials-preview-frame">
         ${selectedSpecialUrl
@@ -4978,6 +5109,7 @@ function renderSpecials() {
             <button type="button" class="ghost" data-special-detail="${escapeHtml(special.id)}">Details</button>
             <button type="button" class="${isSpecialFavorite(special.id) ? "primary" : "ghost"}" data-special-favorite="${escapeHtml(special.id)}">${isSpecialFavorite(special.id) ? "Favorit entfernt" : "Als Favorit"}</button>
             <button type="button" class="ghost" data-special-download="${escapeHtml(special.id)}">Download</button>
+            ${isAdmin() ? `<button type="button" class="ghost" data-special-edit="${escapeHtml(special.id)}">Bearbeiten</button><button type="button" class="danger" data-special-delete="${escapeHtml(special.id)}">Löschen</button>` : ""}
           </div>
         </td>
       </tr>
@@ -5005,6 +5137,7 @@ function renderSpecials() {
           <button type="button" class="ghost" data-special-detail="${escapeHtml(special.id)}">Details</button>
           <button type="button" class="${isSpecialFavorite(special.id) ? "primary" : "ghost"}" data-special-favorite="${escapeHtml(special.id)}">${isSpecialFavorite(special.id) ? "Favorit entfernt" : "Als Favorit"}</button>
           <button type="button" class="ghost" data-special-download="${escapeHtml(special.id)}">Download</button>
+          ${isAdmin() ? `<button type="button" class="ghost" data-special-edit="${escapeHtml(special.id)}">Bearbeiten</button><button type="button" class="danger" data-special-delete="${escapeHtml(special.id)}">Löschen</button>` : ""}
         </div>
       </article>
     `).join("");
@@ -5025,6 +5158,12 @@ function renderSpecials() {
   });
   specialsPanel?.querySelectorAll("[data-special-download]").forEach((button) => {
     button.addEventListener("click", () => handleSpecialDownload(button.dataset.specialDownload));
+  });
+  specialsPanel?.querySelectorAll("[data-special-edit]").forEach((button) => {
+    button.addEventListener("click", () => openSpecialEditForm(button.dataset.specialEdit));
+  });
+  specialsPanel?.querySelectorAll("[data-special-delete]").forEach((button) => {
+    button.addEventListener("click", () => handleSpecialDelete(button.dataset.specialDelete));
   });
 }
 
@@ -5097,19 +5236,21 @@ async function handleSpecialUpload(event) {
   }
 
   const formData = new FormData(specialsUploadForm);
+  const specialId = normalizeOptionalId(formData.get("specialId"));
   const title = String(formData.get("title") || "").trim();
   const description = String(formData.get("description") || "").trim();
   const file = formData.get("file");
+  const existingSpecial = specialId ? getSpecialById(specialId) : null;
 
   if (!title) {
     notify("Bitte einen Titel für das Special eingeben.", true);
     return;
   }
-  if (!(file instanceof File) || !file.size) {
+  if (!existingSpecial && (!(file instanceof File) || !file.size)) {
     notify("Bitte eine PDF-Datei auswählen.", true);
     return;
   }
-  if (file.type && file.type !== "application/pdf") {
+  if (file instanceof File && file.size && file.type && file.type !== "application/pdf") {
     notify("Es können nur PDF-Dateien hochgeladen werden.", true);
     return;
   }
@@ -5118,50 +5259,71 @@ async function handleSpecialUpload(event) {
   renderSpecials();
   notify("PDF-Upload wird gestartet...");
 
-  const fileExtension = getFileExtension(file.name) || "pdf";
-  const storagePath = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${fileExtension}`;
+  const fileExtension = getFileExtension(file?.name || existingSpecial?.file_name) || "pdf";
+  let storagePath = existingSpecial?.storage_path || `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${fileExtension}`;
+  let replacedOldPath = null;
 
   try {
-    const uploadResult = await withTimeout(
-      state.supabase
-        .storage
-        .from(SPECIALS_BUCKET)
-        .upload(storagePath, file, {
-          contentType: "application/pdf",
-          upsert: false,
-        }),
-      45000,
-      "Der PDF-Upload zu Supabase dauert zu lange. Bitte später erneut versuchen.",
-    );
+    if (file instanceof File && file.size) {
+      if (existingSpecial) {
+        storagePath = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${fileExtension}`;
+      }
+      const uploadResult = await withTimeout(
+        state.supabase
+          .storage
+          .from(SPECIALS_BUCKET)
+          .upload(storagePath, file, {
+            contentType: "application/pdf",
+            upsert: false,
+          }),
+        45000,
+        "Der PDF-Upload zu Supabase dauert zu lange. Bitte später erneut versuchen.",
+      );
 
-    if (uploadResult.error) {
-      throw uploadResult.error;
+      if (uploadResult.error) {
+        throw uploadResult.error;
+      }
+      if (existingSpecial?.storage_path && existingSpecial.storage_path !== storagePath) {
+        replacedOldPath = existingSpecial.storage_path;
+      }
+      notify("PDF wurde hochgeladen. Speichere jetzt den Eintrag in der Bibliothek...");
     }
 
-    notify("PDF wurde hochgeladen. Speichere jetzt den Eintrag in der Bibliothek...");
+    const payload = {
+      title,
+      description: description || null,
+      file_name: (file instanceof File && file.size ? file.name : existingSpecial?.file_name) || "special.pdf",
+      storage_path: storagePath,
+      mime_type: (file instanceof File && file.size ? file.type : existingSpecial?.mime_type) || "application/pdf",
+      file_size: (file instanceof File && file.size ? file.size : existingSpecial?.file_size) || null,
+      uploaded_by: state.session?.user?.id || null,
+      updated_at: new Date().toISOString(),
+    };
 
-    const insertResult = await withTimeout(
-      state.supabase
-        .from("campus_specials")
-        .insert({
-          title,
-          description: description || null,
-          file_name: file.name,
-          storage_path: storagePath,
-          mime_type: file.type || "application/pdf",
-          file_size: file.size,
-          uploaded_by: state.session?.user?.id || null,
-        }),
-      20000,
-      "Der Bibliothekseintrag für das Special konnte nicht rechtzeitig gespeichert werden.",
-    );
+    const dbResult = specialId
+      ? await withTimeout(
+        state.supabase.from("campus_specials").update(payload).eq("id", specialId),
+        20000,
+        "Der Bibliothekseintrag für das Special konnte nicht rechtzeitig gespeichert werden.",
+      )
+      : await withTimeout(
+        state.supabase.from("campus_specials").insert(payload),
+        20000,
+        "Der Bibliothekseintrag für das Special konnte nicht rechtzeitig gespeichert werden.",
+      );
 
-    if (insertResult.error) {
-      await state.supabase.storage.from(SPECIALS_BUCKET).remove([storagePath]);
-      throw insertResult.error;
+    if (dbResult.error) {
+      if (!specialId) {
+        await state.supabase.storage.from(SPECIALS_BUCKET).remove([storagePath]);
+      }
+      throw dbResult.error;
     }
 
-    specialsUploadForm.reset();
+    if (replacedOldPath) {
+      await state.supabase.storage.from(SPECIALS_BUCKET).remove([replacedOldPath]);
+    }
+
+    resetSpecialForm();
     await withTimeout(
       refreshVisibleData({ context: "Special upload refresh", silent: true }),
       30000,
@@ -5169,7 +5331,7 @@ async function handleSpecialUpload(event) {
     );
     state.selectedSpecialId = state.specials[0]?.id || state.selectedSpecialId;
     renderSpecials();
-    notify(`Special "${title}" wurde hochgeladen.`);
+    notify(specialId ? `Special "${title}" wurde aktualisiert.` : `Special "${title}" wurde hochgeladen.`);
   } catch (error) {
     notify(getFriendlySupabaseMessage(error, "Special konnte nicht hochgeladen werden."), true);
   } finally {

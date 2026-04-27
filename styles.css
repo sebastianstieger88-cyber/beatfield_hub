@@ -1358,8 +1358,27 @@ button.danger {
   justify-content: flex-start;
 }
 
+.campus-recent-card {
+  display: grid;
+  gap: 10px;
+}
+
+.campus-recent-list {
+  display: grid;
+  gap: 10px;
+}
+
+.campus-recent-item {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(103, 193, 47, 0.1);
+  background: rgba(255, 255, 255, 0.02);
+}
+
 .specials-toolbar {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.4fr) minmax(180px, 0.7fr) auto auto auto;
 }
 
 .specials-layout {

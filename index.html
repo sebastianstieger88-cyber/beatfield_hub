@@ -477,7 +477,15 @@
             <h2>Bibliotheken & Schnellzugriff</h2>
           </div>
         </div>
+        <div class="exercise-toolbar specials-toolbar">
+          <label>
+            <span>CAMPUS-Suche</span>
+            <input id="campusSearch" type="search" placeholder="Übungen, Finisher, Warm-Ups oder Specials durchsuchen">
+          </label>
+        </div>
+        <div id="campusSearchResults" class="stats-grid campus-grid"></div>
         <div id="campusOverviewGrid" class="stats-grid campus-grid"></div>
+        <div id="campusRecentGrid" class="stats-grid campus-grid"></div>
       </section>
 
       <section class="panel wide hidden" id="exercisePanel">
@@ -625,6 +633,7 @@
           </div>
         </div>
         <form id="specialsUploadForm" class="stack inline-form hidden">
+          <input name="specialId" type="hidden">
           <label>
             <span>Titel</span>
             <input name="title" type="text" placeholder="z. B. Summer Shred Special" required>
@@ -635,16 +644,30 @@
           </label>
           <label>
             <span>PDF-Datei</span>
-            <input id="specialsFileInput" name="file" type="file" accept="application/pdf" required>
+            <input id="specialsFileInput" name="file" type="file" accept="application/pdf">
           </label>
           <button id="specialsUploadBtn" type="submit" class="primary">PDF hochladen</button>
+          <button id="specialsCancelEditBtn" type="button" class="ghost hidden">Bearbeitung abbrechen</button>
         </form>
         <div class="exercise-toolbar finisher-toolbar specials-toolbar">
           <label>
             <span>Suche</span>
             <input id="specialsSearch" type="search" placeholder="Titel, Beschreibung oder Dateiname">
           </label>
+          <label>
+            <span>Sortierung</span>
+            <select id="specialsSortSelect">
+              <option value="updated_desc">Neueste zuerst</option>
+              <option value="updated_asc">Älteste zuerst</option>
+              <option value="title_asc">Titel A-Z</option>
+              <option value="title_desc">Titel Z-A</option>
+            </select>
+          </label>
+          <button id="specialsFavoriteFilterBtn" type="button" class="ghost">Nur Favoriten</button>
+          <button id="specialsPinFavoritesBtn" type="button" class="ghost">Favoriten zuerst</button>
+          <button id="specialsResetFiltersBtn" type="button" class="ghost">Filter zurücksetzen</button>
         </div>
+        <div id="specialsActiveFilters" class="exercise-active-filters"></div>
         <div id="specialsMeta" class="stat-card exercise-sync-meta"></div>
         <div class="specials-layout">
           <div id="specialsPreviewCard" class="stat-card specials-preview-card"></div>
