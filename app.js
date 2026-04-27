@@ -59,6 +59,7 @@ const state = {
   attendanceStandaloneFocus: null,
   participantSearch: "",
   isOffline: !navigator.onLine,
+  selectedFinisherId: null,
   pendingActions: loadOfflineQueue(),
   optimisticVisibilityUntil: {
     courses: 0,
@@ -187,6 +188,7 @@ const exerciseFavoriteFilterBtn = document.querySelector("#exerciseFavoriteFilte
 const exercisePinFavoritesBtn = document.querySelector("#exercisePinFavoritesBtn");
 const exerciseResetFiltersBtn = document.querySelector("#exerciseResetFiltersBtn");
 const exerciseTableBody = document.querySelector("#exerciseTableBody");
+const finisherTableBody = document.querySelector("#finisherTableBody");
 const planningPreview = document.querySelector("#planningPreview");
 const planNextBtn = document.querySelector("#planNextBtn");
 const planMonthBtn = document.querySelector("#planMonthBtn");
@@ -232,6 +234,10 @@ const exerciseDetailModal = document.querySelector("#exerciseDetailModal");
 const exerciseDetailTitle = document.querySelector("#exerciseDetailTitle");
 const exerciseDetailBody = document.querySelector("#exerciseDetailBody");
 const closeExerciseDetailModalBtn = document.querySelector("#closeExerciseDetailModalBtn");
+const finisherDetailModal = document.querySelector("#finisherDetailModal");
+const finisherDetailTitle = document.querySelector("#finisherDetailTitle");
+const finisherDetailBody = document.querySelector("#finisherDetailBody");
+const closeFinisherDetailModalBtn = document.querySelector("#closeFinisherDetailModalBtn");
 const contentPanels = [
   authPanel,
   sessionPanel,
@@ -386,6 +392,12 @@ closeExerciseDetailModalBtn?.addEventListener("click", closeExerciseDetailModal)
 exerciseDetailModal?.addEventListener("click", (event) => {
   if (event.target === exerciseDetailModal) {
     closeExerciseDetailModal();
+  }
+});
+closeFinisherDetailModalBtn?.addEventListener("click", closeFinisherDetailModal);
+finisherDetailModal?.addEventListener("click", (event) => {
+  if (event.target === finisherDetailModal) {
+    closeFinisherDetailModal();
   }
 });
 seasonFilterAllBtn?.addEventListener("click", () => setSeasonFilter("all"));
@@ -3402,6 +3414,20 @@ function openExerciseDetailModal(exerciseId) {
   renderExerciseDetailView();
 }
 
+function getFinisherById(finisherId) {
+  return state.finishers.find((finisher) => finisher.id === finisherId) || null;
+}
+
+function closeFinisherDetailModal() {
+  state.selectedFinisherId = null;
+  finisherDetailModal?.classList.add("hidden");
+}
+
+function openFinisherDetailModal(finisherId) {
+  state.selectedFinisherId = finisherId;
+  renderFinisherDetailView();
+}
+
 function renderExerciseDetail() {
   if (!exerciseDetailModal || !exerciseDetailBody || !exerciseDetailTitle) {
     return;
@@ -3822,8 +3848,63 @@ function getFilteredFinishers() {
     .sort((left, right) => String(left.title || "").localeCompare(String(right.title || ""), "de"));
 }
 
+function renderFinisherDetailView() {
+  if (!finisherDetailModal || !finisherDetailBody || !finisherDetailTitle) {
+    return;
+  }
+
+  const finisher = getFinisherById(state.selectedFinisherId);
+  if (!finisher) {
+    finisherDetailModal.classList.add("hidden");
+    return;
+  }
+
+  finisherDetailTitle.textContent = finisher.title || "Finisher-Details";
+  const links = [
+    finisher.video_url ? `<a class="ghost" href="${escapeHtml(finisher.video_url)}" target="_blank" rel="noreferrer">Video öffnen</a>` : "",
+    finisher.source_url ? `<a class="ghost" href="${escapeHtml(finisher.source_url)}" target="_blank" rel="noreferrer">Notion öffnen</a>` : "",
+  ].filter(Boolean).join("");
+
+  finisherDetailBody.innerHTML = `
+    <div class="exercise-detail-hero">
+      <div class="course-status-grid">
+        ${finisher.category ? `<span class="course-status-pill">${escapeHtml(finisher.category)}</span>` : ""}
+        ${finisher.focus ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(finisher.focus)}</span>` : ""}
+        ${finisher.level ? `<span class="course-status-pill course-status-pill-warn">${escapeHtml(finisher.level)}</span>` : ""}
+        ${finisher.equipment ? `<span class="course-status-pill">${escapeHtml(finisher.equipment)}</span>` : ""}
+      </div>
+      ${finisher.tags?.length ? `<div class="exercise-tag-row">${finisher.tags.map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
+    </div>
+    <div class="exercise-detail-grid">
+      ${String(finisher.description || "").trim() ? `
+        <section class="exercise-detail-card">
+          <h4>Beschreibung</h4>
+          <div class="exercise-detail-list">
+            <div class="exercise-detail-item">
+              <p class="exercise-copy">${escapeHtml(finisher.description)}</p>
+            </div>
+          </div>
+        </section>
+      ` : ""}
+      ${String(finisher.coaching_cues || "").trim() ? `
+        <section class="exercise-detail-card">
+          <h4>Coaching</h4>
+          <div class="exercise-detail-list">
+            <div class="exercise-detail-item">
+              <p class="exercise-copy">${escapeHtml(finisher.coaching_cues)}</p>
+            </div>
+          </div>
+        </section>
+      ` : ""}
+    </div>
+    ${links ? `<div class="stat-card-actions exercise-actions">${links}</div>` : ""}
+  `;
+
+  finisherDetailModal.classList.remove("hidden");
+}
+
 function renderFinishers() {
-  if (!finisherCards || !finisherSyncMeta) {
+  if (!finisherCards || !finisherSyncMeta || !finisherTableBody) {
     return;
   }
 
@@ -3851,6 +3932,15 @@ function renderFinishers() {
 
   const finishers = getFilteredFinishers();
   if (!finishers.length) {
+    finisherTableBody.innerHTML = `
+      <tr>
+        <td colspan="6">
+          <div class="empty-state">
+            <p>Noch keine Finisher sichtbar. Lege zuerst den Notion-Sync an oder passe die Suche an.</p>
+          </div>
+        </td>
+      </tr>
+    `;
     finisherCards.innerHTML = `
       <div class="empty-state">
         <p>Noch keine Finisher sichtbar. Lege zuerst den Notion-Sync an oder passe die Suche an.</p>
@@ -3858,6 +3948,21 @@ function renderFinishers() {
     `;
     return;
   }
+
+  finisherTableBody.innerHTML = finishers.map((finisher) => `
+    <tr>
+      <td><strong>${escapeHtml(finisher.title || "Ohne Titel")}</strong></td>
+      <td>${escapeHtml(finisher.category || "-")}</td>
+      <td>${escapeHtml(finisher.level || "-")}</td>
+      <td>${finisher.focus ? `<span class="exercise-table-emphasis">${escapeHtml(finisher.focus)}</span>` : "-"}</td>
+      <td>${escapeHtml(finisher.equipment || "-")}</td>
+      <td>
+        <div class="mini-actions table-actions">
+          <button type="button" class="ghost" data-finisher-detail="${escapeHtml(finisher.id)}">Details</button>
+        </div>
+      </td>
+    </tr>
+  `).join("");
 
   finisherCards.innerHTML = finishers.map((finisher) => {
     const tags = (finisher.tags || []).map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("");
@@ -3879,17 +3984,27 @@ function renderFinishers() {
           </div>
         </div>
         <div class="exercise-meta-grid">
-          ${finisher.category ? `<p><strong>Kategorie</strong><span>${escapeHtml(finisher.category)}</span></p>` : ""}
-          ${finisher.focus ? `<p><strong>Fokus</strong><span>${escapeHtml(finisher.focus)}</span></p>` : ""}
-          ${finisher.level ? `<p><strong>Level</strong><span>${escapeHtml(finisher.level)}</span></p>` : ""}
+          ${finisher.category ? `<p><strong>Typ</strong><span>${escapeHtml(finisher.category)}</span></p>` : ""}
+          ${finisher.focus ? `<p><strong>Intensität</strong><span>${escapeHtml(finisher.focus)}</span></p>` : ""}
+          ${finisher.level ? `<p><strong>Dauer</strong><span>${escapeHtml(finisher.level)}</span></p>` : ""}
           ${finisher.equipment ? `<p><strong>Equipment</strong><span>${escapeHtml(finisher.equipment)}</span></p>` : ""}
         </div>
         ${String(finisher.description || finisher.coaching_cues || "").trim() ? `<p class="exercise-copy">${escapeHtml(finisher.description || finisher.coaching_cues || "")}</p>` : ""}
         ${tags ? `<div class="exercise-tag-row">${tags}</div>` : ""}
-        ${links ? `<div class="stat-card-actions exercise-actions">${links}</div>` : ""}
+        <div class="stat-card-actions exercise-actions">
+          <button type="button" class="ghost" data-finisher-detail="${escapeHtml(finisher.id)}">Details</button>
+          ${links}
+        </div>
       </article>
     `;
   }).join("");
+
+  finisherTableBody.querySelectorAll("[data-finisher-detail]").forEach((button) => {
+    button.addEventListener("click", () => openFinisherDetailModal(button.dataset.finisherDetail));
+  });
+  finisherCards.querySelectorAll("[data-finisher-detail]").forEach((button) => {
+    button.addEventListener("click", () => openFinisherDetailModal(button.dataset.finisherDetail));
+  });
 }
 
 async function handleFinisherSync() {

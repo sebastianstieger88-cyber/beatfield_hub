@@ -547,7 +547,22 @@
           </label>
         </div>
         <div id="finisherSyncMeta" class="stat-card exercise-sync-meta"></div>
-        <div id="finisherCards" class="finisher-grid"></div>
+        <div class="table-wrap exercise-table-wrap">
+          <table class="exercise-table">
+            <thead>
+              <tr>
+                <th>Finisher</th>
+                <th>Typ</th>
+                <th>Dauer</th>
+                <th>Intensität</th>
+                <th>Ausrüstung</th>
+                <th>Aktion</th>
+              </tr>
+            </thead>
+            <tbody id="finisherTableBody"></tbody>
+          </table>
+        </div>
+        <div id="finisherCards" class="exercise-grid"></div>
       </section>
 
       <section class="panel hidden" id="courseListPanel">
@@ -761,6 +776,19 @@
           <button id="closeExerciseDetailModalBtn" type="button" class="ghost">Schlie&#223;en</button>
       </div>
       <div id="exerciseDetailBody" class="stack"></div>
+    </div>
+  </div>
+
+  <div id="finisherDetailModal" class="overlay hidden">
+    <div class="modal-card">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Finisher</p>
+          <h2 id="finisherDetailTitle">Finisher-Details</h2>
+        </div>
+        <button id="closeFinisherDetailModalBtn" type="button" class="ghost">Schließen</button>
+      </div>
+      <div id="finisherDetailBody" class="stack"></div>
     </div>
   </div>
 
