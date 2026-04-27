@@ -47,6 +47,7 @@
             <a href="#exercisePanel">&#220;bungen</a>
             <a href="#finisherPanel">Finisher</a>
             <a href="#warmupPanel">Warm-Up</a>
+            <a href="#specialsPanel">Specials</a>
           </div>
         </details>
         <details class="nav-group">
@@ -616,6 +617,55 @@
         <div id="warmupCards" class="exercise-grid"></div>
       </section>
 
+      <section class="panel wide hidden" id="specialsPanel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">CAMPUS</p>
+            <h2>Specials als PDF-Bibliothek</h2>
+          </div>
+        </div>
+        <form id="specialsUploadForm" class="stack inline-form hidden">
+          <label>
+            <span>Titel</span>
+            <input name="title" type="text" placeholder="z. B. Summer Shred Special" required>
+          </label>
+          <label>
+            <span>Beschreibung</span>
+            <input name="description" type="text" placeholder="Kurzbeschreibung für Trainer">
+          </label>
+          <label>
+            <span>PDF-Datei</span>
+            <input id="specialsFileInput" name="file" type="file" accept="application/pdf" required>
+          </label>
+          <button id="specialsUploadBtn" type="submit" class="primary">PDF hochladen</button>
+        </form>
+        <div class="exercise-toolbar finisher-toolbar specials-toolbar">
+          <label>
+            <span>Suche</span>
+            <input id="specialsSearch" type="search" placeholder="Titel, Beschreibung oder Dateiname">
+          </label>
+        </div>
+        <div id="specialsMeta" class="stat-card exercise-sync-meta"></div>
+        <div class="specials-layout">
+          <div id="specialsPreviewCard" class="stat-card specials-preview-card"></div>
+          <div class="table-wrap exercise-table-wrap">
+            <table class="exercise-table">
+              <thead>
+                <tr>
+                  <th>Special</th>
+                  <th>Datei</th>
+                  <th>Gr&#246;&#223;e</th>
+                  <th>Aktualisiert</th>
+                  <th>Aktion</th>
+                </tr>
+              </thead>
+              <tbody id="specialsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="specialsCards" class="exercise-grid"></div>
+      </section>
+
       <section class="panel hidden" id="courseListPanel">
         <div class="panel-heading">
           <div>
@@ -853,6 +903,19 @@
         <button id="closeWarmupDetailModalBtn" type="button" class="ghost">Schlie&#223;en</button>
       </div>
       <div id="warmupDetailBody" class="stack"></div>
+    </div>
+  </div>
+
+  <div id="specialDetailModal" class="overlay hidden">
+    <div class="modal-card">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Special</p>
+          <h2 id="specialDetailTitle">PDF-Details</h2>
+        </div>
+        <button id="closeSpecialDetailModalBtn" type="button" class="ghost">Schlie&#223;en</button>
+      </div>
+      <div id="specialDetailBody" class="stack"></div>
     </div>
   </div>
 

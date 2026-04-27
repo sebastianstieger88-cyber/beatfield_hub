@@ -5,6 +5,7 @@ const hasConfig = Boolean(config.supabaseUrl && config.supabaseAnonKey && config
 const ENABLE_OFFLINE_MODE = false;
 const OFFLINE_CACHE_KEY = "beatfield-offline-cache-v2";
 const OFFLINE_QUEUE_KEY = "beatfield-offline-queue-v2";
+const SPECIALS_BUCKET = "campus-specials";
 
 const state = {
   supabase: null,
@@ -24,6 +25,7 @@ const state = {
   exercises: [],
   finishers: [],
   warmups: [],
+  specials: [],
   exerciseFavorites: [],
   finisherFavorites: [],
   warmupFavorites: [],
@@ -54,6 +56,8 @@ const state = {
   warmupFavoritesOnly: false,
   warmupPinFavorites: false,
   warmupSyncing: false,
+  specialsSearch: "",
+  specialsUploading: false,
   selectedCourseId: null,
   editingCourseId: null,
   editingSeasonId: null,
@@ -70,6 +74,9 @@ const state = {
   isOffline: !navigator.onLine,
   selectedFinisherId: null,
   selectedWarmupId: null,
+  selectedSpecialId: null,
+  specialSignedUrls: {},
+  specialUrlLoadingId: null,
   pendingActions: loadOfflineQueue(),
   optimisticVisibilityUntil: {
     courses: 0,
@@ -106,6 +113,7 @@ const campusPanel = document.querySelector("#campusPanel");
 const exercisePanel = document.querySelector("#exercisePanel");
 const finisherPanel = document.querySelector("#finisherPanel");
 const warmupPanel = document.querySelector("#warmupPanel");
+const specialsPanel = document.querySelector("#specialsPanel");
 const planningPanel = document.querySelector("#planningPanel");
 const attendancePanel = document.querySelector("#attendancePanel");
 const monthlyPanel = document.querySelector("#monthlyPanel");
@@ -185,10 +193,12 @@ const dropInCards = document.querySelector("#dropInCards");
 const exerciseCards = document.querySelector("#exerciseCards");
 const finisherCards = document.querySelector("#finisherCards");
 const warmupCards = document.querySelector("#warmupCards");
+const specialsCards = document.querySelector("#specialsCards");
 const campusOverviewGrid = document.querySelector("#campusOverviewGrid");
 const exerciseSearch = document.querySelector("#exerciseSearch");
 const finisherSearch = document.querySelector("#finisherSearch");
 const warmupSearch = document.querySelector("#warmupSearch");
+const specialsSearch = document.querySelector("#specialsSearch");
 const exerciseCategoryFilter = document.querySelector("#exerciseCategoryFilter");
 const exerciseFocusFilter = document.querySelector("#exerciseFocusFilter");
 const exerciseLevelFilter = document.querySelector("#exerciseLevelFilter");
@@ -200,6 +210,11 @@ const finisherSyncBtn = document.querySelector("#finisherSyncBtn");
 const finisherSyncMeta = document.querySelector("#finisherSyncMeta");
 const warmupSyncBtn = document.querySelector("#warmupSyncBtn");
 const warmupSyncMeta = document.querySelector("#warmupSyncMeta");
+const specialsMeta = document.querySelector("#specialsMeta");
+const specialsPreviewCard = document.querySelector("#specialsPreviewCard");
+const specialsUploadForm = document.querySelector("#specialsUploadForm");
+const specialsUploadBtn = document.querySelector("#specialsUploadBtn");
+const specialsFileInput = document.querySelector("#specialsFileInput");
 const exerciseActiveFilters = document.querySelector("#exerciseActiveFilters");
 const exerciseFavoriteFilterBtn = document.querySelector("#exerciseFavoriteFilterBtn");
 const exercisePinFavoritesBtn = document.querySelector("#exercisePinFavoritesBtn");
@@ -215,6 +230,7 @@ const warmupResetFiltersBtn = document.querySelector("#warmupResetFiltersBtn");
 const exerciseTableBody = document.querySelector("#exerciseTableBody");
 const finisherTableBody = document.querySelector("#finisherTableBody");
 const warmupTableBody = document.querySelector("#warmupTableBody");
+const specialsTableBody = document.querySelector("#specialsTableBody");
 const planningPreview = document.querySelector("#planningPreview");
 const planNextBtn = document.querySelector("#planNextBtn");
 const planMonthBtn = document.querySelector("#planMonthBtn");
@@ -268,6 +284,10 @@ const warmupDetailModal = document.querySelector("#warmupDetailModal");
 const warmupDetailTitle = document.querySelector("#warmupDetailTitle");
 const warmupDetailBody = document.querySelector("#warmupDetailBody");
 const closeWarmupDetailModalBtn = document.querySelector("#closeWarmupDetailModalBtn");
+const specialDetailModal = document.querySelector("#specialDetailModal");
+const specialDetailTitle = document.querySelector("#specialDetailTitle");
+const specialDetailBody = document.querySelector("#specialDetailBody");
+const closeSpecialDetailModalBtn = document.querySelector("#closeSpecialDetailModalBtn");
 const contentPanels = [
   authPanel,
   sessionPanel,
@@ -281,6 +301,7 @@ const contentPanels = [
   exercisePanel,
   finisherPanel,
   warmupPanel,
+  specialsPanel,
   courseListPanel,
   planningPanel,
   attendancePanel,
@@ -436,6 +457,11 @@ warmupResetFiltersBtn?.addEventListener("click", () => {
   renderWarmups();
 });
 warmupSyncBtn?.addEventListener("click", handleWarmupSync);
+specialsSearch?.addEventListener("input", () => {
+  state.specialsSearch = specialsSearch.value || "";
+  renderSpecials();
+});
+specialsUploadForm?.addEventListener("submit", handleSpecialUpload);
 toggleArchivedDropInsBtn?.addEventListener("click", () => {
   state.showArchivedDropIns = !state.showArchivedDropIns;
   renderDropIns();
@@ -465,6 +491,12 @@ closeWarmupDetailModalBtn?.addEventListener("click", closeWarmupDetailModal);
 warmupDetailModal?.addEventListener("click", (event) => {
   if (event.target === warmupDetailModal) {
     closeWarmupDetailModal();
+  }
+});
+closeSpecialDetailModalBtn?.addEventListener("click", closeSpecialDetailModal);
+specialDetailModal?.addEventListener("click", (event) => {
+  if (event.target === specialDetailModal) {
+    closeSpecialDetailModal();
   }
 });
 seasonFilterAllBtn?.addEventListener("click", () => setSeasonFilter("all"));
@@ -748,6 +780,11 @@ async function fetchSupportData() {
     .select("id, notion_page_id, title, category, focus, level, equipment, coaching_cues, description, video_url, source_url, tags, notion_last_edited_at, notion_archived, synced_at")
     .order("title");
 
+  const specialsQuery = state.supabase
+    .from("campus_specials")
+    .select("id, title, description, file_name, storage_path, mime_type, file_size, created_at, updated_at, uploaded_by")
+    .order("updated_at", { ascending: false });
+
   const exerciseFavoritesQuery = state.session?.user?.id
     ? state.supabase
       .from("exercise_favorites")
@@ -769,7 +806,7 @@ async function fetchSupportData() {
       .eq("user_id", state.session.user.id)
     : Promise.resolve({ data: [], error: null });
 
-  const [seasonResult, seasonBookingResult, trainerResult, trainerDirectoryResult, inviteResult, participantResult, sessionResult, trialResult, dropInResult, exerciseResult, finisherResult, warmupResult, exerciseFavoritesResult, finisherFavoritesResult, warmupFavoritesResult] = await Promise.all([
+  const [seasonResult, seasonBookingResult, trainerResult, trainerDirectoryResult, inviteResult, participantResult, sessionResult, trialResult, dropInResult, exerciseResult, finisherResult, warmupResult, specialsResult, exerciseFavoritesResult, finisherFavoritesResult, warmupFavoritesResult] = await Promise.all([
     seasonsQuery,
     seasonBookingsQuery,
     trainerQuery,
@@ -782,6 +819,7 @@ async function fetchSupportData() {
     exerciseQuery,
     finisherQuery,
     warmupQuery,
+    specialsQuery,
     exerciseFavoritesQuery,
     finisherFavoritesQuery,
     warmupFavoritesQuery,
@@ -822,6 +860,9 @@ async function fetchSupportData() {
   }
   if (warmupResult.error) {
     notify(getFriendlySupabaseMessage(warmupResult.error, "Warm-Ups konnten nicht geladen werden."), true);
+  }
+  if (specialsResult.error) {
+    notify(getFriendlySupabaseMessage(specialsResult.error, "Specials konnten nicht geladen werden."), true);
   }
   if (exerciseFavoritesResult.error) {
     notify(getFriendlySupabaseMessage(exerciseFavoritesResult.error, "Übungsfavoriten konnten nicht geladen werden."), true);
@@ -899,6 +940,9 @@ async function fetchSupportData() {
   }
   if (!warmupResult.error) {
     state.warmups = (warmupResult.data || []).filter((warmup) => !warmup.notion_archived);
+  }
+  if (!specialsResult.error) {
+    state.specials = specialsResult.data || [];
   }
   if (!exerciseFavoritesResult.error) {
     state.exerciseFavorites = exerciseFavoritesResult.data || [];
@@ -3209,6 +3253,7 @@ function render() {
   renderExercises();
   renderFinishers();
   renderWarmups();
+  renderSpecials();
   renderTodayDashboard();
   renderCourseList();
   renderPlanning();
@@ -3221,6 +3266,7 @@ function render() {
   renderMobileSessionSummary();
   renderParticipantProfile();
   renderExerciseDetailView();
+  renderSpecialDetailView();
   updateNavigationVisibility(navigationSections);
   mobileMonthBtn?.classList.toggle("hidden", !isAdmin());
   mobileReportsBtn?.classList.toggle("hidden", !isAdmin());
@@ -3549,6 +3595,114 @@ function closeWarmupDetailModal() {
 function openWarmupDetailModal(warmupId) {
   state.selectedWarmupId = warmupId;
   renderWarmupDetailView();
+}
+
+function getSpecialById(specialId) {
+  return state.specials.find((special) => special.id === specialId) || null;
+}
+
+function closeSpecialDetailModal() {
+  specialDetailModal?.classList.add("hidden");
+}
+
+function openSpecialDetailModal(specialId) {
+  state.selectedSpecialId = specialId;
+  renderSpecials();
+  queueSpecialSignedUrl(specialId);
+  renderSpecialDetailView();
+}
+
+function getCachedSpecialSignedUrl(specialId) {
+  const cached = state.specialSignedUrls[specialId];
+  if (!cached || !cached.url || !cached.expiresAt) {
+    return null;
+  }
+  if (cached.expiresAt <= Date.now() + 30_000) {
+    return null;
+  }
+  return cached.url;
+}
+
+async function ensureSpecialSignedUrl(specialId, { forceRefresh = false, download = false } = {}) {
+  if (!state.supabase) {
+    throw new Error("Supabase ist nicht verbunden.");
+  }
+
+  const special = getSpecialById(specialId);
+  if (!special?.storage_path) {
+    throw new Error("Für dieses Special ist noch keine PDF-Datei hinterlegt.");
+  }
+
+  if (!download && !forceRefresh) {
+    const cachedUrl = getCachedSpecialSignedUrl(specialId);
+    if (cachedUrl) {
+      return cachedUrl;
+    }
+  }
+
+  const { data, error } = await state.supabase
+    .storage
+    .from(SPECIALS_BUCKET)
+    .createSignedUrl(special.storage_path, 60 * 60, download ? { download: special.file_name || `${special.title || "special"}.pdf` } : undefined);
+
+  if (error) {
+    throw error;
+  }
+
+  const signedUrl = data?.signedUrl || null;
+  if (!signedUrl) {
+    throw new Error("Die PDF-Vorschau konnte nicht erzeugt werden.");
+  }
+
+  if (!download) {
+    state.specialSignedUrls[specialId] = {
+      url: signedUrl,
+      expiresAt: Date.now() + 55 * 60 * 1000,
+    };
+  }
+
+  return signedUrl;
+}
+
+async function queueSpecialSignedUrl(specialId) {
+  if (!specialId || state.specialUrlLoadingId === specialId || getCachedSpecialSignedUrl(specialId)) {
+    return;
+  }
+
+  state.specialUrlLoadingId = specialId;
+  renderSpecials();
+
+  try {
+    await ensureSpecialSignedUrl(specialId);
+  } catch (error) {
+    notify(getFriendlySupabaseMessage(error, "PDF-Vorschau konnte nicht geladen werden."), true);
+  } finally {
+    state.specialUrlLoadingId = null;
+    renderSpecials();
+    renderSpecialDetailView();
+  }
+}
+
+async function handleSpecialDownload(specialId) {
+  try {
+    const special = getSpecialById(specialId);
+    if (!special) {
+      notify("Das gewünschte Special konnte nicht gefunden werden.", true);
+      return;
+    }
+
+    const signedUrl = await ensureSpecialSignedUrl(specialId, { forceRefresh: true, download: true });
+    const link = document.createElement("a");
+    link.href = signedUrl;
+    link.download = special.file_name || `${slugify(special.title || "special")}.pdf`;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } catch (error) {
+    notify(getFriendlySupabaseMessage(error, "PDF-Download konnte nicht gestartet werden."), true);
+  }
 }
 
 function renderExerciseDetail() {
@@ -4340,6 +4494,7 @@ function renderCampusOverview() {
   const latestExerciseSync = state.exercises.map((item) => item.synced_at).filter(Boolean).sort((a, b) => String(b).localeCompare(String(a)))[0] || null;
   const latestFinisherSync = state.finishers.map((item) => item.synced_at).filter(Boolean).sort((a, b) => String(b).localeCompare(String(a)))[0] || null;
   const latestWarmupSync = state.warmups.map((item) => item.synced_at).filter(Boolean).sort((a, b) => String(b).localeCompare(String(a)))[0] || null;
+  const latestSpecialUpdate = state.specials.map((item) => item.updated_at || item.created_at).filter(Boolean).sort((a, b) => String(b).localeCompare(String(a)))[0] || null;
 
   const cards = [
     {
@@ -4369,6 +4524,15 @@ function renderCampusOverview() {
       panel: "#warmupPanel",
       copy: "Kompakte Warm-Up-Sammlung für schnelle Trainer-Inspiration im Alltag."
     },
+    {
+      eyebrow: "CAMPUS",
+      title: "Specials",
+      count: state.specials.length,
+      favorites: 0,
+      sync: latestSpecialUpdate,
+      panel: "#specialsPanel",
+      copy: "Besondere Trainingsspecials als PDF mit Vorschau, Details und Download."
+    },
   ];
 
   campusOverviewGrid.innerHTML = cards.map((card) => `
@@ -4390,6 +4554,289 @@ function renderCampusOverview() {
   campusOverviewGrid.querySelectorAll("[data-campus-open]").forEach((button) => {
     button.addEventListener("click", () => setActiveSection(button.dataset.campusOpen));
   });
+}
+
+function getFilteredSpecials() {
+  const searchNeedle = String(state.specialsSearch || "").trim().toLowerCase();
+  return state.specials.filter((special) => {
+    if (!searchNeedle) {
+      return true;
+    }
+
+    const haystack = [
+      special.title,
+      special.description,
+      special.file_name,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return haystack.includes(searchNeedle);
+  });
+}
+
+function renderSpecials() {
+  if (!specialsMeta || !specialsPreviewCard || !specialsTableBody || !specialsCards) {
+    return;
+  }
+
+  if (specialsSearch) {
+    specialsSearch.value = state.specialsSearch || "";
+  }
+
+  specialsUploadForm?.classList.toggle("hidden", !isAdmin());
+  if (specialsUploadBtn) {
+    specialsUploadBtn.disabled = state.specialsUploading;
+    specialsUploadBtn.textContent = state.specialsUploading ? "Lädt hoch..." : "PDF hochladen";
+  }
+
+  const visibleSpecials = getFilteredSpecials();
+  if (state.selectedSpecialId && !visibleSpecials.some((special) => special.id === state.selectedSpecialId)) {
+    state.selectedSpecialId = visibleSpecials[0]?.id || null;
+  }
+  if (!state.selectedSpecialId && visibleSpecials.length) {
+    state.selectedSpecialId = visibleSpecials[0].id;
+  }
+
+  const selectedSpecial = getSpecialById(state.selectedSpecialId);
+  const selectedSpecialUrl = selectedSpecial ? getCachedSpecialSignedUrl(selectedSpecial.id) : null;
+  const latestSpecialUpdate = state.specials.map((item) => item.updated_at || item.created_at).filter(Boolean).sort((a, b) => String(b).localeCompare(String(a)))[0] || null;
+
+  if (selectedSpecial && !selectedSpecialUrl) {
+    queueSpecialSignedUrl(selectedSpecial.id);
+  }
+
+  specialsMeta.innerHTML = `
+    <h3>Bibliotheksstatus</h3>
+    <p class="stat-meta">${state.specials.length} Specials in der App.</p>
+    <p class="stat-meta">${latestSpecialUpdate ? `Zuletzt aktualisiert: ${escapeHtml(formatDateTimeLabel(latestSpecialUpdate))}` : "Noch kein Upload vorhanden."}</p>
+    <p class="stat-meta">${isAdmin() ? "PDFs lädst du hier direkt in den CAMPUS hoch. Trainer sehen Vorschau, Details und Download." : "Hier findest du besondere Trainingsspecials als PDF mit Vorschau und Download."}</p>
+  `;
+
+  specialsPreviewCard.innerHTML = selectedSpecial
+    ? `
+      <div>
+        <p class="eyebrow">PDF-Vorschau</p>
+        <h3>${escapeHtml(selectedSpecial.title || "Special")}</h3>
+      </div>
+      <div class="specials-preview-meta">
+        <span class="course-status-pill">${escapeHtml(selectedSpecial.file_name || "PDF-Datei")}</span>
+        <span class="course-status-pill course-status-pill-info">${escapeHtml(formatFileSize(selectedSpecial.file_size))}</span>
+        <span class="course-status-pill course-status-pill-warn">${escapeHtml(formatDateTimeLabel(selectedSpecial.updated_at || selectedSpecial.created_at))}</span>
+      </div>
+      ${String(selectedSpecial.description || "").trim() ? `<p class="exercise-copy">${escapeHtml(selectedSpecial.description)}</p>` : `<p class="exercise-copy-muted">Noch keine zusätzliche Beschreibung hinterlegt.</p>`}
+      <div class="stat-card-actions exercise-actions">
+        <button type="button" class="ghost" data-special-detail="${escapeHtml(selectedSpecial.id)}">Details</button>
+        <button type="button" class="ghost" data-special-download="${escapeHtml(selectedSpecial.id)}">Download</button>
+      </div>
+      <div class="specials-preview-frame">
+        ${selectedSpecialUrl
+          ? `<iframe src="${escapeHtml(`${selectedSpecialUrl}#view=FitH`)}" title="${escapeHtml(selectedSpecial.title || "PDF-Vorschau")}"></iframe>`
+          : `<div class="specials-preview-placeholder"><p>${state.specialUrlLoadingId === selectedSpecial.id ? "PDF-Vorschau wird geladen..." : "PDF-Vorschau wird vorbereitet..."}</p></div>`}
+      </div>
+    `
+    : `
+      <div class="specials-preview-placeholder">
+        <p>Noch kein Special ausgewählt. Wähle unten ein PDF aus der Liste.</p>
+      </div>
+    `;
+
+  if (!visibleSpecials.length) {
+    specialsTableBody.innerHTML = `
+      <tr>
+        <td colspan="5">
+          <div class="empty-state">
+            <p>Noch keine Specials sichtbar. Lade zuerst ein PDF hoch oder passe die Suche an.</p>
+          </div>
+        </td>
+      </tr>
+    `;
+    specialsCards.innerHTML = `
+      <div class="empty-state">
+        <p>Noch keine Specials sichtbar. Lade zuerst ein PDF hoch oder passe die Suche an.</p>
+      </div>
+    `;
+  } else {
+    specialsTableBody.innerHTML = visibleSpecials.map((special) => `
+      <tr class="${special.id === state.selectedSpecialId ? "exercise-row-favorite" : ""}">
+        <td><strong>${escapeHtml(special.title || "Ohne Titel")}</strong></td>
+        <td>${escapeHtml(special.file_name || "-")}</td>
+        <td>${escapeHtml(formatFileSize(special.file_size))}</td>
+        <td>${escapeHtml(formatDateTimeLabel(special.updated_at || special.created_at))}</td>
+        <td>
+          <div class="mini-actions table-actions">
+            <button type="button" class="ghost" data-special-preview="${escapeHtml(special.id)}">Vorschau</button>
+            <button type="button" class="ghost" data-special-detail="${escapeHtml(special.id)}">Details</button>
+            <button type="button" class="ghost" data-special-download="${escapeHtml(special.id)}">Download</button>
+          </div>
+        </td>
+      </tr>
+    `).join("");
+
+    specialsCards.innerHTML = visibleSpecials.map((special) => `
+      <article class="exercise-card ${special.id === state.selectedSpecialId ? "exercise-card-favorite" : ""}">
+        <div class="exercise-card-head">
+          <div>
+            <p class="eyebrow">Special</p>
+            <h3>${escapeHtml(special.title || "Ohne Titel")}</h3>
+          </div>
+          <div class="course-status-grid">
+            <span class="course-status-pill">${escapeHtml(formatFileSize(special.file_size))}</span>
+          </div>
+        </div>
+        <div class="exercise-meta-grid">
+          <p><strong>Datei</strong><span>${escapeHtml(special.file_name || "-")}</span></p>
+          <p><strong>Aktualisiert</strong><span>${escapeHtml(formatDateTimeLabel(special.updated_at || special.created_at))}</span></p>
+        </div>
+        ${String(special.description || "").trim() ? `<p class="exercise-copy">${escapeHtml(special.description)}</p>` : ""}
+        <div class="stat-card-actions exercise-actions">
+          <button type="button" class="ghost" data-special-preview="${escapeHtml(special.id)}">Vorschau</button>
+          <button type="button" class="ghost" data-special-detail="${escapeHtml(special.id)}">Details</button>
+          <button type="button" class="ghost" data-special-download="${escapeHtml(special.id)}">Download</button>
+        </div>
+      </article>
+    `).join("");
+  }
+
+  document.querySelectorAll("[data-special-preview]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.selectedSpecialId = button.dataset.specialPreview;
+      renderSpecials();
+      queueSpecialSignedUrl(button.dataset.specialPreview);
+    });
+  });
+  document.querySelectorAll("[data-special-detail]").forEach((button) => {
+    button.addEventListener("click", () => openSpecialDetailModal(button.dataset.specialDetail));
+  });
+  document.querySelectorAll("[data-special-download]").forEach((button) => {
+    button.addEventListener("click", () => handleSpecialDownload(button.dataset.specialDownload));
+  });
+}
+
+function renderSpecialDetailView() {
+  if (!specialDetailModal || !specialDetailBody || !specialDetailTitle) {
+    return;
+  }
+
+  const special = getSpecialById(state.selectedSpecialId);
+  if (!special) {
+    specialDetailModal.classList.add("hidden");
+    return;
+  }
+
+  const signedUrl = getCachedSpecialSignedUrl(special.id);
+  specialDetailTitle.textContent = special.title || "PDF-Details";
+  specialDetailBody.innerHTML = `
+    <div class="course-status-grid">
+      <span class="course-status-pill">${escapeHtml(special.file_name || "PDF-Datei")}</span>
+      <span class="course-status-pill course-status-pill-info">${escapeHtml(formatFileSize(special.file_size))}</span>
+      <span class="course-status-pill course-status-pill-warn">${escapeHtml(formatDateTimeLabel(special.updated_at || special.created_at))}</span>
+    </div>
+    ${String(special.description || "").trim() ? `
+      <section class="exercise-detail-card">
+        <h4>Beschreibung</h4>
+        <div class="exercise-detail-list">
+          <div class="exercise-detail-item">
+            <p class="exercise-copy">${escapeHtml(special.description)}</p>
+          </div>
+        </div>
+      </section>
+    ` : ""}
+    <div class="stat-card-actions exercise-actions">
+      <button type="button" class="ghost" data-special-download="${escapeHtml(special.id)}">Download</button>
+      ${signedUrl ? `<a class="ghost" href="${escapeHtml(signedUrl)}" target="_blank" rel="noreferrer">PDF separat öffnen</a>` : ""}
+    </div>
+    <div class="specials-detail-frame">
+      ${signedUrl
+        ? `<iframe src="${escapeHtml(`${signedUrl}#view=FitH`)}" title="${escapeHtml(special.title || "PDF-Details")}"></iframe>`
+        : `<div class="specials-preview-placeholder"><p>${state.specialUrlLoadingId === special.id ? "PDF-Vorschau wird geladen..." : "PDF-Vorschau wird vorbereitet..."}</p></div>`}
+    </div>
+  `;
+
+  specialDetailBody.querySelectorAll("[data-special-download]").forEach((button) => {
+    button.addEventListener("click", () => handleSpecialDownload(button.dataset.specialDownload));
+  });
+
+  specialDetailModal.classList.remove("hidden");
+}
+
+async function handleSpecialUpload(event) {
+  event.preventDefault();
+
+  if (!isAdmin()) {
+    notify("Nur Admins können CAMPUS-Specials hochladen.", true);
+    return;
+  }
+  if (!state.supabase) {
+    return;
+  }
+
+  const formData = new FormData(specialsUploadForm);
+  const title = String(formData.get("title") || "").trim();
+  const description = String(formData.get("description") || "").trim();
+  const file = formData.get("file");
+
+  if (!title) {
+    notify("Bitte einen Titel für das Special eingeben.", true);
+    return;
+  }
+  if (!(file instanceof File) || !file.size) {
+    notify("Bitte eine PDF-Datei auswählen.", true);
+    return;
+  }
+  if (file.type && file.type !== "application/pdf") {
+    notify("Es können nur PDF-Dateien hochgeladen werden.", true);
+    return;
+  }
+
+  state.specialsUploading = true;
+  renderSpecials();
+
+  const fileExtension = getFileExtension(file.name) || "pdf";
+  const storagePath = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${fileExtension}`;
+
+  try {
+    const uploadResult = await state.supabase
+      .storage
+      .from(SPECIALS_BUCKET)
+      .upload(storagePath, file, {
+        contentType: "application/pdf",
+        upsert: false,
+      });
+
+    if (uploadResult.error) {
+      throw uploadResult.error;
+    }
+
+    const insertResult = await state.supabase
+      .from("campus_specials")
+      .insert({
+        title,
+        description: description || null,
+        file_name: file.name,
+        storage_path: storagePath,
+        mime_type: file.type || "application/pdf",
+        file_size: file.size,
+        uploaded_by: state.session?.user?.id || null,
+      });
+
+    if (insertResult.error) {
+      await state.supabase.storage.from(SPECIALS_BUCKET).remove([storagePath]);
+      throw insertResult.error;
+    }
+
+    specialsUploadForm.reset();
+    await refreshVisibleData({ context: "Special upload refresh", silent: true });
+    state.selectedSpecialId = state.specials[0]?.id || state.selectedSpecialId;
+    renderSpecials();
+    notify(`Special "${title}" wurde hochgeladen.`);
+  } catch (error) {
+    notify(getFriendlySupabaseMessage(error, "Special konnte nicht hochgeladen werden."), true);
+  } finally {
+    state.specialsUploading = false;
+    renderSpecials();
+  }
 }
 
 function renderFinishers() {
@@ -10645,6 +11092,26 @@ function slugify(value) {
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function getFileExtension(filename) {
+  const value = String(filename || "").trim();
+  const extension = value.includes(".") ? value.split(".").pop() : "";
+  return String(extension || "").toLowerCase().replace(/[^a-z0-9]/g, "") || "";
+}
+
+function formatFileSize(bytes) {
+  const size = Number(bytes || 0);
+  if (!Number.isFinite(size) || size <= 0) {
+    return "-";
+  }
+  if (size < 1024) {
+    return `${size} B`;
+  }
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`;
+  }
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function escapeCsvValue(value) {
