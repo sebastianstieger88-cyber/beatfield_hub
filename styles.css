@@ -1374,6 +1374,12 @@ button.danger {
   gap: 14px;
 }
 
+.finisher-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
 .exercise-table-wrap {
   margin-bottom: 16px;
   max-height: 68vh;
