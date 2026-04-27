@@ -4699,17 +4699,17 @@ function renderSpecials() {
     `).join("");
   }
 
-  document.querySelectorAll("[data-special-preview]").forEach((button) => {
+  specialsPanel?.querySelectorAll("[data-special-preview]").forEach((button) => {
     button.addEventListener("click", () => {
       state.selectedSpecialId = button.dataset.specialPreview;
       renderSpecials();
       queueSpecialSignedUrl(button.dataset.specialPreview);
     });
   });
-  document.querySelectorAll("[data-special-detail]").forEach((button) => {
+  specialsPanel?.querySelectorAll("[data-special-detail]").forEach((button) => {
     button.addEventListener("click", () => openSpecialDetailModal(button.dataset.specialDetail));
   });
-  document.querySelectorAll("[data-special-download]").forEach((button) => {
+  specialsPanel?.querySelectorAll("[data-special-download]").forEach((button) => {
     button.addEventListener("click", () => handleSpecialDownload(button.dataset.specialDownload));
   });
 }
@@ -10054,6 +10054,7 @@ function getAvailableSections({ connected, loggedIn, appUnlocked }) {
         "#exercisePanel",
         "#finisherPanel",
         "#warmupPanel",
+        "#specialsPanel",
         "#courseListPanel",
         "#planningPanel",
         "#attendancePanel",
@@ -10070,6 +10071,7 @@ function getAvailableSections({ connected, loggedIn, appUnlocked }) {
         "#exercisePanel",
         "#finisherPanel",
         "#warmupPanel",
+        "#specialsPanel",
         "#courseListPanel",
         "#attendancePanel",
       );
@@ -10090,6 +10092,7 @@ function getNavigationSections(availableSections, { connected, loggedIn, appUnlo
     "#exercisePanel",
     "#finisherPanel",
     "#warmupPanel",
+    "#specialsPanel",
     "#courseListPanel",
     "#attendancePanel",
     "#trialsPanel",
@@ -10579,6 +10582,9 @@ function getFriendlySupabaseMessage(error, fallback) {
     || normalized.includes("finisher_favorites")
     || normalized.includes("warmup_library")
     || normalized.includes("warmup_favorites")
+    || normalized.includes("campus_specials")
+    || normalized.includes("storage.objects")
+    || normalized.includes("campus-specials")
     || normalized.includes("notion_page_id")
   ) {
     return "Die App braucht das neueste Supabase-Schema. Bitte `supabase-schema.sql` noch einmal komplett im SQL Editor ausführen.";
