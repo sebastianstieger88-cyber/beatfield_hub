@@ -7308,6 +7308,18 @@ async function convertTrialToParticipant(trial) {
 }
 
 function handleJumpToToday() {
+  const todaySession = getTodaySessionTarget();
+  if (todaySession) {
+    state.selectedCourseId = todaySession.course_id;
+    state.attendanceSeasonId = todaySession.season_id || getDefaultSeasonId();
+    state.attendanceStandaloneFocus = null;
+  } else {
+    const nextCourse = getNextCourseForToday();
+    if (nextCourse) {
+      state.selectedCourseId = nextCourse.id;
+    }
+    state.attendanceSeasonId = getDefaultSeasonId();
+  }
   attendanceDate.value = getToday();
   syncAttendanceDateWithSeasonSessions();
   render();
@@ -7315,13 +7327,18 @@ function handleJumpToToday() {
 }
 
 function handleFocusNextCourse() {
-  const nextCourse = getNextCourseForToday();
-  if (!nextCourse) {
+  const todaySession = getTodaySessionTarget();
+  const nextCourse = todaySession
+    ? state.courses.find((course) => course.id === todaySession.course_id) || null
+    : getNextCourseForToday();
+  if (!nextCourse && !todaySession) {
     notify("Heute ist kein weiterer Kurs mit Terminplanung vorhanden.");
     return;
   }
 
-  state.selectedCourseId = nextCourse.id;
+  state.selectedCourseId = todaySession?.course_id || nextCourse.id;
+  state.attendanceSeasonId = todaySession?.season_id || getDefaultSeasonId();
+  state.attendanceStandaloneFocus = null;
   attendanceDate.value = getToday();
   syncAttendanceDateWithSeasonSessions();
   render();
@@ -10156,6 +10173,27 @@ function getNextCourseForToday() {
 
   const nowMinutes = getCurrentMinutes();
   return todayCourses.find((course) => getTimeInMinutes(course.time) >= nowMinutes) || todayCourses[0];
+}
+
+function getTodaySessionTarget() {
+  const today = getToday();
+  const todaySessions = state.sessions
+    .filter((session) => session.session_date === today)
+    .sort((left, right) => {
+      const leftCourse = state.courses.find((course) => course.id === left.course_id);
+      const rightCourse = state.courses.find((course) => course.id === right.course_id);
+      return String(leftCourse?.time || "").localeCompare(String(rightCourse?.time || ""));
+    });
+
+  if (!todaySessions.length) {
+    return null;
+  }
+
+  const nowMinutes = getCurrentMinutes();
+  return todaySessions.find((session) => {
+    const course = state.courses.find((entry) => entry.id === session.course_id);
+    return getTimeInMinutes(course?.time) >= nowMinutes;
+  }) || todaySessions[0];
 }
 
 function getUpcomingSessionForCourse(courseId) {
