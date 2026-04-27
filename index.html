@@ -16,11 +16,11 @@
     <nav class="app-nav">
       <a class="nav-brand" href="#top">BEATFIELD</a>
       <button id="navToggleBtn" class="nav-toggle" type="button" aria-expanded="false" aria-controls="navLinks">
-        Menü
+        MenÃ¼
       </button>
       <div class="nav-links" id="navLinks">
         <details class="nav-group">
-          <summary><span class="nav-icon">●</span><span>Zugang</span></summary>
+          <summary><span class="nav-icon">â—</span><span>Zugang</span></summary>
           <div class="nav-submenu">
             <a href="#authPanel">Login & Signup</a>
             <a href="#sessionPanel">Sitzung</a>
@@ -28,7 +28,7 @@
           </div>
         </details>
         <details class="nav-group">
-          <summary><span class="nav-icon">◆</span><span>Organisation</span></summary>
+          <summary><span class="nav-icon">â—†</span><span>Organisation</span></summary>
           <div class="nav-submenu">
             <a href="#seasonPanel">Seasons</a>
             <a href="#bookingPanel">Buchungen</a>
@@ -41,13 +41,14 @@
           </div>
         </details>
         <details class="nav-group">
-          <summary><span class="nav-icon">●</span><span>CAMPUS</span></summary>
+          <summary><span class="nav-icon">â—</span><span>CAMPUS</span></summary>
           <div class="nav-submenu">
-            <a href="#exercisePanel">Übungen</a>
+            <a href="#exercisePanel">Ãœbungen</a>
+            <a href="#finisherPanel">Finisher</a>
           </div>
         </details>
         <details class="nav-group">
-          <summary><span class="nav-icon">▲</span><span>Analyse</span></summary>
+          <summary><span class="nav-icon">â–²</span><span>Analyse</span></summary>
           <div class="nav-submenu">
             <a href="#monthlyPanel">Monat</a>
             <a href="#statsPanel">Statistik</a>
@@ -63,9 +64,9 @@
         <img class="brand-logo" src="beatfield-logo.png" alt="BEATFIELD Logo">
         <p class="eyebrow">Beatfield Attendance</p>
         <div class="version-badge">Version 4.2</div>
-        <h1>Season- und Studio-Workflow für euer Team</h1>
+        <h1>Season- und Studio-Workflow fÃ¼r euer Team</h1>
         <p class="hero-copy">
-          Anwesenheit, Seasons, Buchungen, Verlängerungen und ein klares Tages-Dashboard in einer kompakten Arbeitsfläche.
+          Anwesenheit, Seasons, Buchungen, VerlÃ¤ngerungen und ein klares Tages-Dashboard in einer kompakten ArbeitsflÃ¤che.
         </p>
       </div>
       <div class="hero-card">
@@ -139,7 +140,7 @@
             </label>
             <label>
               <span>Einladungscode</span>
-              <input name="inviteCode" type="text" placeholder="Optional für Trainerzugang">
+              <input name="inviteCode" type="text" placeholder="Optional fÃ¼r Trainerzugang">
             </label>
             <button type="submit" class="primary">Konto anlegen</button>
           </form>
@@ -178,7 +179,7 @@
         </div>
         <form id="updatePasswordForm" class="stack reset-form hidden">
           <label>
-            <span>Neues Passwort für Recovery-Flow</span>
+            <span>Neues Passwort fÃ¼r Recovery-Flow</span>
             <input name="password" type="password" minlength="8" required>
           </label>
           <button type="submit" class="primary">Neues Passwort speichern</button>
@@ -278,7 +279,7 @@
           <div class="form-actions">
             <button type="submit" class="primary">Kurs speichern</button>
             <button id="cancelCourseEditBtn" type="button" class="ghost hidden">Neuen Kurs anlegen</button>
-            <button id="deleteCourseBtn" type="button" class="danger">Ausgewählten Kurs löschen</button>
+            <button id="deleteCourseBtn" type="button" class="danger">AusgewÃ¤hlten Kurs lÃ¶schen</button>
           </div>
         </form>
       </section>
@@ -318,10 +319,10 @@
               </div>
               <div class="season-date-add-row">
                 <label>
-                  <span>Einzelnen Termin hinzufügen</span>
+                  <span>Einzelnen Termin hinzufÃ¼gen</span>
                   <input id="seasonDateDraftInput" type="date" inputmode="none">
                 </label>
-                <button id="addSeasonDateBtn" type="button" class="ghost">Termin hinzufügen</button>
+                <button id="addSeasonDateBtn" type="button" class="ghost">Termin hinzufÃ¼gen</button>
               </div>
               <div id="seasonDatePreview" class="season-date-preview"></div>
             </div>
@@ -407,8 +408,8 @@
           </div>
         </div>
         <div class="today-actions">
-          <button id="jumpToTodayBtn" type="button" class="primary">Heute öffnen</button>
-          <button id="focusNextCourseBtn" type="button" class="ghost">Nächsten Kurs fokussieren</button>
+          <button id="jumpToTodayBtn" type="button" class="primary">Heute Ã¶ffnen</button>
+          <button id="focusNextCourseBtn" type="button" class="ghost">NÃ¤chsten Kurs fokussieren</button>
         </div>
         <div id="todayCards" class="stats-grid"></div>
         <div id="todayInsights" class="stats-grid business-insights"></div>
@@ -469,8 +470,8 @@
       <section class="panel wide hidden" id="exercisePanel">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">Übungen</p>
-            <h2>Übungsbibliothek aus Notion</h2>
+            <p class="eyebrow">Ãœbungen</p>
+            <h2>Ãœbungsbibliothek aus Notion</h2>
           </div>
           <button id="exerciseSyncBtn" type="button" class="primary">Jetzt mit Notion synchronisieren</button>
         </div>
@@ -511,7 +512,7 @@
           </label>
           <button id="exerciseFavoriteFilterBtn" type="button" class="ghost">Nur Favoriten</button>
           <button id="exercisePinFavoritesBtn" type="button" class="ghost">Favoriten zuerst</button>
-          <button id="exerciseResetFiltersBtn" type="button" class="ghost">Filter zurücksetzen</button>
+          <button id="exerciseResetFiltersBtn" type="button" class="ghost">Filter zurÃ¼cksetzen</button>
         </div>
         <div id="exerciseActiveFilters" class="exercise-active-filters"></div>
         <div id="exerciseSyncMeta" class="stat-card exercise-sync-meta"></div>
@@ -519,8 +520,8 @@
           <table class="exercise-table">
             <thead>
               <tr>
-                <th>Übung</th>
-                <th>Körperbereich</th>
+                <th>Ãœbung</th>
+                <th>KÃ¶rperbereich</th>
                 <th>Bewegungsmuster</th>
                 <th>Muskelgruppe</th>
                 <th>Aktion</th>
@@ -531,12 +532,29 @@
         </div>
         <div id="exerciseCards" class="exercise-grid"></div>
       </section>
+      <section class="panel wide hidden" id="finisherPanel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">CAMPUS</p>
+            <h2>Finisher aus Notion</h2>
+          </div>
+          <button id="finisherSyncBtn" type="button" class="primary">Jetzt mit Notion synchronisieren</button>
+        </div>
+        <div class="exercise-toolbar finisher-toolbar">
+          <label>
+            <span>Suche</span>
+            <input id="finisherSearch" type="search" placeholder="Name, Fokus, Equipment oder Tag">
+          </label>
+        </div>
+        <div id="finisherSyncMeta" class="stat-card exercise-sync-meta"></div>
+        <div id="finisherCards" class="exercise-grid"></div>
+      </section>
 
       <section class="panel hidden" id="courseListPanel">
         <div class="panel-heading">
           <div>
             <p class="eyebrow">Kursliste</p>
-            <h2>Kurs auswählen</h2>
+            <h2>Kurs auswÃ¤hlen</h2>
           </div>
         </div>
         <div id="courseList" class="course-list"></div>
@@ -546,12 +564,12 @@
         <div class="panel-heading">
           <div>
             <p class="eyebrow">Planung</p>
-            <h2>Terminplanung für Kurse</h2>
+            <h2>Terminplanung fÃ¼r Kurse</h2>
           </div>
         </div>
         <div id="planningContent" class="stack">
           <div class="planning-actions">
-            <button id="planNextBtn" type="button" class="primary">Nächste 4 Termine anlegen</button>
+            <button id="planNextBtn" type="button" class="primary">NÃ¤chste 4 Termine anlegen</button>
             <button id="planMonthBtn" type="button" class="ghost">Monatsplan anlegen</button>
           </div>
           <div id="planningPreview" class="stats-grid"></div>
@@ -562,7 +580,7 @@
         <div class="panel-heading">
           <div>
             <p class="eyebrow">Anwesenheit</p>
-            <h2 id="participantSectionTitle">Bitte zuerst einen Kurs auswählen</h2>
+            <h2 id="participantSectionTitle">Bitte zuerst einen Kurs auswÃ¤hlen</h2>
           </div>
         </div>
 
@@ -585,7 +603,7 @@
             <button type="submit" class="primary">1x TRAIN anlegen</button>
           </form>
           <div id="participantFormNotice" class="stat-card hidden">
-            <h3>Buchungen für BEAT und REPEAT</h3>
+            <h3>Buchungen fÃ¼r BEAT und REPEAT</h3>
             <p class="stat-meta">Im Kursbereich legst du schnelle 1x TRAIN-Teilnehmer an. 2x BEAT und 3x REPEAT verwaltest du im Bereich Buchungen.</p>
             <button id="openBookingPanelBtn" type="button" class="ghost">Zu Buchungen wechseln</button>
           </div>
@@ -615,10 +633,10 @@
 
           <div id="attendanceSessionPicker" class="stat-card hidden">
             <label>
-              <span>Genaue Season-Termine für diesen Kurs</span>
+              <span>Genaue Season-Termine fÃ¼r diesen Kurs</span>
               <select id="attendanceSessionSelect"></select>
             </label>
-            <p class="stat-meta">Nur diese Termine gehören aktuell zur ausgewählten Season und können für Einzeltermin-Umbuchungen genutzt werden.</p>
+            <p class="stat-meta">Nur diese Termine gehÃ¶ren aktuell zur ausgewÃ¤hlten Season und kÃ¶nnen fÃ¼r Einzeltermin-Umbuchungen genutzt werden.</p>
           </div>
 
           <div id="mobileSessionSummary" class="stat-card mobile-session-summary"></div>
@@ -646,12 +664,12 @@
         <div class="panel-heading">
           <div>
             <p class="eyebrow">Monat</p>
-            <h2>Monatsübersicht</h2>
+            <h2>MonatsÃ¼bersicht</h2>
           </div>
         </div>
         <div class="stack">
           <label>
-            <span>Monat auswählen</span>
+            <span>Monat auswÃ¤hlen</span>
             <input id="monthPicker" type="month">
           </label>
           <div id="monthlyCards" class="stats-grid"></div>
@@ -662,7 +680,7 @@
       <section class="panel hidden" id="statsPanel">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">Übersicht</p>
+            <p class="eyebrow">Ãœbersicht</p>
             <h2>Team Kennzahlen</h2>
           </div>
         </div>
@@ -673,7 +691,7 @@
         <div class="panel-heading">
           <div>
             <p class="eyebrow">Business</p>
-            <h2>Geschäftszahlen</h2>
+            <h2>GeschÃ¤ftszahlen</h2>
           </div>
         </div>
         <div id="businessCards" class="stats-grid"></div>
@@ -707,7 +725,7 @@
         <button id="closeMoveParticipantModalBtn" type="button" class="ghost">Schliessen</button>
       </div>
       <form id="moveParticipantForm" class="stack">
-        <p id="moveParticipantText" class="stat-meta">Bitte Zielkurs wählen.</p>
+        <p id="moveParticipantText" class="stat-meta">Bitte Zielkurs wÃ¤hlen.</p>
         <label>
           <span id="moveParticipantTargetLabel">Zielkurs</span>
           <select id="moveParticipantTargetCourse" name="targetCourseId"></select>
@@ -737,10 +755,10 @@
     <div class="modal-card">
       <div class="panel-heading">
         <div>
-          <p class="eyebrow">Übung</p>
-          <h2 id="exerciseDetailTitle">Übungsdetails</h2>
+          <p class="eyebrow">Ãœbung</p>
+          <h2 id="exerciseDetailTitle">Ãœbungsdetails</h2>
         </div>
-        <button id="closeExerciseDetailModalBtn" type="button" class="ghost">Schließen</button>
+        <button id="closeExerciseDetailModalBtn" type="button" class="ghost">SchlieÃŸen</button>
       </div>
       <div id="exerciseDetailBody" class="stack"></div>
     </div>
