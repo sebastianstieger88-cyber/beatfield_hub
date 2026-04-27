@@ -25,6 +25,8 @@ const state = {
   finishers: [],
   warmups: [],
   exerciseFavorites: [],
+  finisherFavorites: [],
+  warmupFavorites: [],
   showArchivedDropIns: false,
   sessions: [],
   records: [],
@@ -45,8 +47,12 @@ const state = {
   exercisePinFavorites: false,
   exerciseSyncing: false,
   finisherSearch: "",
+  finisherFavoritesOnly: false,
+  finisherPinFavorites: false,
   finisherSyncing: false,
   warmupSearch: "",
+  warmupFavoritesOnly: false,
+  warmupPinFavorites: false,
   warmupSyncing: false,
   selectedCourseId: null,
   editingCourseId: null,
@@ -96,6 +102,7 @@ const seasonPanel = document.querySelector("#seasonPanel");
 const bookingPanel = document.querySelector("#bookingPanel");
 const todayPanel = document.querySelector("#todayPanel");
 const courseListPanel = document.querySelector("#courseListPanel");
+const campusPanel = document.querySelector("#campusPanel");
 const exercisePanel = document.querySelector("#exercisePanel");
 const finisherPanel = document.querySelector("#finisherPanel");
 const warmupPanel = document.querySelector("#warmupPanel");
@@ -178,6 +185,7 @@ const dropInCards = document.querySelector("#dropInCards");
 const exerciseCards = document.querySelector("#exerciseCards");
 const finisherCards = document.querySelector("#finisherCards");
 const warmupCards = document.querySelector("#warmupCards");
+const campusOverviewGrid = document.querySelector("#campusOverviewGrid");
 const exerciseSearch = document.querySelector("#exerciseSearch");
 const finisherSearch = document.querySelector("#finisherSearch");
 const warmupSearch = document.querySelector("#warmupSearch");
@@ -196,6 +204,14 @@ const exerciseActiveFilters = document.querySelector("#exerciseActiveFilters");
 const exerciseFavoriteFilterBtn = document.querySelector("#exerciseFavoriteFilterBtn");
 const exercisePinFavoritesBtn = document.querySelector("#exercisePinFavoritesBtn");
 const exerciseResetFiltersBtn = document.querySelector("#exerciseResetFiltersBtn");
+const finisherActiveFilters = document.querySelector("#finisherActiveFilters");
+const finisherFavoriteFilterBtn = document.querySelector("#finisherFavoriteFilterBtn");
+const finisherPinFavoritesBtn = document.querySelector("#finisherPinFavoritesBtn");
+const finisherResetFiltersBtn = document.querySelector("#finisherResetFiltersBtn");
+const warmupActiveFilters = document.querySelector("#warmupActiveFilters");
+const warmupFavoriteFilterBtn = document.querySelector("#warmupFavoriteFilterBtn");
+const warmupPinFavoritesBtn = document.querySelector("#warmupPinFavoritesBtn");
+const warmupResetFiltersBtn = document.querySelector("#warmupResetFiltersBtn");
 const exerciseTableBody = document.querySelector("#exerciseTableBody");
 const finisherTableBody = document.querySelector("#finisherTableBody");
 const warmupTableBody = document.querySelector("#warmupTableBody");
@@ -260,6 +276,7 @@ const contentPanels = [
   seasonPanel,
   bookingPanel,
   todayPanel,
+  campusPanel,
   trialsPanel,
   exercisePanel,
   finisherPanel,
@@ -389,9 +406,33 @@ finisherSearch?.addEventListener("input", () => {
   state.finisherSearch = finisherSearch.value || "";
   renderFinishers();
 });
+finisherFavoriteFilterBtn?.addEventListener("click", () => {
+  state.finisherFavoritesOnly = !state.finisherFavoritesOnly;
+  renderFinishers();
+});
+finisherPinFavoritesBtn?.addEventListener("click", () => {
+  state.finisherPinFavorites = !state.finisherPinFavorites;
+  renderFinishers();
+});
+finisherResetFiltersBtn?.addEventListener("click", () => {
+  resetFinisherFilters();
+  renderFinishers();
+});
 finisherSyncBtn?.addEventListener("click", handleFinisherSync);
 warmupSearch?.addEventListener("input", () => {
   state.warmupSearch = warmupSearch.value || "";
+  renderWarmups();
+});
+warmupFavoriteFilterBtn?.addEventListener("click", () => {
+  state.warmupFavoritesOnly = !state.warmupFavoritesOnly;
+  renderWarmups();
+});
+warmupPinFavoritesBtn?.addEventListener("click", () => {
+  state.warmupPinFavorites = !state.warmupPinFavorites;
+  renderWarmups();
+});
+warmupResetFiltersBtn?.addEventListener("click", () => {
+  resetWarmupFilters();
   renderWarmups();
 });
 warmupSyncBtn?.addEventListener("click", handleWarmupSync);
@@ -714,7 +755,21 @@ async function fetchSupportData() {
       .eq("user_id", state.session.user.id)
     : Promise.resolve({ data: [], error: null });
 
-  const [seasonResult, seasonBookingResult, trainerResult, trainerDirectoryResult, inviteResult, participantResult, sessionResult, trialResult, dropInResult, exerciseResult, finisherResult, warmupResult, exerciseFavoritesResult] = await Promise.all([
+  const finisherFavoritesQuery = state.session?.user?.id
+    ? state.supabase
+      .from("finisher_favorites")
+      .select("finisher_id")
+      .eq("user_id", state.session.user.id)
+    : Promise.resolve({ data: [], error: null });
+
+  const warmupFavoritesQuery = state.session?.user?.id
+    ? state.supabase
+      .from("warmup_favorites")
+      .select("warmup_id")
+      .eq("user_id", state.session.user.id)
+    : Promise.resolve({ data: [], error: null });
+
+  const [seasonResult, seasonBookingResult, trainerResult, trainerDirectoryResult, inviteResult, participantResult, sessionResult, trialResult, dropInResult, exerciseResult, finisherResult, warmupResult, exerciseFavoritesResult, finisherFavoritesResult, warmupFavoritesResult] = await Promise.all([
     seasonsQuery,
     seasonBookingsQuery,
     trainerQuery,
@@ -728,6 +783,8 @@ async function fetchSupportData() {
     finisherQuery,
     warmupQuery,
     exerciseFavoritesQuery,
+    finisherFavoritesQuery,
+    warmupFavoritesQuery,
   ]);
 
   if (seasonResult.error) {
@@ -768,6 +825,12 @@ async function fetchSupportData() {
   }
   if (exerciseFavoritesResult.error) {
     notify(getFriendlySupabaseMessage(exerciseFavoritesResult.error, "Übungsfavoriten konnten nicht geladen werden."), true);
+  }
+  if (finisherFavoritesResult.error) {
+    notify(getFriendlySupabaseMessage(finisherFavoritesResult.error, "Finisher-Favoriten konnten nicht geladen werden."), true);
+  }
+  if (warmupFavoritesResult.error) {
+    notify(getFriendlySupabaseMessage(warmupFavoritesResult.error, "Warm-Up-Favoriten konnten nicht geladen werden."), true);
   }
   if (seasonResult.error) {
     notify(getFriendlySupabaseMessage(seasonResult.error, "Seasons konnten nicht geladen werden."), true);
@@ -839,6 +902,12 @@ async function fetchSupportData() {
   }
   if (!exerciseFavoritesResult.error) {
     state.exerciseFavorites = exerciseFavoritesResult.data || [];
+  }
+  if (!finisherFavoritesResult.error) {
+    state.finisherFavorites = finisherFavoritesResult.data || [];
+  }
+  if (!warmupFavoritesResult.error) {
+    state.warmupFavorites = warmupFavoritesResult.data || [];
   }
 
   if (state.profile?.role === "trainer") {
@@ -3136,6 +3205,7 @@ function render() {
   renderInvites();
   renderTrials();
   renderDropIns();
+  renderCampusOverview();
   renderExercises();
   renderFinishers();
   renderWarmups();
@@ -3635,8 +3705,9 @@ async function toggleExerciseFavorite(exerciseId) {
 
     state.exerciseFavorites = state.exerciseFavorites.filter((entry) => entry.exercise_id !== exerciseId);
     renderExercises();
-  renderExerciseDetailView();
-  return;
+    renderExerciseDetailView();
+    renderCampusOverview();
+    return;
   }
 
   const { error } = await state.supabase
@@ -3654,6 +3725,223 @@ async function toggleExerciseFavorite(exerciseId) {
   state.exerciseFavorites.unshift({ exercise_id: exerciseId });
   renderExercises();
   renderExerciseDetailView();
+  renderCampusOverview();
+}
+
+function isFinisherFavorite(finisherId) {
+  return state.finisherFavorites.some((entry) => entry.finisher_id === finisherId);
+}
+
+function isWarmupFavorite(warmupId) {
+  return state.warmupFavorites.some((entry) => entry.warmup_id === warmupId);
+}
+
+function hasActiveFinisherFilters() {
+  return Boolean(
+    (state.finisherSearch || "").trim()
+      || state.finisherFavoritesOnly
+      || state.finisherPinFavorites
+  );
+}
+
+function resetFinisherFilters() {
+  state.finisherSearch = "";
+  state.finisherFavoritesOnly = false;
+  state.finisherPinFavorites = false;
+}
+
+function getActiveFinisherFilterChips() {
+  const chips = [];
+  const search = String(state.finisherSearch || "").trim();
+  if (search) {
+    chips.push({
+      label: `Suche: ${search}`,
+      action: () => {
+        state.finisherSearch = "";
+        renderFinishers();
+      },
+    });
+  }
+  if (state.finisherFavoritesOnly) {
+    chips.push({
+      label: "Nur Favoriten",
+      action: () => {
+        state.finisherFavoritesOnly = false;
+        renderFinishers();
+      },
+    });
+  }
+  if (state.finisherPinFavorites) {
+    chips.push({
+      label: "Favoriten zuerst",
+      action: () => {
+        state.finisherPinFavorites = false;
+        renderFinishers();
+      },
+    });
+  }
+  return chips;
+}
+
+function hasActiveWarmupFilters() {
+  return Boolean(
+    (state.warmupSearch || "").trim()
+      || state.warmupFavoritesOnly
+      || state.warmupPinFavorites
+  );
+}
+
+function resetWarmupFilters() {
+  state.warmupSearch = "";
+  state.warmupFavoritesOnly = false;
+  state.warmupPinFavorites = false;
+}
+
+function getActiveWarmupFilterChips() {
+  const chips = [];
+  const search = String(state.warmupSearch || "").trim();
+  if (search) {
+    chips.push({
+      label: `Suche: ${search}`,
+      action: () => {
+        state.warmupSearch = "";
+        renderWarmups();
+      },
+    });
+  }
+  if (state.warmupFavoritesOnly) {
+    chips.push({
+      label: "Nur Favoriten",
+      action: () => {
+        state.warmupFavoritesOnly = false;
+        renderWarmups();
+      },
+    });
+  }
+  if (state.warmupPinFavorites) {
+    chips.push({
+      label: "Favoriten zuerst",
+      action: () => {
+        state.warmupPinFavorites = false;
+        renderWarmups();
+      },
+    });
+  }
+  return chips;
+}
+
+function getSortedFinishers(finishers) {
+  const favoriteIds = new Set(state.finisherFavorites.map((entry) => entry.finisher_id));
+  return [...finishers].sort((left, right) => {
+    if (state.finisherPinFavorites) {
+      const leftFavorite = favoriteIds.has(left.id);
+      const rightFavorite = favoriteIds.has(right.id);
+      if (leftFavorite !== rightFavorite) {
+        return leftFavorite ? -1 : 1;
+      }
+    }
+    return String(left.title || "").localeCompare(String(right.title || ""), "de");
+  });
+}
+
+function getSortedWarmups(warmups) {
+  const favoriteIds = new Set(state.warmupFavorites.map((entry) => entry.warmup_id));
+  return [...warmups].sort((left, right) => {
+    if (state.warmupPinFavorites) {
+      const leftFavorite = favoriteIds.has(left.id);
+      const rightFavorite = favoriteIds.has(right.id);
+      if (leftFavorite !== rightFavorite) {
+        return leftFavorite ? -1 : 1;
+      }
+    }
+    return String(left.title || "").localeCompare(String(right.title || ""), "de");
+  });
+}
+
+async function toggleFinisherFavorite(finisherId) {
+  if (!state.supabase || !state.session?.user?.id) {
+    return;
+  }
+
+  const favorite = state.finisherFavorites.find((entry) => entry.finisher_id === finisherId);
+  if (favorite) {
+    const { error } = await state.supabase
+      .from("finisher_favorites")
+      .delete()
+      .eq("user_id", state.session.user.id)
+      .eq("finisher_id", finisherId);
+
+    if (error) {
+      notify(getFriendlySupabaseMessage(error, "Favorit konnte nicht entfernt werden."), true);
+      return;
+    }
+
+    state.finisherFavorites = state.finisherFavorites.filter((entry) => entry.finisher_id !== finisherId);
+    renderFinishers();
+    renderFinisherDetailView();
+    renderCampusOverview();
+    return;
+  }
+
+  const { error } = await state.supabase
+    .from("finisher_favorites")
+    .insert({
+      user_id: state.session.user.id,
+      finisher_id: finisherId,
+    });
+
+  if (error) {
+    notify(getFriendlySupabaseMessage(error, "Favorit konnte nicht gespeichert werden."), true);
+    return;
+  }
+
+  state.finisherFavorites.unshift({ finisher_id: finisherId });
+  renderFinishers();
+  renderFinisherDetailView();
+  renderCampusOverview();
+}
+
+async function toggleWarmupFavorite(warmupId) {
+  if (!state.supabase || !state.session?.user?.id) {
+    return;
+  }
+
+  const favorite = state.warmupFavorites.find((entry) => entry.warmup_id === warmupId);
+  if (favorite) {
+    const { error } = await state.supabase
+      .from("warmup_favorites")
+      .delete()
+      .eq("user_id", state.session.user.id)
+      .eq("warmup_id", warmupId);
+
+    if (error) {
+      notify(getFriendlySupabaseMessage(error, "Favorit konnte nicht entfernt werden."), true);
+      return;
+    }
+
+    state.warmupFavorites = state.warmupFavorites.filter((entry) => entry.warmup_id !== warmupId);
+    renderWarmups();
+    renderWarmupDetailView();
+    renderCampusOverview();
+    return;
+  }
+
+  const { error } = await state.supabase
+    .from("warmup_favorites")
+    .insert({
+      user_id: state.session.user.id,
+      warmup_id: warmupId,
+    });
+
+  if (error) {
+    notify(getFriendlySupabaseMessage(error, "Favorit konnte nicht gespeichert werden."), true);
+    return;
+  }
+
+  state.warmupFavorites.unshift({ warmup_id: warmupId });
+  renderWarmups();
+  renderWarmupDetailView();
+  renderCampusOverview();
 }
 
 function renderExercises() {
@@ -3876,29 +4164,33 @@ async function handleExerciseSync() {
 
 function getFilteredFinishers() {
   const searchNeedle = String(state.finisherSearch || "").trim().toLowerCase();
-  if (!searchNeedle) {
-    return [...state.finishers].sort((left, right) => String(left.title || "").localeCompare(String(right.title || ""), "de"));
-  }
+  const favoriteIds = new Set(state.finisherFavorites.map((entry) => entry.finisher_id));
 
-  return [...state.finishers]
-    .filter((finisher) => {
-      const haystack = [
-        finisher.title,
-        finisher.category,
-        finisher.focus,
-        finisher.level,
-        finisher.equipment,
-        finisher.coaching_cues,
-        finisher.description,
-        ...(finisher.tags || []),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
+  return state.finishers.filter((finisher) => {
+    if (state.finisherFavoritesOnly && !favoriteIds.has(finisher.id)) {
+      return false;
+    }
 
-      return haystack.includes(searchNeedle);
-    })
-    .sort((left, right) => String(left.title || "").localeCompare(String(right.title || ""), "de"));
+    if (!searchNeedle) {
+      return true;
+    }
+
+    const haystack = [
+      finisher.title,
+      finisher.category,
+      finisher.focus,
+      finisher.level,
+      finisher.equipment,
+      finisher.coaching_cues,
+      finisher.description,
+      ...(finisher.tags || []),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return haystack.includes(searchNeedle);
+  });
 }
 
 function renderFinisherDetailView() {
@@ -3958,27 +4250,31 @@ function renderFinisherDetailView() {
 
 function getFilteredWarmups() {
   const searchNeedle = String(state.warmupSearch || "").trim().toLowerCase();
-  if (!searchNeedle) {
-    return [...state.warmups].sort((left, right) => String(left.title || "").localeCompare(String(right.title || ""), "de"));
-  }
+  const favoriteIds = new Set(state.warmupFavorites.map((entry) => entry.warmup_id));
 
-  return [...state.warmups]
-    .filter((warmup) => {
-      const haystack = [
-        warmup.title,
-        warmup.description,
-        warmup.level,
-        warmup.equipment,
-        warmup.coaching_cues,
-        ...(warmup.tags || []),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
+  return state.warmups.filter((warmup) => {
+    if (state.warmupFavoritesOnly && !favoriteIds.has(warmup.id)) {
+      return false;
+    }
 
-      return haystack.includes(searchNeedle);
-    })
-    .sort((left, right) => String(left.title || "").localeCompare(String(right.title || ""), "de"));
+    if (!searchNeedle) {
+      return true;
+    }
+
+    const haystack = [
+      warmup.title,
+      warmup.description,
+      warmup.level,
+      warmup.equipment,
+      warmup.coaching_cues,
+      ...(warmup.tags || []),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return haystack.includes(searchNeedle);
+  });
 }
 
 function renderWarmupDetailView() {
@@ -4036,6 +4332,66 @@ function renderWarmupDetailView() {
   warmupDetailModal.classList.remove("hidden");
 }
 
+function renderCampusOverview() {
+  if (!campusOverviewGrid) {
+    return;
+  }
+
+  const latestExerciseSync = state.exercises.map((item) => item.synced_at).filter(Boolean).sort((a, b) => String(b).localeCompare(String(a)))[0] || null;
+  const latestFinisherSync = state.finishers.map((item) => item.synced_at).filter(Boolean).sort((a, b) => String(b).localeCompare(String(a)))[0] || null;
+  const latestWarmupSync = state.warmups.map((item) => item.synced_at).filter(Boolean).sort((a, b) => String(b).localeCompare(String(a)))[0] || null;
+
+  const cards = [
+    {
+      eyebrow: "CAMPUS",
+      title: "Übungen",
+      count: state.exercises.length,
+      favorites: state.exerciseFavorites.length,
+      sync: latestExerciseSync,
+      panel: "#exercisePanel",
+      copy: "Strukturierte Übungsbibliothek mit Filtern, Details und Favoriten."
+    },
+    {
+      eyebrow: "CAMPUS",
+      title: "Finisher",
+      count: state.finishers.length,
+      favorites: state.finisherFavorites.length,
+      sync: latestFinisherSync,
+      panel: "#finisherPanel",
+      copy: "Abschlussblöcke mit schneller Suche, Favoriten und direktem Notion-Abgleich."
+    },
+    {
+      eyebrow: "CAMPUS",
+      title: "Warm-Up",
+      count: state.warmups.length,
+      favorites: state.warmupFavorites.length,
+      sync: latestWarmupSync,
+      panel: "#warmupPanel",
+      copy: "Kompakte Warm-Up-Sammlung für schnelle Trainer-Inspiration im Alltag."
+    },
+  ];
+
+  campusOverviewGrid.innerHTML = cards.map((card) => `
+    <article class="stat-card campus-card">
+      <p class="eyebrow">${escapeHtml(card.eyebrow)}</p>
+      <h3>${escapeHtml(card.title)}</h3>
+      <p class="stat-value">${escapeHtml(String(card.count))}</p>
+      <p class="stat-meta">${escapeHtml(card.copy)}</p>
+      <div class="course-status-grid">
+        <span class="course-status-pill">${escapeHtml(`${card.favorites} Favoriten`)}</span>
+        <span class="course-status-pill course-status-pill-info">${card.sync ? `Sync: ${escapeHtml(formatDateTimeLabel(card.sync))}` : "Noch kein Sync"}</span>
+      </div>
+      <div class="stat-card-actions campus-card-actions">
+        <button type="button" class="ghost" data-campus-open="${escapeHtml(card.panel)}">Öffnen</button>
+      </div>
+    </article>
+  `).join("");
+
+  campusOverviewGrid.querySelectorAll("[data-campus-open]").forEach((button) => {
+    button.addEventListener("click", () => setActiveSection(button.dataset.campusOpen));
+  });
+}
+
 function renderFinishers() {
   if (!finisherCards || !finisherSyncMeta || !finisherTableBody) {
     return;
@@ -4050,6 +4406,35 @@ function renderFinishers() {
     finisherSyncBtn.disabled = state.finisherSyncing;
     finisherSyncBtn.textContent = state.finisherSyncing ? "Synchronisiert..." : "Jetzt mit Notion synchronisieren";
   }
+  if (finisherFavoriteFilterBtn) {
+    finisherFavoriteFilterBtn.classList.toggle("is-active", state.finisherFavoritesOnly);
+    finisherFavoriteFilterBtn.textContent = state.finisherFavoritesOnly ? "Alle Finisher zeigen" : "Nur Favoriten";
+  }
+  if (finisherPinFavoritesBtn) {
+    finisherPinFavoritesBtn.classList.toggle("is-active", state.finisherPinFavorites);
+    finisherPinFavoritesBtn.textContent = state.finisherPinFavorites ? "Normale Reihenfolge" : "Favoriten zuerst";
+  }
+  if (finisherResetFiltersBtn) {
+    finisherResetFiltersBtn.disabled = !hasActiveFinisherFilters();
+  }
+  if (finisherActiveFilters) {
+    const chips = getActiveFinisherFilterChips();
+    finisherActiveFilters.innerHTML = chips.length
+      ? chips.map((chip, index) => `
+          <button type="button" class="exercise-filter-chip" data-finisher-chip="${index}">
+            <span>${escapeHtml(chip.label)}</span>
+            <span aria-hidden="true">×</span>
+          </button>
+        `).join("")
+      : "";
+    finisherActiveFilters.classList.toggle("hidden", !chips.length);
+    finisherActiveFilters.querySelectorAll("[data-finisher-chip]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const chip = chips[Number(button.dataset.finisherChip)];
+        chip?.action?.();
+      });
+    });
+  }
 
   const latestSync = state.finishers
     .map((finisher) => finisher.synced_at)
@@ -4059,11 +4444,12 @@ function renderFinishers() {
   finisherSyncMeta.innerHTML = `
     <h3>Sync-Status</h3>
     <p class="stat-meta">${state.finishers.length} aktive Finisher in der App.</p>
+    <p class="stat-meta">${state.finisherFavorites.length} Favoriten gespeichert.</p>
     <p class="stat-meta">${latestSync ? `Zuletzt synchronisiert: ${escapeHtml(formatDateTimeLabel(latestSync))}` : "Noch kein Sync vorhanden."}</p>
     <p class="stat-meta">${isAdmin() ? "Pflege läuft über Notion. Hier synchronisierst du und prüfst die Finisher-Bibliothek." : "Pflege läuft über Notion. Hier können Trainer schnell Ideen für Abschlussblöcke sammeln."}</p>
   `;
 
-  const finishers = getFilteredFinishers();
+  const finishers = getSortedFinishers(getFilteredFinishers());
   if (!finishers.length) {
     finisherTableBody.innerHTML = `
       <tr>
@@ -4082,8 +4468,10 @@ function renderFinishers() {
     return;
   }
 
-  finisherTableBody.innerHTML = finishers.map((finisher) => `
-    <tr>
+  finisherTableBody.innerHTML = finishers.map((finisher) => {
+    const isFavorite = isFinisherFavorite(finisher.id);
+    return `
+    <tr class="${isFavorite ? "exercise-row-favorite" : ""}">
       <td><strong>${escapeHtml(finisher.title || "Ohne Titel")}</strong></td>
       <td>${escapeHtml(finisher.category || "-")}</td>
       <td>${escapeHtml(finisher.level || "-")}</td>
@@ -4092,12 +4480,15 @@ function renderFinishers() {
       <td>
         <div class="mini-actions table-actions">
           <button type="button" class="ghost" data-finisher-detail="${escapeHtml(finisher.id)}">Details</button>
+          <button type="button" class="${isFavorite ? "primary" : "ghost"}" data-finisher-favorite="${escapeHtml(finisher.id)}">${isFavorite ? "Favorit entfernt" : "Als Favorit"}</button>
         </div>
       </td>
     </tr>
-  `).join("");
+  `;
+  }).join("");
 
   finisherCards.innerHTML = finishers.map((finisher) => {
+    const isFavorite = isFinisherFavorite(finisher.id);
     const tags = (finisher.tags || []).map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("");
     const links = [
       finisher.video_url ? `<a class="ghost" href="${escapeHtml(finisher.video_url)}" target="_blank" rel="noreferrer">Video öffnen</a>` : "",
@@ -4105,13 +4496,14 @@ function renderFinishers() {
     ].filter(Boolean).join("");
 
     return `
-      <article class="exercise-card">
+      <article class="exercise-card ${isFavorite ? "exercise-card-favorite" : ""}">
         <div class="exercise-card-head">
           <div>
             <p class="eyebrow">Finisher</p>
             <h3>${escapeHtml(finisher.title || "Ohne Titel")}</h3>
           </div>
           <div class="course-status-grid">
+            ${isFavorite ? `<span class="course-status-pill course-status-pill-warn">Favorit</span>` : ""}
             ${finisher.category ? `<span class="course-status-pill">${escapeHtml(finisher.category)}</span>` : ""}
             ${finisher.focus ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(finisher.focus)}</span>` : ""}
           </div>
@@ -4126,6 +4518,7 @@ function renderFinishers() {
         ${tags ? `<div class="exercise-tag-row">${tags}</div>` : ""}
         <div class="stat-card-actions exercise-actions">
           <button type="button" class="ghost" data-finisher-detail="${escapeHtml(finisher.id)}">Details</button>
+          <button type="button" class="${isFavorite ? "primary" : "ghost"}" data-finisher-favorite="${escapeHtml(finisher.id)}">${isFavorite ? "Favorit entfernt" : "Als Favorit"}</button>
           ${links}
         </div>
       </article>
@@ -4135,8 +4528,14 @@ function renderFinishers() {
   finisherTableBody.querySelectorAll("[data-finisher-detail]").forEach((button) => {
     button.addEventListener("click", () => openFinisherDetailModal(button.dataset.finisherDetail));
   });
+  finisherTableBody.querySelectorAll("[data-finisher-favorite]").forEach((button) => {
+    button.addEventListener("click", () => toggleFinisherFavorite(button.dataset.finisherFavorite));
+  });
   finisherCards.querySelectorAll("[data-finisher-detail]").forEach((button) => {
     button.addEventListener("click", () => openFinisherDetailModal(button.dataset.finisherDetail));
+  });
+  finisherCards.querySelectorAll("[data-finisher-favorite]").forEach((button) => {
+    button.addEventListener("click", () => toggleFinisherFavorite(button.dataset.finisherFavorite));
   });
 }
 
@@ -4211,6 +4610,35 @@ function renderWarmups() {
     warmupSyncBtn.disabled = state.warmupSyncing;
     warmupSyncBtn.textContent = state.warmupSyncing ? "Synchronisiert..." : "Jetzt mit Notion synchronisieren";
   }
+  if (warmupFavoriteFilterBtn) {
+    warmupFavoriteFilterBtn.classList.toggle("is-active", state.warmupFavoritesOnly);
+    warmupFavoriteFilterBtn.textContent = state.warmupFavoritesOnly ? "Alle Warm-Ups zeigen" : "Nur Favoriten";
+  }
+  if (warmupPinFavoritesBtn) {
+    warmupPinFavoritesBtn.classList.toggle("is-active", state.warmupPinFavorites);
+    warmupPinFavoritesBtn.textContent = state.warmupPinFavorites ? "Normale Reihenfolge" : "Favoriten zuerst";
+  }
+  if (warmupResetFiltersBtn) {
+    warmupResetFiltersBtn.disabled = !hasActiveWarmupFilters();
+  }
+  if (warmupActiveFilters) {
+    const chips = getActiveWarmupFilterChips();
+    warmupActiveFilters.innerHTML = chips.length
+      ? chips.map((chip, index) => `
+          <button type="button" class="exercise-filter-chip" data-warmup-chip="${index}">
+            <span>${escapeHtml(chip.label)}</span>
+            <span aria-hidden="true">×</span>
+          </button>
+        `).join("")
+      : "";
+    warmupActiveFilters.classList.toggle("hidden", !chips.length);
+    warmupActiveFilters.querySelectorAll("[data-warmup-chip]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const chip = chips[Number(button.dataset.warmupChip)];
+        chip?.action?.();
+      });
+    });
+  }
 
   const latestSync = state.warmups
     .map((warmup) => warmup.synced_at)
@@ -4220,11 +4648,12 @@ function renderWarmups() {
   warmupSyncMeta.innerHTML = `
     <h3>Sync-Status</h3>
     <p class="stat-meta">${state.warmups.length} aktive Warm-Ups in der App.</p>
+    <p class="stat-meta">${state.warmupFavorites.length} Favoriten gespeichert.</p>
     <p class="stat-meta">${latestSync ? `Zuletzt synchronisiert: ${escapeHtml(formatDateTimeLabel(latestSync))}` : "Noch kein Sync vorhanden."}</p>
     <p class="stat-meta">${isAdmin() ? "Pflege läuft über Notion. Hier synchronisierst du und prüfst die Warm-Up-Bibliothek." : "Pflege läuft über Notion. Hier können Trainer schnell Warm-Up-Ideen sammeln."}</p>
   `;
 
-  const warmups = getFilteredWarmups();
+  const warmups = getSortedWarmups(getFilteredWarmups());
   if (!warmups.length) {
     warmupTableBody.innerHTML = `
       <tr>
@@ -4243,20 +4672,25 @@ function renderWarmups() {
     return;
   }
 
-  warmupTableBody.innerHTML = warmups.map((warmup) => `
-    <tr>
+  warmupTableBody.innerHTML = warmups.map((warmup) => {
+    const isFavorite = isWarmupFavorite(warmup.id);
+    return `
+    <tr class="${isFavorite ? "exercise-row-favorite" : ""}">
       <td><strong>${escapeHtml(warmup.title || "Ohne Titel")}</strong></td>
       <td>${escapeHtml(warmup.level || "-")}</td>
       <td>${escapeHtml(warmup.equipment || "-")}</td>
       <td>
         <div class="mini-actions table-actions">
           <button type="button" class="ghost" data-warmup-detail="${escapeHtml(warmup.id)}">Details</button>
+          <button type="button" class="${isFavorite ? "primary" : "ghost"}" data-warmup-favorite="${escapeHtml(warmup.id)}">${isFavorite ? "Favorit entfernt" : "Als Favorit"}</button>
         </div>
       </td>
     </tr>
-  `).join("");
+  `;
+  }).join("");
 
   warmupCards.innerHTML = warmups.map((warmup) => {
+    const isFavorite = isWarmupFavorite(warmup.id);
     const tags = (warmup.tags || []).map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("");
     const links = [
       warmup.video_url ? `<a class="ghost" href="${escapeHtml(warmup.video_url)}" target="_blank" rel="noreferrer">Video öffnen</a>` : "",
@@ -4264,13 +4698,16 @@ function renderWarmups() {
     ].filter(Boolean).join("");
 
     return `
-      <article class="exercise-card">
+      <article class="exercise-card ${isFavorite ? "exercise-card-favorite" : ""}">
         <div class="exercise-card-head">
           <div>
             <p class="eyebrow">Warm-Up</p>
             <h3>${escapeHtml(warmup.title || "Ohne Titel")}</h3>
           </div>
-          ${warmup.level ? `<span class="course-status-pill course-status-pill-warn">${escapeHtml(warmup.level)}</span>` : ""}
+          <div class="course-status-grid">
+            ${isFavorite ? `<span class="course-status-pill course-status-pill-warn">Favorit</span>` : ""}
+            ${warmup.level ? `<span class="course-status-pill course-status-pill-warn">${escapeHtml(warmup.level)}</span>` : ""}
+          </div>
         </div>
         <div class="exercise-meta-grid">
           ${warmup.level ? `<p><strong>Dauer</strong><span>${escapeHtml(warmup.level)}</span></p>` : ""}
@@ -4280,6 +4717,7 @@ function renderWarmups() {
         ${tags ? `<div class="exercise-tag-row">${tags}</div>` : ""}
         <div class="stat-card-actions exercise-actions">
           <button type="button" class="ghost" data-warmup-detail="${escapeHtml(warmup.id)}">Details</button>
+          <button type="button" class="${isFavorite ? "primary" : "ghost"}" data-warmup-favorite="${escapeHtml(warmup.id)}">${isFavorite ? "Favorit entfernt" : "Als Favorit"}</button>
           ${links}
         </div>
       </article>
@@ -4289,8 +4727,14 @@ function renderWarmups() {
   warmupTableBody.querySelectorAll("[data-warmup-detail]").forEach((button) => {
     button.addEventListener("click", () => openWarmupDetailModal(button.dataset.warmupDetail));
   });
+  warmupTableBody.querySelectorAll("[data-warmup-favorite]").forEach((button) => {
+    button.addEventListener("click", () => toggleWarmupFavorite(button.dataset.warmupFavorite));
+  });
   warmupCards.querySelectorAll("[data-warmup-detail]").forEach((button) => {
     button.addEventListener("click", () => openWarmupDetailModal(button.dataset.warmupDetail));
+  });
+  warmupCards.querySelectorAll("[data-warmup-favorite]").forEach((button) => {
+    button.addEventListener("click", () => toggleWarmupFavorite(button.dataset.warmupFavorite));
   });
 }
 
@@ -9159,6 +9603,7 @@ function getAvailableSections({ connected, loggedIn, appUnlocked }) {
       sections.push(
         "#todayPanel",
         "#trialsPanel",
+        "#campusPanel",
         "#exercisePanel",
         "#finisherPanel",
         "#warmupPanel",
@@ -9174,6 +9619,7 @@ function getAvailableSections({ connected, loggedIn, appUnlocked }) {
       sections.push(
         "#todayPanel",
         "#trialsPanel",
+        "#campusPanel",
         "#exercisePanel",
         "#finisherPanel",
         "#warmupPanel",
@@ -9193,6 +9639,7 @@ function getNavigationSections(availableSections, { connected, loggedIn, appUnlo
 
   return availableSections.filter((sectionId) => [
     "#todayPanel",
+    "#campusPanel",
     "#exercisePanel",
     "#finisherPanel",
     "#warmupPanel",
@@ -9680,8 +10127,11 @@ function getFriendlySupabaseMessage(error, fallback) {
     || normalized.includes("source_session_id")
     || normalized.includes("target_session_id")
     || normalized.includes("exercise_library")
+    || normalized.includes("exercise_favorites")
     || normalized.includes("finisher_library")
+    || normalized.includes("finisher_favorites")
     || normalized.includes("warmup_library")
+    || normalized.includes("warmup_favorites")
     || normalized.includes("notion_page_id")
   ) {
     return "Die App braucht das neueste Supabase-Schema. Bitte `supabase-schema.sql` noch einmal komplett im SQL Editor ausführen.";
