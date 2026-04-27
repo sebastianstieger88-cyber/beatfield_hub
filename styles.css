@@ -1336,6 +1336,28 @@ button.danger {
   margin-bottom: 16px;
 }
 
+.campus-grid {
+  align-items: stretch;
+}
+
+.campus-card {
+  display: grid;
+  gap: 12px;
+}
+
+.campus-card .stat-value {
+  margin: 0;
+  font-size: 2.4rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--text);
+}
+
+.campus-card-actions {
+  justify-content: flex-start;
+}
+
 .exercise-active-filters {
   display: flex;
   flex-wrap: wrap;

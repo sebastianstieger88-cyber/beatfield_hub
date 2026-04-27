@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="UTF-8">
@@ -43,6 +43,7 @@
         <details class="nav-group">
           <summary><span class="nav-icon">&#9679;</span><span>CAMPUS</span></summary>
           <div class="nav-submenu">
+            <a href="#campusPanel">Dashboard</a>
             <a href="#exercisePanel">&#220;bungen</a>
             <a href="#finisherPanel">Finisher</a>
             <a href="#warmupPanel">Warm-Up</a>
@@ -468,10 +469,20 @@
         <div id="dropInCards" class="stats-grid"></div>
       </section>
 
+      <section class="panel wide hidden" id="campusPanel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">CAMPUS</p>
+            <h2>Bibliotheken & Schnellzugriff</h2>
+          </div>
+        </div>
+        <div id="campusOverviewGrid" class="stats-grid campus-grid"></div>
+      </section>
+
       <section class="panel wide hidden" id="exercisePanel">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">&#220;bungen</p>
+            <p class="eyebrow">CAMPUS</p>
             <h2>&#220;bungsbibliothek aus Notion</h2>
           </div>
           <button id="exerciseSyncBtn" type="button" class="primary">Jetzt mit Notion synchronisieren</button>
@@ -546,7 +557,11 @@
             <span>Suche</span>
             <input id="finisherSearch" type="search" placeholder="Name, Fokus, Equipment oder Tag">
           </label>
+          <button id="finisherFavoriteFilterBtn" type="button" class="ghost">Nur Favoriten</button>
+          <button id="finisherPinFavoritesBtn" type="button" class="ghost">Favoriten zuerst</button>
+          <button id="finisherResetFiltersBtn" type="button" class="ghost">Filter zur&#252;cksetzen</button>
         </div>
+        <div id="finisherActiveFilters" class="exercise-active-filters"></div>
         <div id="finisherSyncMeta" class="stat-card exercise-sync-meta"></div>
         <div class="table-wrap exercise-table-wrap">
           <table class="exercise-table">
@@ -555,8 +570,8 @@
                 <th>Finisher</th>
                 <th>Typ</th>
                 <th>Dauer</th>
-                <th>Intensität</th>
-                <th>Ausrüstung</th>
+                <th>Intensit&#228;t</th>
+                <th>Ausr&#252;stung</th>
                 <th>Aktion</th>
               </tr>
             </thead>
@@ -579,7 +594,11 @@
             <span>Suche</span>
             <input id="warmupSearch" type="search" placeholder="Name, Beschreibung oder Equipment">
           </label>
+          <button id="warmupFavoriteFilterBtn" type="button" class="ghost">Nur Favoriten</button>
+          <button id="warmupPinFavoritesBtn" type="button" class="ghost">Favoriten zuerst</button>
+          <button id="warmupResetFiltersBtn" type="button" class="ghost">Filter zur&#252;cksetzen</button>
         </div>
+        <div id="warmupActiveFilters" class="exercise-active-filters"></div>
         <div id="warmupSyncMeta" class="stat-card exercise-sync-meta"></div>
         <div class="table-wrap exercise-table-wrap">
           <table class="exercise-table">
@@ -769,7 +788,7 @@
           <p class="eyebrow">Umbuchung</p>
           <h2 id="moveParticipantTitle">Teilnehmer umbuchen</h2>
         </div>
-        <button id="closeMoveParticipantModalBtn" type="button" class="ghost">SchlieÃƒÅ¸en</button>
+        <button id="closeMoveParticipantModalBtn" type="button" class="ghost">SchlieÃƒÆ’Ã…Â¸en</button>
       </div>
       <form id="moveParticipantForm" class="stack">
           <p id="moveParticipantText" class="stat-meta">Bitte Zielkurs w&#228;hlen.</p>
@@ -792,7 +811,7 @@
           <p class="eyebrow">Teilnehmerprofil</p>
           <h2 id="participantProfileTitle">Teilnehmer</h2>
         </div>
-        <button id="closeParticipantProfileModalBtn" type="button" class="ghost">SchlieÃƒÅ¸en</button>
+        <button id="closeParticipantProfileModalBtn" type="button" class="ghost">SchlieÃƒÆ’Ã…Â¸en</button>
       </div>
       <div id="participantProfileBody" class="stack"></div>
     </div>
@@ -818,7 +837,7 @@
           <p class="eyebrow">Finisher</p>
           <h2 id="finisherDetailTitle">Finisher-Details</h2>
         </div>
-        <button id="closeFinisherDetailModalBtn" type="button" class="ghost">Schließen</button>
+        <button id="closeFinisherDetailModalBtn" type="button" class="ghost">SchlieÃŸen</button>
       </div>
       <div id="finisherDetailBody" class="stack"></div>
     </div>
@@ -847,3 +866,4 @@
   <script type="module" src="app.js"></script>
 </body>
 </html>
+
