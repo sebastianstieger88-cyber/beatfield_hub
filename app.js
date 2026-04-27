@@ -6,6 +6,7 @@ const ENABLE_OFFLINE_MODE = false;
 const OFFLINE_CACHE_KEY = "beatfield-offline-cache-v2";
 const OFFLINE_QUEUE_KEY = "beatfield-offline-queue-v2";
 const SPECIALS_BUCKET = "campus-specials";
+const CAMPUS_RECENT_KEY = "beatfield-campus-recent-v1";
 
 const state = {
   supabase: null,
@@ -29,6 +30,7 @@ const state = {
   exerciseFavorites: [],
   finisherFavorites: [],
   warmupFavorites: [],
+  specialFavorites: [],
   showArchivedDropIns: false,
   sessions: [],
   records: [],
@@ -57,6 +59,9 @@ const state = {
   warmupPinFavorites: false,
   warmupSyncing: false,
   specialsSearch: "",
+  specialsFavoritesOnly: false,
+  specialsPinFavorites: false,
+  specialsSort: "updated_desc",
   specialsUploading: false,
   selectedCourseId: null,
   editingCourseId: null,
@@ -77,6 +82,7 @@ const state = {
   selectedSpecialId: null,
   specialSignedUrls: {},
   specialUrlLoadingId: null,
+  campusRecentItems: loadCampusRecentItems(),
   pendingActions: loadOfflineQueue(),
   optimisticVisibilityUntil: {
     courses: 0,
@@ -195,10 +201,12 @@ const finisherCards = document.querySelector("#finisherCards");
 const warmupCards = document.querySelector("#warmupCards");
 const specialsCards = document.querySelector("#specialsCards");
 const campusOverviewGrid = document.querySelector("#campusOverviewGrid");
+const campusRecentGrid = document.querySelector("#campusRecentGrid");
 const exerciseSearch = document.querySelector("#exerciseSearch");
 const finisherSearch = document.querySelector("#finisherSearch");
 const warmupSearch = document.querySelector("#warmupSearch");
 const specialsSearch = document.querySelector("#specialsSearch");
+const specialsSortSelect = document.querySelector("#specialsSortSelect");
 const exerciseCategoryFilter = document.querySelector("#exerciseCategoryFilter");
 const exerciseFocusFilter = document.querySelector("#exerciseFocusFilter");
 const exerciseLevelFilter = document.querySelector("#exerciseLevelFilter");
@@ -215,6 +223,10 @@ const specialsPreviewCard = document.querySelector("#specialsPreviewCard");
 const specialsUploadForm = document.querySelector("#specialsUploadForm");
 const specialsUploadBtn = document.querySelector("#specialsUploadBtn");
 const specialsFileInput = document.querySelector("#specialsFileInput");
+const specialsActiveFilters = document.querySelector("#specialsActiveFilters");
+const specialsFavoriteFilterBtn = document.querySelector("#specialsFavoriteFilterBtn");
+const specialsPinFavoritesBtn = document.querySelector("#specialsPinFavoritesBtn");
+const specialsResetFiltersBtn = document.querySelector("#specialsResetFiltersBtn");
 const exerciseActiveFilters = document.querySelector("#exerciseActiveFilters");
 const exerciseFavoriteFilterBtn = document.querySelector("#exerciseFavoriteFilterBtn");
 const exercisePinFavoritesBtn = document.querySelector("#exercisePinFavoritesBtn");
@@ -459,6 +471,22 @@ warmupResetFiltersBtn?.addEventListener("click", () => {
 warmupSyncBtn?.addEventListener("click", handleWarmupSync);
 specialsSearch?.addEventListener("input", () => {
   state.specialsSearch = specialsSearch.value || "";
+  renderSpecials();
+});
+specialsSortSelect?.addEventListener("change", () => {
+  state.specialsSort = specialsSortSelect.value || "updated_desc";
+  renderSpecials();
+});
+specialsFavoriteFilterBtn?.addEventListener("click", () => {
+  state.specialsFavoritesOnly = !state.specialsFavoritesOnly;
+  renderSpecials();
+});
+specialsPinFavoritesBtn?.addEventListener("click", () => {
+  state.specialsPinFavorites = !state.specialsPinFavorites;
+  renderSpecials();
+});
+specialsResetFiltersBtn?.addEventListener("click", () => {
+  resetSpecialFilters();
   renderSpecials();
 });
 specialsUploadForm?.addEventListener("submit", handleSpecialUpload);
@@ -806,7 +834,14 @@ async function fetchSupportData() {
       .eq("user_id", state.session.user.id)
     : Promise.resolve({ data: [], error: null });
 
-  const [seasonResult, seasonBookingResult, trainerResult, trainerDirectoryResult, inviteResult, participantResult, sessionResult, trialResult, dropInResult, exerciseResult, finisherResult, warmupResult, specialsResult, exerciseFavoritesResult, finisherFavoritesResult, warmupFavoritesResult] = await Promise.all([
+  const specialFavoritesQuery = state.session?.user?.id
+    ? state.supabase
+      .from("special_favorites")
+      .select("special_id")
+      .eq("user_id", state.session.user.id)
+    : Promise.resolve({ data: [], error: null });
+
+  const [seasonResult, seasonBookingResult, trainerResult, trainerDirectoryResult, inviteResult, participantResult, sessionResult, trialResult, dropInResult, exerciseResult, finisherResult, warmupResult, specialsResult, exerciseFavoritesResult, finisherFavoritesResult, warmupFavoritesResult, specialFavoritesResult] = await Promise.all([
     seasonsQuery,
     seasonBookingsQuery,
     trainerQuery,
@@ -823,6 +858,7 @@ async function fetchSupportData() {
     exerciseFavoritesQuery,
     finisherFavoritesQuery,
     warmupFavoritesQuery,
+    specialFavoritesQuery,
   ]);
 
   if (seasonResult.error) {
@@ -872,6 +908,9 @@ async function fetchSupportData() {
   }
   if (warmupFavoritesResult.error) {
     notify(getFriendlySupabaseMessage(warmupFavoritesResult.error, "Warm-Up-Favoriten konnten nicht geladen werden."), true);
+  }
+  if (specialFavoritesResult.error) {
+    notify(getFriendlySupabaseMessage(specialFavoritesResult.error, "Special-Favoriten konnten nicht geladen werden."), true);
   }
   if (seasonResult.error) {
     notify(getFriendlySupabaseMessage(seasonResult.error, "Seasons konnten nicht geladen werden."), true);
@@ -952,6 +991,9 @@ async function fetchSupportData() {
   }
   if (!warmupFavoritesResult.error) {
     state.warmupFavorites = warmupFavoritesResult.data || [];
+  }
+  if (!specialFavoritesResult.error) {
+    state.specialFavorites = specialFavoritesResult.data || [];
   }
 
   if (state.profile?.role === "trainer") {
@@ -3566,6 +3608,10 @@ function closeExerciseDetailModal() {
 
 function openExerciseDetailModal(exerciseId) {
   state.selectedExerciseId = exerciseId;
+  const exercise = getExerciseById(exerciseId);
+  if (exercise) {
+    registerCampusRecentItem({ type: "exercise", id: exercise.id, title: exercise.title || "Übung", panel: "#exercisePanel" });
+  }
   renderExerciseDetailView();
 }
 
@@ -3580,6 +3626,10 @@ function closeFinisherDetailModal() {
 
 function openFinisherDetailModal(finisherId) {
   state.selectedFinisherId = finisherId;
+  const finisher = getFinisherById(finisherId);
+  if (finisher) {
+    registerCampusRecentItem({ type: "finisher", id: finisher.id, title: finisher.title || "Finisher", panel: "#finisherPanel" });
+  }
   renderFinisherDetailView();
 }
 
@@ -3594,11 +3644,126 @@ function closeWarmupDetailModal() {
 
 function openWarmupDetailModal(warmupId) {
   state.selectedWarmupId = warmupId;
+  const warmup = getWarmupById(warmupId);
+  if (warmup) {
+    registerCampusRecentItem({ type: "warmup", id: warmup.id, title: warmup.title || "Warm-Up", panel: "#warmupPanel" });
+  }
   renderWarmupDetailView();
 }
 
 function getSpecialById(specialId) {
   return state.specials.find((special) => special.id === specialId) || null;
+}
+
+function isSpecialFavorite(specialId) {
+  return state.specialFavorites.some((entry) => entry.special_id === specialId);
+}
+
+function hasActiveSpecialFilters() {
+  return Boolean(
+    String(state.specialsSearch || "").trim()
+    || state.specialsFavoritesOnly
+    || state.specialsPinFavorites
+    || (state.specialsSort && state.specialsSort !== "updated_desc"),
+  );
+}
+
+function resetSpecialFilters() {
+  state.specialsSearch = "";
+  state.specialsFavoritesOnly = false;
+  state.specialsPinFavorites = false;
+  state.specialsSort = "updated_desc";
+}
+
+function getActiveSpecialFilterChips() {
+  const chips = [];
+  if (String(state.specialsSearch || "").trim()) {
+    chips.push({
+      label: `Suche: ${state.specialsSearch.trim()}`,
+      action: () => {
+        state.specialsSearch = "";
+        renderSpecials();
+      },
+    });
+  }
+  if (state.specialsFavoritesOnly) {
+    chips.push({
+      label: "Nur Favoriten",
+      action: () => {
+        state.specialsFavoritesOnly = false;
+        renderSpecials();
+      },
+    });
+  }
+  if (state.specialsPinFavorites) {
+    chips.push({
+      label: "Favoriten zuerst",
+      action: () => {
+        state.specialsPinFavorites = false;
+        renderSpecials();
+      },
+    });
+  }
+  if (state.specialsSort && state.specialsSort !== "updated_desc") {
+    const labels = {
+      updated_asc: "Älteste zuerst",
+      title_asc: "Titel A-Z",
+      title_desc: "Titel Z-A",
+    };
+    chips.push({
+      label: `Sortierung: ${labels[state.specialsSort] || state.specialsSort}`,
+      action: () => {
+        state.specialsSort = "updated_desc";
+        renderSpecials();
+      },
+    });
+  }
+  return chips;
+}
+
+function getSortedSpecials(specials) {
+  const sorted = [...specials];
+  sorted.sort((left, right) => {
+    const leftFavorite = isSpecialFavorite(left.id);
+    const rightFavorite = isSpecialFavorite(right.id);
+    if (state.specialsPinFavorites && leftFavorite !== rightFavorite) {
+      return leftFavorite ? -1 : 1;
+    }
+
+    switch (state.specialsSort) {
+      case "updated_asc":
+        return String(left.updated_at || left.created_at || "").localeCompare(String(right.updated_at || right.created_at || ""));
+      case "title_asc":
+        return String(left.title || "").localeCompare(String(right.title || ""), "de");
+      case "title_desc":
+        return String(right.title || "").localeCompare(String(left.title || ""), "de");
+      case "updated_desc":
+      default:
+        return String(right.updated_at || right.created_at || "").localeCompare(String(left.updated_at || left.created_at || ""));
+    }
+  });
+  return sorted;
+}
+
+function registerCampusRecentItem({ type, id, title, panel }) {
+  if (!id || !title || !panel) {
+    return;
+  }
+
+  const nextItems = [
+    {
+      type,
+      id,
+      title,
+      panel,
+      opened_at: new Date().toISOString(),
+    },
+    ...state.campusRecentItems.filter((item) => !(item.type === type && item.id === id)),
+  ].slice(0, 8);
+
+  state.campusRecentItems = nextItems;
+  persistCampusRecentItems();
+  renderCampusOverview();
 }
 
 function closeSpecialDetailModal() {
@@ -3607,6 +3772,10 @@ function closeSpecialDetailModal() {
 
 function openSpecialDetailModal(specialId) {
   state.selectedSpecialId = specialId;
+  const special = getSpecialById(specialId);
+  if (special) {
+    registerCampusRecentItem({ type: "special", id: special.id, title: special.title || "Special", panel: "#specialsPanel" });
+  }
   renderSpecials();
   queueSpecialSignedUrl(specialId);
   renderSpecialDetailView();
@@ -3703,6 +3872,50 @@ async function handleSpecialDownload(specialId) {
   } catch (error) {
     notify(getFriendlySupabaseMessage(error, "PDF-Download konnte nicht gestartet werden."), true);
   }
+}
+
+async function toggleSpecialFavorite(specialId) {
+  if (!state.supabase || !state.session?.user?.id || !specialId) {
+    return;
+  }
+
+  const isFavorite = isSpecialFavorite(specialId);
+
+  if (isFavorite) {
+    const { error } = await state.supabase
+      .from("special_favorites")
+      .delete()
+      .eq("user_id", state.session.user.id)
+      .eq("special_id", specialId);
+
+    if (error) {
+      notify(getFriendlySupabaseMessage(error, "Favorit konnte nicht entfernt werden."), true);
+      return;
+    }
+
+    state.specialFavorites = state.specialFavorites.filter((entry) => entry.special_id !== specialId);
+  } else {
+    const { error } = await state.supabase
+      .from("special_favorites")
+      .insert({
+        user_id: state.session.user.id,
+        special_id: specialId,
+      });
+
+    if (error) {
+      notify(getFriendlySupabaseMessage(error, "Favorit konnte nicht gespeichert werden."), true);
+      return;
+    }
+
+    state.specialFavorites = [
+      ...state.specialFavorites,
+      { user_id: state.session.user.id, special_id: specialId },
+    ];
+  }
+
+  renderSpecials();
+  renderSpecialDetailView();
+  renderCampusOverview();
 }
 
 function renderExerciseDetail() {
@@ -4363,10 +4576,12 @@ function renderFinisherDetailView() {
     finisher.video_url ? `<a class="ghost" href="${escapeHtml(finisher.video_url)}" target="_blank" rel="noreferrer">Video öffnen</a>` : "",
     finisher.source_url ? `<a class="ghost" href="${escapeHtml(finisher.source_url)}" target="_blank" rel="noreferrer">Notion öffnen</a>` : "",
   ].filter(Boolean).join("");
+  const isFavorite = isFinisherFavorite(finisher.id);
 
   finisherDetailBody.innerHTML = `
     <div class="exercise-detail-hero">
       <div class="course-status-grid">
+        ${isFavorite ? `<span class="course-status-pill course-status-pill-warn">Favorit</span>` : ""}
         ${finisher.category ? `<span class="course-status-pill">${escapeHtml(finisher.category)}</span>` : ""}
         ${finisher.focus ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(finisher.focus)}</span>` : ""}
         ${finisher.level ? `<span class="course-status-pill course-status-pill-warn">${escapeHtml(finisher.level)}</span>` : ""}
@@ -4396,8 +4611,15 @@ function renderFinisherDetailView() {
         </section>
       ` : ""}
     </div>
-    ${links ? `<div class="stat-card-actions exercise-actions">${links}</div>` : ""}
+    <div class="stat-card-actions exercise-actions">
+      <button type="button" class="${isFavorite ? "primary" : "ghost"}" data-finisher-detail-favorite="${escapeHtml(finisher.id)}">${isFavorite ? "Favorit entfernt" : "Als Favorit"}</button>
+      ${links}
+    </div>
   `;
+
+  finisherDetailBody.querySelectorAll("[data-finisher-detail-favorite]").forEach((button) => {
+    button.addEventListener("click", () => toggleFinisherFavorite(button.dataset.finisherDetailFavorite));
+  });
 
   finisherDetailModal.classList.remove("hidden");
 }
@@ -4447,10 +4669,12 @@ function renderWarmupDetailView() {
     warmup.video_url ? `<a class="ghost" href="${escapeHtml(warmup.video_url)}" target="_blank" rel="noreferrer">Video öffnen</a>` : "",
     warmup.source_url ? `<a class="ghost" href="${escapeHtml(warmup.source_url)}" target="_blank" rel="noreferrer">Notion öffnen</a>` : "",
   ].filter(Boolean).join("");
+  const isFavorite = isWarmupFavorite(warmup.id);
 
   warmupDetailBody.innerHTML = `
     <div class="exercise-detail-hero">
       <div class="course-status-grid">
+        ${isFavorite ? `<span class="course-status-pill course-status-pill-warn">Favorit</span>` : ""}
         ${warmup.category ? `<span class="course-status-pill">${escapeHtml(warmup.category)}</span>` : ""}
         ${warmup.focus ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(warmup.focus)}</span>` : ""}
         ${warmup.level ? `<span class="course-status-pill course-status-pill-warn">${escapeHtml(warmup.level)}</span>` : ""}
@@ -4480,8 +4704,15 @@ function renderWarmupDetailView() {
         </section>
       ` : ""}
     </div>
-    ${links ? `<div class="stat-card-actions exercise-actions">${links}</div>` : ""}
+    <div class="stat-card-actions exercise-actions">
+      <button type="button" class="${isFavorite ? "primary" : "ghost"}" data-warmup-detail-favorite="${escapeHtml(warmup.id)}">${isFavorite ? "Favorit entfernt" : "Als Favorit"}</button>
+      ${links}
+    </div>
   `;
+
+  warmupDetailBody.querySelectorAll("[data-warmup-detail-favorite]").forEach((button) => {
+    button.addEventListener("click", () => toggleWarmupFavorite(button.dataset.warmupDetailFavorite));
+  });
 
   warmupDetailModal.classList.remove("hidden");
 }
@@ -4528,7 +4759,7 @@ function renderCampusOverview() {
       eyebrow: "CAMPUS",
       title: "Specials",
       count: state.specials.length,
-      favorites: 0,
+      favorites: state.specialFavorites.length,
       sync: latestSpecialUpdate,
       panel: "#specialsPanel",
       copy: "Besondere Trainingsspecials als PDF mit Vorschau, Details und Download."
@@ -4553,6 +4784,46 @@ function renderCampusOverview() {
 
   campusOverviewGrid.querySelectorAll("[data-campus-open]").forEach((button) => {
     button.addEventListener("click", () => setActiveSection(button.dataset.campusOpen));
+  });
+
+  if (!campusRecentGrid) {
+    return;
+  }
+
+  const recentItems = state.campusRecentItems || [];
+  campusRecentGrid.innerHTML = `
+    <article class="stat-card campus-recent-card">
+      <p class="eyebrow">CAMPUS</p>
+      <h3>Schnell weiterarbeiten</h3>
+      ${recentItems.length ? `
+        <div class="campus-recent-list">
+          ${recentItems.map((item) => `
+            <button type="button" class="campus-recent-item ghost" data-campus-open="${escapeHtml(item.panel)}" data-campus-recent-type="${escapeHtml(item.type)}" data-campus-recent-id="${escapeHtml(item.id)}">
+              <strong>${escapeHtml(item.title || "Eintrag")}</strong>
+              <span class="stat-meta">${escapeHtml(formatCampusRecentMeta(item))}</span>
+            </button>
+          `).join("")}
+        </div>
+      ` : `<p class="stat-meta">Öffne Details in einer Bibliothek, dann tauchen sie hier als Schnellzugriff auf.</p>`}
+    </article>
+  `;
+
+  campusRecentGrid.querySelectorAll("[data-campus-recent-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const panel = button.dataset.campusOpen;
+      const type = button.dataset.campusRecentType;
+      const id = button.dataset.campusRecentId;
+      setActiveSection(panel);
+      if (type === "exercise") {
+        openExerciseDetailModal(id);
+      } else if (type === "finisher") {
+        openFinisherDetailModal(id);
+      } else if (type === "warmup") {
+        openWarmupDetailModal(id);
+      } else if (type === "special") {
+        openSpecialDetailModal(id);
+      }
+    });
   });
 }
 
@@ -4584,14 +4855,48 @@ function renderSpecials() {
   if (specialsSearch) {
     specialsSearch.value = state.specialsSearch || "";
   }
+  if (specialsSortSelect) {
+    specialsSortSelect.value = state.specialsSort || "updated_desc";
+  }
 
   specialsUploadForm?.classList.toggle("hidden", !isAdmin());
   if (specialsUploadBtn) {
     specialsUploadBtn.disabled = state.specialsUploading;
     specialsUploadBtn.textContent = state.specialsUploading ? "Lädt hoch..." : "PDF hochladen";
   }
+  if (specialsFavoriteFilterBtn) {
+    specialsFavoriteFilterBtn.classList.toggle("is-active", state.specialsFavoritesOnly);
+    specialsFavoriteFilterBtn.textContent = state.specialsFavoritesOnly ? "Alle Specials zeigen" : "Nur Favoriten";
+  }
+  if (specialsPinFavoritesBtn) {
+    specialsPinFavoritesBtn.classList.toggle("is-active", state.specialsPinFavorites);
+    specialsPinFavoritesBtn.textContent = state.specialsPinFavorites ? "Normale Reihenfolge" : "Favoriten zuerst";
+  }
+  if (specialsResetFiltersBtn) {
+    specialsResetFiltersBtn.disabled = !hasActiveSpecialFilters();
+  }
+  if (specialsActiveFilters) {
+    const chips = getActiveSpecialFilterChips();
+    specialsActiveFilters.innerHTML = chips.length
+      ? chips.map((chip, index) => `
+          <button type="button" class="exercise-filter-chip" data-special-chip="${index}">
+            <span>${escapeHtml(chip.label)}</span>
+            <span aria-hidden="true">×</span>
+          </button>
+        `).join("")
+      : "";
+    specialsActiveFilters.classList.toggle("hidden", !chips.length);
+    specialsActiveFilters.querySelectorAll("[data-special-chip]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const chip = chips[Number(button.dataset.specialChip)];
+        chip?.action?.();
+      });
+    });
+  }
 
-  const visibleSpecials = getFilteredSpecials();
+  const visibleSpecials = getSortedSpecials(
+    getFilteredSpecials().filter((special) => !state.specialsFavoritesOnly || isSpecialFavorite(special.id)),
+  );
   if (state.selectedSpecialId && !visibleSpecials.some((special) => special.id === state.selectedSpecialId)) {
     state.selectedSpecialId = visibleSpecials[0]?.id || null;
   }
@@ -4610,6 +4915,7 @@ function renderSpecials() {
   specialsMeta.innerHTML = `
     <h3>Bibliotheksstatus</h3>
     <p class="stat-meta">${state.specials.length} Specials in der App.</p>
+    <p class="stat-meta">${state.specialFavorites.length} Favoriten gespeichert.</p>
     <p class="stat-meta">${latestSpecialUpdate ? `Zuletzt aktualisiert: ${escapeHtml(formatDateTimeLabel(latestSpecialUpdate))}` : "Noch kein Upload vorhanden."}</p>
     <p class="stat-meta">${isAdmin() ? "PDFs lädst du hier direkt in den CAMPUS hoch. Trainer sehen Vorschau, Details und Download." : "Hier findest du besondere Trainingsspecials als PDF mit Vorschau und Download."}</p>
   `;
@@ -4628,6 +4934,7 @@ function renderSpecials() {
       ${String(selectedSpecial.description || "").trim() ? `<p class="exercise-copy">${escapeHtml(selectedSpecial.description)}</p>` : `<p class="exercise-copy-muted">Noch keine zusätzliche Beschreibung hinterlegt.</p>`}
       <div class="stat-card-actions exercise-actions">
         <button type="button" class="ghost" data-special-detail="${escapeHtml(selectedSpecial.id)}">Details</button>
+        <button type="button" class="${isSpecialFavorite(selectedSpecial.id) ? "primary" : "ghost"}" data-special-favorite="${escapeHtml(selectedSpecial.id)}">${isSpecialFavorite(selectedSpecial.id) ? "Favorit entfernt" : "Als Favorit"}</button>
         <button type="button" class="ghost" data-special-download="${escapeHtml(selectedSpecial.id)}">Download</button>
       </div>
       <div class="specials-preview-frame">
@@ -4659,7 +4966,7 @@ function renderSpecials() {
     `;
   } else {
     specialsTableBody.innerHTML = visibleSpecials.map((special) => `
-      <tr class="${special.id === state.selectedSpecialId ? "exercise-row-favorite" : ""}">
+      <tr class="${special.id === state.selectedSpecialId || isSpecialFavorite(special.id) ? "exercise-row-favorite" : ""}">
         <td><strong>${escapeHtml(special.title || "Ohne Titel")}</strong></td>
         <td>${escapeHtml(special.file_name || "-")}</td>
         <td>${escapeHtml(formatFileSize(special.file_size))}</td>
@@ -4668,6 +4975,7 @@ function renderSpecials() {
           <div class="mini-actions table-actions">
             <button type="button" class="ghost" data-special-preview="${escapeHtml(special.id)}">Vorschau</button>
             <button type="button" class="ghost" data-special-detail="${escapeHtml(special.id)}">Details</button>
+            <button type="button" class="${isSpecialFavorite(special.id) ? "primary" : "ghost"}" data-special-favorite="${escapeHtml(special.id)}">${isSpecialFavorite(special.id) ? "Favorit entfernt" : "Als Favorit"}</button>
             <button type="button" class="ghost" data-special-download="${escapeHtml(special.id)}">Download</button>
           </div>
         </td>
@@ -4675,13 +4983,14 @@ function renderSpecials() {
     `).join("");
 
     specialsCards.innerHTML = visibleSpecials.map((special) => `
-      <article class="exercise-card ${special.id === state.selectedSpecialId ? "exercise-card-favorite" : ""}">
+      <article class="exercise-card ${special.id === state.selectedSpecialId || isSpecialFavorite(special.id) ? "exercise-card-favorite" : ""}">
         <div class="exercise-card-head">
           <div>
             <p class="eyebrow">Special</p>
             <h3>${escapeHtml(special.title || "Ohne Titel")}</h3>
           </div>
           <div class="course-status-grid">
+            ${isSpecialFavorite(special.id) ? `<span class="course-status-pill course-status-pill-warn">Favorit</span>` : ""}
             <span class="course-status-pill">${escapeHtml(formatFileSize(special.file_size))}</span>
           </div>
         </div>
@@ -4693,6 +5002,7 @@ function renderSpecials() {
         <div class="stat-card-actions exercise-actions">
           <button type="button" class="ghost" data-special-preview="${escapeHtml(special.id)}">Vorschau</button>
           <button type="button" class="ghost" data-special-detail="${escapeHtml(special.id)}">Details</button>
+          <button type="button" class="${isSpecialFavorite(special.id) ? "primary" : "ghost"}" data-special-favorite="${escapeHtml(special.id)}">${isSpecialFavorite(special.id) ? "Favorit entfernt" : "Als Favorit"}</button>
           <button type="button" class="ghost" data-special-download="${escapeHtml(special.id)}">Download</button>
         </div>
       </article>
@@ -4708,6 +5018,9 @@ function renderSpecials() {
   });
   specialsPanel?.querySelectorAll("[data-special-detail]").forEach((button) => {
     button.addEventListener("click", () => openSpecialDetailModal(button.dataset.specialDetail));
+  });
+  specialsPanel?.querySelectorAll("[data-special-favorite]").forEach((button) => {
+    button.addEventListener("click", () => toggleSpecialFavorite(button.dataset.specialFavorite));
   });
   specialsPanel?.querySelectorAll("[data-special-download]").forEach((button) => {
     button.addEventListener("click", () => handleSpecialDownload(button.dataset.specialDownload));
@@ -4726,9 +5039,11 @@ function renderSpecialDetailView() {
   }
 
   const signedUrl = getCachedSpecialSignedUrl(special.id);
+  const isFavorite = isSpecialFavorite(special.id);
   specialDetailTitle.textContent = special.title || "PDF-Details";
   specialDetailBody.innerHTML = `
     <div class="course-status-grid">
+      ${isFavorite ? `<span class="course-status-pill course-status-pill-warn">Favorit</span>` : ""}
       <span class="course-status-pill">${escapeHtml(special.file_name || "PDF-Datei")}</span>
       <span class="course-status-pill course-status-pill-info">${escapeHtml(formatFileSize(special.file_size))}</span>
       <span class="course-status-pill course-status-pill-warn">${escapeHtml(formatDateTimeLabel(special.updated_at || special.created_at))}</span>
@@ -4744,6 +5059,7 @@ function renderSpecialDetailView() {
       </section>
     ` : ""}
     <div class="stat-card-actions exercise-actions">
+      <button type="button" class="${isFavorite ? "primary" : "ghost"}" data-special-favorite="${escapeHtml(special.id)}">${isFavorite ? "Favorit entfernt" : "Als Favorit"}</button>
       <button type="button" class="ghost" data-special-download="${escapeHtml(special.id)}">Download</button>
       ${signedUrl ? `<a class="ghost" href="${escapeHtml(signedUrl)}" target="_blank" rel="noreferrer">PDF separat öffnen</a>` : ""}
     </div>
@@ -4756,6 +5072,9 @@ function renderSpecialDetailView() {
 
   specialDetailBody.querySelectorAll("[data-special-download]").forEach((button) => {
     button.addEventListener("click", () => handleSpecialDownload(button.dataset.specialDownload));
+  });
+  specialDetailBody.querySelectorAll("[data-special-favorite]").forEach((button) => {
+    button.addEventListener("click", () => toggleSpecialFavorite(button.dataset.specialFavorite));
   });
 
   specialDetailModal.classList.remove("hidden");
@@ -10598,6 +10917,7 @@ function getFriendlySupabaseMessage(error, fallback) {
     || normalized.includes("warmup_library")
     || normalized.includes("warmup_favorites")
     || normalized.includes("campus_specials")
+    || normalized.includes("special_favorites")
     || normalized.includes("storage.objects")
     || normalized.includes("campus-specials")
     || normalized.includes("notion_page_id")
@@ -10626,6 +10946,25 @@ function buildInviteLink(code) {
   const url = new URL(config.siteUrl);
   url.searchParams.set("invite", code);
   return url.toString();
+}
+
+function loadCampusRecentItems() {
+  try {
+    const rawValue = window.localStorage.getItem(CAMPUS_RECENT_KEY);
+    const parsed = rawValue ? JSON.parse(rawValue) : [];
+    return Array.isArray(parsed) ? parsed.slice(0, 8) : [];
+  } catch (error) {
+    console.warn("Campus recent items could not be loaded", error);
+    return [];
+  }
+}
+
+function persistCampusRecentItems() {
+  try {
+    window.localStorage.setItem(CAMPUS_RECENT_KEY, JSON.stringify(state.campusRecentItems || []));
+  } catch (error) {
+    console.warn("Campus recent items could not be persisted", error);
+  }
 }
 
 function applyInviteCodeFromUrl() {
@@ -11133,6 +11472,18 @@ function formatFileSize(bytes) {
     return `${(size / 1024).toFixed(1)} KB`;
   }
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatCampusRecentMeta(item) {
+  const labels = {
+    exercise: "Übung",
+    finisher: "Finisher",
+    warmup: "Warm-Up",
+    special: "Special",
+  };
+  const label = labels[item?.type] || "CAMPUS";
+  const openedAt = item?.opened_at ? formatDateTimeLabel(item.opened_at) : "zuletzt geöffnet";
+  return `${label} • ${openedAt}`;
 }
 
 function withTimeout(promise, timeoutMs, message) {
