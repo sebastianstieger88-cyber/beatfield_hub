@@ -4792,34 +4792,45 @@ async function handleSpecialUpload(event) {
 
   state.specialsUploading = true;
   renderSpecials();
+  notify("PDF-Upload wird gestartet...");
 
   const fileExtension = getFileExtension(file.name) || "pdf";
   const storagePath = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${fileExtension}`;
 
   try {
-    const uploadResult = await state.supabase
-      .storage
-      .from(SPECIALS_BUCKET)
-      .upload(storagePath, file, {
-        contentType: "application/pdf",
-        upsert: false,
-      });
+    const uploadResult = await withTimeout(
+      state.supabase
+        .storage
+        .from(SPECIALS_BUCKET)
+        .upload(storagePath, file, {
+          contentType: "application/pdf",
+          upsert: false,
+        }),
+      45000,
+      "Der PDF-Upload zu Supabase dauert zu lange. Bitte später erneut versuchen.",
+    );
 
     if (uploadResult.error) {
       throw uploadResult.error;
     }
 
-    const insertResult = await state.supabase
-      .from("campus_specials")
-      .insert({
-        title,
-        description: description || null,
-        file_name: file.name,
-        storage_path: storagePath,
-        mime_type: file.type || "application/pdf",
-        file_size: file.size,
-        uploaded_by: state.session?.user?.id || null,
-      });
+    notify("PDF wurde hochgeladen. Speichere jetzt den Eintrag in der Bibliothek...");
+
+    const insertResult = await withTimeout(
+      state.supabase
+        .from("campus_specials")
+        .insert({
+          title,
+          description: description || null,
+          file_name: file.name,
+          storage_path: storagePath,
+          mime_type: file.type || "application/pdf",
+          file_size: file.size,
+          uploaded_by: state.session?.user?.id || null,
+        }),
+      20000,
+      "Der Bibliothekseintrag für das Special konnte nicht rechtzeitig gespeichert werden.",
+    );
 
     if (insertResult.error) {
       await state.supabase.storage.from(SPECIALS_BUCKET).remove([storagePath]);
@@ -4827,7 +4838,11 @@ async function handleSpecialUpload(event) {
     }
 
     specialsUploadForm.reset();
-    await refreshVisibleData({ context: "Special upload refresh", silent: true });
+    await withTimeout(
+      refreshVisibleData({ context: "Special upload refresh", silent: true }),
+      30000,
+      "Die Special-Liste konnte nach dem Upload nicht rechtzeitig aktualisiert werden.",
+    );
     state.selectedSpecialId = state.specials[0]?.id || state.selectedSpecialId;
     renderSpecials();
     notify(`Special "${title}" wurde hochgeladen.`);
@@ -11118,6 +11133,17 @@ function formatFileSize(bytes) {
     return `${(size / 1024).toFixed(1)} KB`;
   }
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function withTimeout(promise, timeoutMs, message) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      window.setTimeout(() => {
+        reject(new Error(message));
+      }, timeoutMs);
+    }),
+  ]);
 }
 
 function escapeCsvValue(value) {
