@@ -3966,12 +3966,10 @@ function getFilteredWarmups() {
     .filter((warmup) => {
       const haystack = [
         warmup.title,
-        warmup.category,
-        warmup.focus,
+        warmup.description,
         warmup.level,
         warmup.equipment,
         warmup.coaching_cues,
-        warmup.description,
         ...(warmup.tags || []),
       ]
         .filter(Boolean)
@@ -4230,7 +4228,7 @@ function renderWarmups() {
   if (!warmups.length) {
     warmupTableBody.innerHTML = `
       <tr>
-        <td colspan="6">
+        <td colspan="4">
           <div class="empty-state">
             <p>Noch keine Warm-Ups sichtbar. Lege zuerst den Notion-Sync an oder passe die Suche an.</p>
           </div>
@@ -4248,9 +4246,7 @@ function renderWarmups() {
   warmupTableBody.innerHTML = warmups.map((warmup) => `
     <tr>
       <td><strong>${escapeHtml(warmup.title || "Ohne Titel")}</strong></td>
-      <td>${escapeHtml(warmup.category || "-")}</td>
       <td>${escapeHtml(warmup.level || "-")}</td>
-      <td>${warmup.focus ? `<span class="exercise-table-emphasis">${escapeHtml(warmup.focus)}</span>` : "-"}</td>
       <td>${escapeHtml(warmup.equipment || "-")}</td>
       <td>
         <div class="mini-actions table-actions">
@@ -4274,18 +4270,13 @@ function renderWarmups() {
             <p class="eyebrow">Warm-Up</p>
             <h3>${escapeHtml(warmup.title || "Ohne Titel")}</h3>
           </div>
-          <div class="course-status-grid">
-            ${warmup.category ? `<span class="course-status-pill">${escapeHtml(warmup.category)}</span>` : ""}
-            ${warmup.focus ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(warmup.focus)}</span>` : ""}
-          </div>
+          ${warmup.level ? `<span class="course-status-pill course-status-pill-warn">${escapeHtml(warmup.level)}</span>` : ""}
         </div>
         <div class="exercise-meta-grid">
-          ${warmup.category ? `<p><strong>Typ</strong><span>${escapeHtml(warmup.category)}</span></p>` : ""}
-          ${warmup.focus ? `<p><strong>Intensität</strong><span>${escapeHtml(warmup.focus)}</span></p>` : ""}
           ${warmup.level ? `<p><strong>Dauer</strong><span>${escapeHtml(warmup.level)}</span></p>` : ""}
           ${warmup.equipment ? `<p><strong>Equipment</strong><span>${escapeHtml(warmup.equipment)}</span></p>` : ""}
         </div>
-        ${String(warmup.description || warmup.coaching_cues || "").trim() ? `<p class="exercise-copy">${escapeHtml(warmup.description || warmup.coaching_cues || "")}</p>` : ""}
+        ${String(warmup.description || "").trim() ? `<p class="exercise-copy">${escapeHtml(warmup.description)}</p>` : ""}
         ${tags ? `<div class="exercise-tag-row">${tags}</div>` : ""}
         <div class="stat-card-actions exercise-actions">
           <button type="button" class="ghost" data-warmup-detail="${escapeHtml(warmup.id)}">Details</button>
