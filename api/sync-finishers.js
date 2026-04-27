@@ -18,17 +18,12 @@ export default async function handler(req, res) {
     NOTION_FINISHER_LEVEL_FIELD,
     NOTION_FINISHER_EQUIPMENT_FIELD,
     NOTION_FINISHER_COACHING_FIELD,
-    NOTION_FINISHER_TECHNIQUE_FIELD,
-    NOTION_FINISHER_PROGRESSION_FIELD,
-    NOTION_FINISHER_REGRESSION_FIELD,
-    NOTION_FINISHER_COMMON_ERRORS_FIELD,
-    NOTION_FINISHER_CORRECTION_FIELD,
-    NOTION_FINISHER_VARIANTS_FIELD,
     NOTION_FINISHER_DESCRIPTION_FIELD,
     NOTION_FINISHER_VIDEO_FIELD,
     NOTION_FINISHER_SOURCE_FIELD,
     NOTION_FINISHER_TAGS_FIELD,
   } = process.env;
+
   const notionDatabaseId = normalizeNotionDatabaseId(NOTION_FINISHER_DATABASE_ID);
 
   if (!NOTION_TOKEN || !notionDatabaseId || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
@@ -51,18 +46,12 @@ export default async function handler(req, res) {
 
     const pages = await fetchAllNotionPages(NOTION_TOKEN, notionDatabaseId);
     const fieldMap = {
-      title: splitFieldNames(NOTION_FINISHER_TITLE_FIELD, ["Finisher", "Uebung", "Exercise", "Name", "Titel"]),
-      category: splitFieldNames(NOTION_FINISHER_CATEGORY_FIELD, ["Kategorie", "Category", "Typ"]),
-      focus: splitFieldNames(NOTION_FINISHER_FOCUS_FIELD, ["Fokus", "Focus", "Ziel", "Muskelgruppe", "Bereich"]),
-      level: splitFieldNames(NOTION_FINISHER_LEVEL_FIELD, ["Level", "Niveau", "Stufe"]),
-      equipment: splitFieldNames(NOTION_FINISHER_EQUIPMENT_FIELD, ["Equipment", "Gerät", "Geraet", "Material"]),
+      title: splitFieldNames(NOTION_FINISHER_TITLE_FIELD, ["Finisher", "Name", "Titel"]),
+      category: splitFieldNames(NOTION_FINISHER_CATEGORY_FIELD, ["Kategorie", "Category", "Typ", "Übungstyp"]),
+      focus: splitFieldNames(NOTION_FINISHER_FOCUS_FIELD, ["Fokus", "Focus", "Intensität"]),
+      level: splitFieldNames(NOTION_FINISHER_LEVEL_FIELD, ["Level", "Niveau", "Stufe", "Dauer (Min)"]),
+      equipment: splitFieldNames(NOTION_FINISHER_EQUIPMENT_FIELD, ["Equipment", "Gerät", "Geraet", "Material", "Ausrüstung"]),
       coaching: splitFieldNames(NOTION_FINISHER_COACHING_FIELD, ["Coaching", "Coaching Cues", "Hinweise", "Cues"]),
-      technique: splitFieldNames(NOTION_FINISHER_TECHNIQUE_FIELD, ["Technik Cues", "Technik-Cues", "Technique Cues"]),
-      progression: splitFieldNames(NOTION_FINISHER_PROGRESSION_FIELD, ["Progression"]),
-      regression: splitFieldNames(NOTION_FINISHER_REGRESSION_FIELD, ["Regression"]),
-      commonErrors: splitFieldNames(NOTION_FINISHER_COMMON_ERRORS_FIELD, ["Häufige Fehler", "Haeufige Fehler", "Common Errors"]),
-      correction: splitFieldNames(NOTION_FINISHER_CORRECTION_FIELD, ["Korrektur", "Correction"]),
-      variants: splitFieldNames(NOTION_FINISHER_VARIANTS_FIELD, ["Varianten", "Variants"]),
       description: splitFieldNames(NOTION_FINISHER_DESCRIPTION_FIELD, ["Beschreibung", "Description", "Details", "Notizen"]),
       video: splitFieldNames(NOTION_FINISHER_VIDEO_FIELD, ["Video", "Video URL", "Video-Link", "Video Link"]),
       source: splitFieldNames(NOTION_FINISHER_SOURCE_FIELD, ["Link", "URL", "Quelle", "Source"]),
@@ -78,6 +67,7 @@ export default async function handler(req, res) {
     if (finishers.length) {
       await upsertFinishers(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, finishers);
     }
+
     await archiveMissingFinishers(
       SUPABASE_URL,
       SUPABASE_SERVICE_ROLE_KEY,
@@ -214,12 +204,6 @@ function mapNotionPageToFinisher(page, fieldMap, nowIso) {
     level: getPropertyText(findProperty(properties, fieldMap.level)) || null,
     equipment: getPropertyText(findProperty(properties, fieldMap.equipment)) || null,
     coaching_cues: getPropertyText(findProperty(properties, fieldMap.coaching)) || null,
-    technique_cues: getPropertyText(findProperty(properties, fieldMap.technique)) || null,
-    progression: getPropertyText(findProperty(properties, fieldMap.progression)) || null,
-    regression: getPropertyText(findProperty(properties, fieldMap.regression)) || null,
-    common_errors: getPropertyText(findProperty(properties, fieldMap.commonErrors)) || null,
-    correction: getPropertyText(findProperty(properties, fieldMap.correction)) || null,
-    variants: getPropertyText(findProperty(properties, fieldMap.variants)) || null,
     description: getPropertyText(findProperty(properties, fieldMap.description)) || null,
     video_url: getPropertyUrl(findProperty(properties, fieldMap.video)) || null,
     source_url: getPropertyUrl(findProperty(properties, fieldMap.source)) || page.url || null,
@@ -261,44 +245,22 @@ function getPropertyText(property) {
     case "select":
       return property.select?.name || "";
     case "multi_select":
-      return (property.multi_select || []).map((entry) => entry.name).join(", ");
+      return (property.multi_select || []).map((item) => item.name).join(", ");
     case "status":
       return property.status?.name || "";
-    case "url":
-      return property.url || "";
-    case "email":
-      return property.email || "";
-    case "phone_number":
-      return property.phone_number || "";
     case "number":
       return property.number === null || property.number === undefined ? "" : String(property.number);
+    case "url":
+      return property.url || "";
+    case "people":
+      return (property.people || []).map((person) => person.name || person.id).join(", ");
+    case "relation":
+      return (property.relation || []).map((relation) => relation.id).join(", ");
     case "checkbox":
       return property.checkbox ? "Ja" : "Nein";
-    case "date":
-      return property.date?.start || "";
     default:
       return "";
   }
-}
-
-function getPropertyArray(property) {
-  if (!property) {
-    return [];
-  }
-
-  if (property.type === "multi_select") {
-    return (property.multi_select || []).map((entry) => entry.name).filter(Boolean);
-  }
-
-  const value = getPropertyText(property);
-  if (!value) {
-    return [];
-  }
-
-  return value
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean);
 }
 
 function getPropertyUrl(property) {
@@ -310,12 +272,24 @@ function getPropertyUrl(property) {
     return property.url || "";
   }
 
-  const textValue = getPropertyText(property).trim();
-  if (/^https?:\/\//i.test(textValue)) {
-    return textValue;
+  const text = getPropertyText(property).trim();
+  return /^https?:\/\//i.test(text) ? text : "";
+}
+
+function getPropertyArray(property) {
+  if (!property) {
+    return [];
   }
 
-  return "";
+  if (property.type === "multi_select") {
+    return (property.multi_select || []).map((item) => item.name).filter(Boolean);
+  }
+
+  const text = getPropertyText(property);
+  return text
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
 }
 
 function joinRichText(items) {
@@ -334,45 +308,38 @@ async function fetchExistingFinisherPageIds(supabaseUrl, serviceRoleKey) {
   });
 
   if (!response.ok) {
-    const payload = await response.text();
-    throw new Error(buildRemoteServiceError("Supabase-Finisher", response.status, payload));
+    throw new Error("Bestehende Finisher konnten nicht aus Supabase geladen werden.");
   }
 
   const rows = await response.json();
-  return rows.map((row) => row.notion_page_id).filter(Boolean);
+  return (rows || []).map((row) => row.notion_page_id).filter(Boolean);
 }
 
 async function archiveMissingFinishers(supabaseUrl, serviceRoleKey, existingPageIds, syncedPageIds, syncedAt) {
-  const missingIds = (existingPageIds || []).filter((pageId) => !(syncedPageIds || []).includes(pageId));
-  if (!missingIds.length) {
+  const syncedSet = new Set((syncedPageIds || []).filter(Boolean));
+  const missingPageIds = (existingPageIds || []).filter((pageId) => !syncedSet.has(pageId));
+
+  if (!missingPageIds.length) {
     return;
   }
 
-  const chunks = [];
-  for (let index = 0; index < missingIds.length; index += 50) {
-    chunks.push(missingIds.slice(index, index + 50));
-  }
+  const inFilter = missingPageIds.map((pageId) => `"${pageId}"`).join(",");
+  const response = await fetch(`${supabaseUrl}/rest/v1/finisher_library?notion_page_id=in.(${encodeURIComponent(inFilter)})`, {
+    method: "PATCH",
+    headers: {
+      apikey: serviceRoleKey,
+      Authorization: `Bearer ${serviceRoleKey}`,
+      "Content-Type": "application/json",
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify({
+      notion_archived: true,
+      synced_at: syncedAt,
+    }),
+  });
 
-  for (const chunk of chunks) {
-    const inFilter = chunk.map((value) => `"${String(value).replace(/"/g, '\\"')}"`).join(",");
-    const response = await fetch(`${supabaseUrl}/rest/v1/finisher_library?notion_page_id=in.(${encodeURIComponent(inFilter)})`, {
-      method: "PATCH",
-      headers: {
-        apikey: serviceRoleKey,
-        Authorization: `Bearer ${serviceRoleKey}`,
-        "Content-Type": "application/json",
-        Prefer: "return=minimal",
-      },
-      body: JSON.stringify({
-        notion_archived: true,
-        synced_at: syncedAt,
-      }),
-    });
-
-    if (!response.ok) {
-      const payload = await response.text();
-      throw new Error(buildRemoteServiceError("Finishersarchiv", response.status, payload));
-    }
+  if (!response.ok) {
+    throw new Error("Nicht mehr vorhandene Finisher konnten nicht archiviert werden.");
   }
 }
 
@@ -390,32 +357,14 @@ async function upsertFinishers(supabaseUrl, serviceRoleKey, finishers) {
 
   if (!response.ok) {
     const payload = await response.text();
-    throw new Error(buildRemoteServiceError("Supabase-Sync", response.status, payload));
+    throw new Error(`Supabase-Sync: ${payload || response.statusText}`);
   }
 }
 
-function buildRemoteServiceError(label, status, payload, context = "") {
-  const raw = String(payload || "").trim();
-  const prefix = context ? `${label} (${context})` : label;
-
-  if (status >= 500 && /cloudflare|bad gateway|<!doctype html/i.test(raw)) {
-    return `${prefix} ist gerade vorÃ¼bergehend nicht erreichbar (${status}). Bitte in ein paar Minuten erneut versuchen.`;
+function buildRemoteServiceError(label, status, payload, identifier) {
+  const normalizedPayload = String(payload || "").trim();
+  if (status === 502 || status === 503 || status === 504) {
+    return `${label} ist gerade vorübergehend nicht erreichbar (${status}, ${identifier}). Bitte in ein paar Minuten erneut versuchen.`;
   }
-
-  if (/^\s*\{/.test(raw)) {
-    try {
-      const parsed = JSON.parse(raw);
-      const message = parsed?.message || parsed?.error || parsed?.code || raw;
-      return `${prefix}: ${message}`;
-    } catch (error) {
-      // Fallback below
-    }
-  }
-
-  if (/<html/i.test(raw)) {
-    return `${prefix} hat einen unerwarteten HTML-Fehler zurÃ¼ckgegeben (${status}). Bitte spÃ¤ter erneut versuchen.`;
-  }
-
-  const compact = raw.replace(/\s+/g, " ").slice(0, 220);
-  return `${prefix}: ${compact || `Fehler ${status}`}`;
+  return `${label} konnte nicht geladen werden (${identifier}): ${normalizedPayload || `Status ${status}`}`;
 }
