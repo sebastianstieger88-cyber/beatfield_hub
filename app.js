@@ -85,6 +85,7 @@ const state = {
   selectedFinisherId: null,
   selectedWarmupId: null,
   selectedSpecialId: null,
+  deleteParticipantContext: null,
   workoutBuilder: {
     template: "circuit",
     title: "",
@@ -323,6 +324,11 @@ const specialDetailModal = document.querySelector("#specialDetailModal");
 const specialDetailTitle = document.querySelector("#specialDetailTitle");
 const specialDetailBody = document.querySelector("#specialDetailBody");
 const closeSpecialDetailModalBtn = document.querySelector("#closeSpecialDetailModalBtn");
+const deleteParticipantModal = document.querySelector("#deleteParticipantModal");
+const deleteParticipantText = document.querySelector("#deleteParticipantText");
+const deleteParticipantConfirmBtn = document.querySelector("#deleteParticipantConfirmBtn");
+const deleteParticipantCancelBtn = document.querySelector("#deleteParticipantCancelBtn");
+const closeDeleteParticipantModalBtn = document.querySelector("#closeDeleteParticipantModalBtn");
 const workoutBuilderForm = document.querySelector("#workoutBuilderForm");
 const workoutTemplateSelect = document.querySelector("#workoutTemplateSelect");
 const workoutTitleInput = document.querySelector("#workoutTitleInput");
@@ -582,6 +588,14 @@ warmupDetailModal?.addEventListener("click", (event) => {
   }
 });
 closeSpecialDetailModalBtn?.addEventListener("click", closeSpecialDetailModal);
+closeDeleteParticipantModalBtn?.addEventListener("click", closeDeleteParticipantModal);
+deleteParticipantCancelBtn?.addEventListener("click", closeDeleteParticipantModal);
+deleteParticipantConfirmBtn?.addEventListener("click", handleDeleteParticipantConfirm);
+deleteParticipantModal?.addEventListener("click", (event) => {
+  if (event.target === deleteParticipantModal) {
+    closeDeleteParticipantModal();
+  }
+});
 specialDetailModal?.addEventListener("click", (event) => {
   if (event.target === specialDetailModal) {
     closeSpecialDetailModal();
@@ -2590,13 +2604,12 @@ async function handleParticipantDelete(participant, course) {
       const remainingDays = (booking.selected_days || []).filter((day) => normalizeWeekdayLabel(day) !== weekdayToRemove);
 
       if (!remainingDays.length) {
-        const confirmedDeleteBooking = window.confirm(
-          `${participant.full_name} ist über eine Season-Buchung in diesem Kurs. Soll die gesamte Buchung gelöscht werden?`,
-        );
-        if (!confirmedDeleteBooking) {
-          return;
-        }
-        await handleBookingDelete(booking);
+        openDeleteParticipantModal({
+          mode: "delete-whole-booking",
+          booking,
+          text: `${participant.full_name} ist hier über eine Season-Buchung eingetragen. Dieser Schritt entfernt ihn nicht nur aus dem heutigen Termin, sondern aus diesem Kurstag für die gesamte Season. Da keine weiteren gebuchten Tage übrig bleiben, würde die ganze Buchung gelöscht werden.`,
+          confirmLabel: "Gesamte Buchung löschen",
+        });
         return;
       }
 
@@ -2606,65 +2619,17 @@ async function handleParticipantDelete(participant, course) {
         return;
       }
 
-      const confirmedUpdateBooking = window.confirm(
-        `${participant.full_name} aus ${course.name} entfernen und die Buchung auf ${nextPackageType} umstellen?`,
-      );
-      if (!confirmedUpdateBooking) {
-        return;
-      }
-
-      const updateResult = await state.supabase
-        .from("season_bookings")
-        .update({
-          package_type: nextPackageType,
-          selected_days: remainingDays,
-        })
-        .eq("id", booking.id);
-
-      if (updateResult.error) {
-        notify(getFriendlySupabaseMessage(updateResult.error, "Season-Buchung konnte nicht angepasst werden."), true);
-        return;
-      }
-
-      state.seasonBookings = state.seasonBookings.map((entry) => {
-        if (entry.id !== booking.id) {
-          return entry;
-        }
-        return {
-          ...entry,
-          package_type: nextPackageType,
-          selected_days: remainingDays,
-        };
+      openDeleteParticipantModal({
+        mode: "remove-season-day",
+        booking,
+        participant,
+        course,
+        remainingDays,
+        nextPackageType,
+        text: `${participant.full_name} wird damit nicht nur aus dem heutigen Termin entfernt, sondern aus allen ${course.weekday}-Terminen dieser Season. Die Buchung wird danach auf ${nextPackageType} umgestellt.`,
+        confirmLabel: "Aus Kurstag entfernen",
       });
-      markOptimisticVisibility("seasonBookings", 60000);
-      state.acceptEmptyFetch.seasonBookings = false;
-
-      const relevantCourses = resolveRelevantCoursesForDays(remainingDays);
-      if (!relevantCourses.ok) {
-        notify(relevantCourses.message, true);
-        return;
-      }
-
-      const syncResult = await syncSeasonBookingParticipants({
-        bookingId: booking.id,
-        seasonId: booking.season_id,
-        fullName: booking.full_name,
-        phone: booking.phone,
-        selectedDays: remainingDays,
-        startDate: booking.start_date || null,
-        relevantCourses: relevantCourses.data,
-      });
-
-      if (!syncResult.ok) {
-        notify(syncResult.message, true);
-        return;
-      }
-
-        persistOfflineCache();
-        render();
-        notify(`${participant.full_name} wurde aus ${course.name} entfernt.`);
-        await refreshVisibleData({ context: "Participant booking delete refresh", silent: true });
-        return;
+      return;
     }
 
     const confirmed = window.confirm(`Soll ${participant.full_name} wirklich aus ${course.name} gelöscht werden?`);
@@ -2719,6 +2684,60 @@ async function handleParticipantDelete(participant, course) {
     console.error("Participant delete failed", error);
     notify(`Teilnehmer konnte nicht gelöscht werden: ${error?.message || "Unerwarteter Fehler"}`, true);
   }
+}
+
+async function performSeasonBookingDayRemoval({ booking, participant, course, remainingDays, nextPackageType }) {
+  const updateResult = await state.supabase
+    .from("season_bookings")
+    .update({
+      package_type: nextPackageType,
+      selected_days: remainingDays,
+    })
+    .eq("id", booking.id);
+
+  if (updateResult.error) {
+    notify(getFriendlySupabaseMessage(updateResult.error, "Season-Buchung konnte nicht angepasst werden."), true);
+    return;
+  }
+
+  state.seasonBookings = state.seasonBookings.map((entry) => {
+    if (entry.id !== booking.id) {
+      return entry;
+    }
+    return {
+      ...entry,
+      package_type: nextPackageType,
+      selected_days: remainingDays,
+    };
+  });
+  markOptimisticVisibility("seasonBookings", 60000);
+  state.acceptEmptyFetch.seasonBookings = false;
+
+  const relevantCourses = resolveRelevantCoursesForDays(remainingDays);
+  if (!relevantCourses.ok) {
+    notify(relevantCourses.message, true);
+    return;
+  }
+
+  const syncResult = await syncSeasonBookingParticipants({
+    bookingId: booking.id,
+    seasonId: booking.season_id,
+    fullName: booking.full_name,
+    phone: booking.phone,
+    selectedDays: remainingDays,
+    startDate: booking.start_date || null,
+    relevantCourses: relevantCourses.data,
+  });
+
+  if (!syncResult.ok) {
+    notify(syncResult.message, true);
+    return;
+  }
+
+  persistOfflineCache();
+  render();
+  notify(`${participant.full_name} wurde aus ${course.name} für die gesamte Season entfernt.`);
+  await refreshVisibleData({ context: "Participant booking delete refresh", silent: true });
 }
 
 async function syncSeasonBookingParticipants({ bookingId, seasonId, fullName, phone, selectedDays, startDate, relevantCourses }) {
@@ -3830,6 +3849,39 @@ function registerCampusRecentItem({ type, id, title, panel }) {
 function closeSpecialDetailModal() {
   state.selectedSpecialId = null;
   specialDetailModal?.classList.add("hidden");
+}
+
+function closeDeleteParticipantModal() {
+  state.deleteParticipantContext = null;
+  deleteParticipantModal?.classList.add("hidden");
+}
+
+function openDeleteParticipantModal(context) {
+  state.deleteParticipantContext = context;
+  if (deleteParticipantText) {
+    deleteParticipantText.textContent = context?.text || "";
+  }
+  if (deleteParticipantConfirmBtn) {
+    deleteParticipantConfirmBtn.textContent = context?.confirmLabel || "Bestätigen";
+  }
+  deleteParticipantModal?.classList.remove("hidden");
+}
+
+async function handleDeleteParticipantConfirm() {
+  const context = state.deleteParticipantContext;
+  if (!context) {
+    return;
+  }
+  closeDeleteParticipantModal();
+
+  if (context.mode === "delete-whole-booking") {
+    await handleBookingDelete(context.booking);
+    return;
+  }
+
+  if (context.mode === "remove-season-day") {
+    await performSeasonBookingDayRemoval(context);
+  }
 }
 
 function openSpecialDetailModal(specialId) {
@@ -8508,7 +8560,7 @@ function renderParticipants() {
         <div class="mini-actions table-actions">
           <button type="button" class="ghost participant-beatout-btn${beatOutEntry ? " is-active" : ""}">${beatOutEntry ? "BEAT-OUT aktiv" : "BEAT-OUT"}</button>
           <button type="button" class="ghost participant-move-btn">${targetOverride ? "Terminwechsel aufheben" : booking ? "Termin umbuchen" : "Umbuchen"}</button>
-          <button type="button" class="danger participant-delete-btn">${booking ? "Entfernen" : "Löschen"}</button>
+          <button type="button" class="danger participant-delete-btn">${booking ? "Aus Kurstag" : "Löschen"}</button>
         </div>
       </td>
     `;
@@ -8613,7 +8665,7 @@ function renderParticipants() {
       <div class="participant-card-actions participant-card-actions-secondary">
         <button type="button" class="ghost participant-beatout-btn${beatOutEntry ? " is-active" : ""}">${beatOutEntry ? "BEAT-OUT aktiv" : "BEAT-OUT"}</button>
         <button type="button" class="ghost participant-move-btn">${targetOverride ? "Terminwechsel aufheben" : booking ? "Termin umbuchen" : "Umbuchen"}</button>
-        <button type="button" class="danger participant-delete-btn">${booking ? "Entfernen" : "Löschen"}</button>
+        <button type="button" class="danger participant-delete-btn">${booking ? "Aus Kurstag" : "Löschen"}</button>
       </div>
     `;
 

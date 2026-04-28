@@ -1018,6 +1018,25 @@
     </div>
   </div>
 
+  <div id="deleteParticipantModal" class="overlay hidden">
+    <div class="modal-card">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Teilnehmer entfernen</p>
+          <h2>Klarer Löschhinweis</h2>
+        </div>
+        <button id="closeDeleteParticipantModalBtn" type="button" class="ghost">Schließen</button>
+      </div>
+      <div class="stack">
+        <p id="deleteParticipantText" class="exercise-copy">Bitte bestätigen.</p>
+        <div class="mini-actions">
+          <button id="deleteParticipantCancelBtn" type="button" class="ghost">Abbrechen</button>
+          <button id="deleteParticipantConfirmBtn" type="button" class="danger">Bestätigen</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <template id="emptyStateTemplate">
     <div class="empty-state">
       <p>Noch keine Daten vorhanden.</p>
