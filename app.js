@@ -9,6 +9,7 @@ const SPECIALS_BUCKET = "campus-specials";
 const MUSIC_BUCKET = "campus-music";
 const CAMPUS_RECENT_KEY = "beatfield-campus-recent-v1";
 const CAMPUS_SAVED_SEARCHES_KEY = "beatfield-campus-saved-searches-v1";
+const CAMPUS_SAVED_WORKOUTS_KEY = "beatfield-campus-saved-workouts-v1";
 
 const state = {
   supabase: null,
@@ -68,6 +69,7 @@ const state = {
   campusSearch: "",
   campusSearchType: "all",
   campusSavedSearches: loadCampusSavedSearches(),
+  savedWorkouts: loadSavedWorkouts(),
   specialsFavoritesOnly: false,
   specialsPinFavorites: false,
   specialsSort: "updated_desc",
@@ -362,12 +364,14 @@ const workoutExerciseSelects = document.querySelector("#workoutExerciseSelects")
 const workoutFinisherSelect = document.querySelector("#workoutFinisherSelect");
 const workoutNotesInput = document.querySelector("#workoutNotesInput");
 const workoutResetBtn = document.querySelector("#workoutResetBtn");
+const workoutSaveBtn = document.querySelector("#workoutSaveBtn");
 const workoutPdfBtn = document.querySelector("#workoutPdfBtn");
 const workoutExcelBtn = document.querySelector("#workoutExcelBtn");
 const workoutStationsTitle = document.querySelector("#workoutStationsTitle");
 const workoutStationsMeta = document.querySelector("#workoutStationsMeta");
 const workoutPreviewTitle = document.querySelector("#workoutPreviewTitle");
 const workoutPreviewBody = document.querySelector("#workoutPreviewBody");
+const workoutSavedList = document.querySelector("#workoutSavedList");
 const contentPanels = [
   authPanel,
   sessionPanel,
@@ -565,6 +569,7 @@ workoutWarmupSelect?.addEventListener("change", () => updateWorkoutBuilderField(
 workoutFinisherSelect?.addEventListener("change", () => updateWorkoutBuilderField("finisherId", workoutFinisherSelect.value || ""));
 workoutNotesInput?.addEventListener("input", () => updateWorkoutBuilderField("notes", workoutNotesInput.value || ""));
 workoutResetBtn?.addEventListener("click", resetWorkoutBuilder);
+workoutSaveBtn?.addEventListener("click", saveCurrentWorkout);
 workoutPdfBtn?.addEventListener("click", handleWorkoutPdfExport);
 workoutExcelBtn?.addEventListener("click", handleWorkoutExcelExport);
 specialsSortSelect?.addEventListener("change", () => {
@@ -5082,7 +5087,8 @@ function renderCampusOverview() {
       eyebrow: "CAMPUS",
       title: "Workout Builder",
       count: state.workoutBuilder.exerciseIds.filter(Boolean).length,
-      favorites: state.exerciseFavorites.length + state.finisherFavorites.length + state.warmupFavorites.length,
+      favorites: state.savedWorkouts.length,
+      favoritesLabel: "gespeichert",
       sync: state.workoutBuilder.title ? `Aktiv: ${state.workoutBuilder.title}` : "Noch kein Workout zusammengestellt",
       panel: "#workoutBuilderPanel",
       copy: "Baue aus Warm-Up, sieben Übungen und einem Finisher direkt einen exportierbaren Zirkel."
@@ -5141,7 +5147,7 @@ function renderCampusOverview() {
       <p class="stat-value">${escapeHtml(String(card.count))}</p>
       <p class="stat-meta">${escapeHtml(card.copy)}</p>
       <div class="course-status-grid">
-        <span class="course-status-pill">${escapeHtml(`${card.favorites} Favoriten`)}</span>
+        <span class="course-status-pill">${escapeHtml(`${card.favorites} ${card.favoritesLabel || "Favoriten"}`)}</span>
         <span class="course-status-pill course-status-pill-info">${card.sync ? `Sync: ${escapeHtml(formatDateTimeLabel(card.sync))}` : "Noch kein Sync"}</span>
       </div>
       <div class="stat-card-actions campus-card-actions">
@@ -5395,6 +5401,73 @@ function resetWorkoutBuilder() {
   renderWorkoutBuilder();
 }
 
+function buildWorkoutSnapshot() {
+  return {
+    id: `workout-${Date.now()}`,
+    saved_at: new Date().toISOString(),
+    template: state.workoutBuilder.template,
+    title: String(state.workoutBuilder.title || "").trim() || "BEATFIELD Workout",
+    focus: String(state.workoutBuilder.focus || "").trim(),
+    duration: String(state.workoutBuilder.duration || "").trim(),
+    notes: String(state.workoutBuilder.notes || "").trim(),
+    warmupId: state.workoutBuilder.warmupId || "",
+    finisherId: state.workoutBuilder.finisherId || "",
+    exerciseIds: [...state.workoutBuilder.exerciseIds],
+  };
+}
+
+function saveCurrentWorkout() {
+  const selection = validateWorkoutBuilderSelection();
+  if (!selection) {
+    return;
+  }
+
+  const snapshot = buildWorkoutSnapshot();
+  state.savedWorkouts = [
+    snapshot,
+    ...state.savedWorkouts.filter((entry) => entry.id !== snapshot.id),
+  ].slice(0, 24);
+  persistSavedWorkouts();
+  renderCampusOverview();
+  renderWorkoutBuilder();
+  notify(`Workout "${snapshot.title}" wurde gespeichert.`);
+}
+
+function applySavedWorkout(workoutId) {
+  const workout = state.savedWorkouts.find((entry) => entry.id === workoutId) || null;
+  if (!workout) {
+    notify("Das gespeicherte Workout konnte nicht gefunden werden.", true);
+    return;
+  }
+
+  state.workoutBuilder = {
+    template: workout.template === "tabata" ? "tabata" : "circuit",
+    title: workout.title || "",
+    focus: workout.focus || "",
+    duration: workout.duration || "",
+    notes: workout.notes || "",
+    warmupId: workout.warmupId || "",
+    finisherId: workout.finisherId || "",
+    exerciseIds: Array.isArray(workout.exerciseIds)
+      ? [...workout.exerciseIds, ...Array.from({ length: Math.max(0, 14 - workout.exerciseIds.length) }, () => "")]
+      : Array.from({ length: 14 }, () => ""),
+  };
+  renderCampusOverview();
+  renderWorkoutBuilder();
+  notify(`Workout "${workout.title || "BEATFIELD Workout"}" wurde geladen.`);
+}
+
+function deleteSavedWorkout(workoutId) {
+  const workout = state.savedWorkouts.find((entry) => entry.id === workoutId) || null;
+  state.savedWorkouts = state.savedWorkouts.filter((entry) => entry.id !== workoutId);
+  persistSavedWorkouts();
+  renderCampusOverview();
+  renderWorkoutBuilder();
+  if (workout) {
+    notify(`Workout "${workout.title || "BEATFIELD Workout"}" wurde entfernt.`);
+  }
+}
+
 function getWorkoutBuilderSelection() {
   const config = getWorkoutBuilderTemplateConfig();
   const selectedWarmup = getWarmupById(state.workoutBuilder.warmupId);
@@ -5501,6 +5574,9 @@ function renderWorkoutBuilder() {
   }
   if (workoutNotesInput) {
     workoutNotesInput.value = state.workoutBuilder.notes || "";
+  }
+  if (workoutSaveBtn) {
+    workoutSaveBtn.textContent = "Workout speichern";
   }
 
   if (workoutWarmupSelect) {
@@ -5672,6 +5748,52 @@ function renderWorkoutBuilder() {
   workoutPreviewBody.querySelectorAll("[data-workout-finisher-detail]").forEach((button) => {
     button.addEventListener("click", () => openFinisherDetailModal(button.dataset.workoutFinisherDetail));
   });
+
+  if (workoutSavedList) {
+    const savedWorkouts = state.savedWorkouts || [];
+    workoutSavedList.innerHTML = savedWorkouts.length
+      ? `
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Gespeichert</p>
+            <h3>Workouts wiederverwenden</h3>
+          </div>
+        </div>
+        <div class="stack">
+          ${savedWorkouts.map((workout) => `
+            <div class="list-row">
+              <div>
+                <strong>${escapeHtml(workout.title || "BEATFIELD Workout")}</strong>
+                <div class="stat-meta">${escapeHtml([
+                  workout.template === "tabata" ? "Tabata" : "Zirkeltraining",
+                  workout.focus || null,
+                  workout.duration || null,
+                  workout.saved_at ? `gespeichert am ${formatDateTimeLabel(workout.saved_at)}` : null,
+                ].filter(Boolean).join(" | "))}</div>
+              </div>
+              <div class="mini-actions">
+                <button type="button" class="ghost" data-workout-load="${escapeHtml(workout.id)}">Laden</button>
+                <button type="button" class="danger" data-workout-delete="${escapeHtml(workout.id)}">Löschen</button>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      `
+      : `
+        <div>
+          <p class="eyebrow">Gespeichert</p>
+          <h3>Workouts wiederverwenden</h3>
+          <p class="stat-meta">Hier erscheinen gespeicherte Zirkel- und Tabata-Workouts, die Trainer später wieder laden können.</p>
+        </div>
+      `;
+
+    workoutSavedList.querySelectorAll("[data-workout-load]").forEach((button) => {
+      button.addEventListener("click", () => applySavedWorkout(button.dataset.workoutLoad));
+    });
+    workoutSavedList.querySelectorAll("[data-workout-delete]").forEach((button) => {
+      button.addEventListener("click", () => deleteSavedWorkout(button.dataset.workoutDelete));
+    });
+  }
 }
 
 function buildWorkoutPrintHtml(selection) {
@@ -13139,6 +13261,25 @@ function persistCampusSavedSearches() {
     window.localStorage.setItem(CAMPUS_SAVED_SEARCHES_KEY, JSON.stringify(state.campusSavedSearches || []));
   } catch (error) {
     console.warn("Campus saved searches could not be persisted", error);
+  }
+}
+
+function loadSavedWorkouts() {
+  try {
+    const rawValue = window.localStorage.getItem(CAMPUS_SAVED_WORKOUTS_KEY);
+    const parsed = rawValue ? JSON.parse(rawValue) : [];
+    return Array.isArray(parsed) ? parsed.slice(0, 24) : [];
+  } catch (error) {
+    console.warn("Saved workouts could not be loaded", error);
+    return [];
+  }
+}
+
+function persistSavedWorkouts() {
+  try {
+    window.localStorage.setItem(CAMPUS_SAVED_WORKOUTS_KEY, JSON.stringify(state.savedWorkouts || []));
+  } catch (error) {
+    console.warn("Saved workouts could not be persisted", error);
   }
 }
 

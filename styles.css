@@ -1585,6 +1585,12 @@ button.danger {
   justify-content: flex-start;
 }
 
+.workout-saved-list {
+  margin-top: 8px;
+  display: grid;
+  gap: 14px;
+}
+
 .workout-preview-meta {
   display: flex;
   flex-wrap: wrap;
