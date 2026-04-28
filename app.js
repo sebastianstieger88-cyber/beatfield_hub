@@ -9547,8 +9547,10 @@ function renderBusinessDashboard() {
 
   const selectedMonth = getSelectedMonth();
   const monthSessions = getSessionsForMonth(selectedMonth);
-  const monthSessionIds = new Set(monthSessions.map((session) => session.id));
-  const monthRecords = state.records.filter((record) => monthSessionIds.has(record.session_id));
+  const monthRecordSessionIds = new Set(
+    monthSessions.flatMap((session) => getGroupedSessionsForCourseDate(session).map((entry) => entry.id)),
+  );
+  const monthRecords = state.records.filter((record) => monthRecordSessionIds.has(record.session_id));
   const presentRecords = monthRecords.filter((record) => record.present).length;
   const absentRecords = monthRecords.filter((record) => !record.present).length;
   const totalMarked = presentRecords + absentRecords;
@@ -9593,31 +9595,31 @@ function renderBusinessDashboard() {
     businessCards.appendChild(card);
   });
 
-  const topCourse = getTopCourseByAttendance();
-  const topTrainer = getTopTrainerByAttendance();
-  const busiestWeekday = getBusiestWeekday();
-  const weakestCourse = getWeakestCourseByAttendance();
+  const topCourse = getTopCourseByAttendance({ monthValue: selectedMonth });
+  const topTrainer = getTopTrainerByAttendance({ monthValue: selectedMonth });
+  const busiestWeekday = getBusiestWeekday({ monthValue: selectedMonth });
+  const weakestCourse = getWeakestCourseByAttendance({ monthValue: selectedMonth });
 
   const insightCards = [
     {
       title: "Stärkster Kurs",
       value: topCourse ? `${topCourse.name} (${topCourse.rate}%)` : "Noch keine Daten",
-      meta: "beste Anwesenheitsquote",
+      meta: `beste Anwesenheitsquote in ${getSelectedMonthLabel()}`,
     },
     {
       title: "Stärkster Trainer",
       value: topTrainer ? `${topTrainer.name} (${topTrainer.rate}%)` : "Noch keine Daten",
-      meta: "durchschnittliche Anwesenheit",
+      meta: `durchschnittliche Anwesenheit in ${getSelectedMonthLabel()}`,
     },
     {
       title: "Bester Wochentag",
       value: busiestWeekday ? busiestWeekday.label : "Noch keine Daten",
-      meta: busiestWeekday ? `${busiestWeekday.sessions} Sessions dokumentiert` : "ohne Datenbasis",
+      meta: busiestWeekday ? `${busiestWeekday.sessions} Sessions in ${getSelectedMonthLabel()}` : "ohne Datenbasis",
     },
     {
       title: "Handlungsbedarf",
       value: weakestCourse ? `${weakestCourse.name} (${weakestCourse.rate}%)` : "Kein Ausreißer",
-      meta: "niedrigste Anwesenheitsquote",
+      meta: `niedrigste Anwesenheitsquote in ${getSelectedMonthLabel()}`,
     },
   ];
 
@@ -9713,7 +9715,7 @@ function renderMonthlyOverview() {
     { title: "Termine im Monat", value: monthSessions.length, meta: getSelectedMonthLabel() },
     { title: "Aktive Kurse", value: monthCourseIds.size, meta: "mit dokumentierten Sessions" },
     { title: "Durchschnitt", value: averageDisplay, meta: averageMeta },
-    { title: "Top Teilnehmer", value: getTopParticipantName(), meta: "beste Quote im Sichtbereich" },
+    { title: "Top Teilnehmer", value: getTopParticipantName({ monthValue: getSelectedMonth() }), meta: `beste Quote in ${getSelectedMonthLabel()}` },
   ];
 
   items.forEach((item) => {
@@ -10009,8 +10011,8 @@ function renderReportPreview() {
     },
     {
       title: "Aufmerksamkeiten",
-      value: getLowAttendanceParticipants().length,
-      meta: "Teilnehmer unter 60% Quote",
+      value: getLowAttendanceParticipants({ monthValue: getSelectedMonth() }).length,
+      meta: `Teilnehmer unter 60% in ${getSelectedMonthLabel()}`,
     },
   ];
 
@@ -10629,15 +10631,17 @@ function getLinkedParticipantsForBooking(booking, participant = null) {
   return linkedParticipants;
 }
 
-function getParticipantAnalysisSummary(participant) {
+function getParticipantAnalysisSummary(participant, options = {}) {
+  const { seasonId = participant?.season_id || null } = options;
   const booking = getParticipantSeasonBooking(participant);
   if (booking) {
     return getSeasonBookingAttendanceSummary(booking, participant);
   }
-  return getParticipantAttendanceSummary(participant, participant?.season_id || null);
+  return getParticipantAttendanceSummary(participant, seasonId);
 }
 
-function getAnalysisParticipantEntries() {
+function getAnalysisParticipantEntries(options = {}) {
+  const { monthValue = null } = options;
   const entries = new Map();
 
   state.courses.forEach((course) => {
@@ -10654,7 +10658,26 @@ function getAnalysisParticipantEntries() {
           .map((entry) => state.courses.find((courseEntry) => courseEntry.id === entry.course_id)?.name || null)
           .filter(Boolean),
       ));
-      const summary = getParticipantAnalysisSummary(participant);
+      let summary = getParticipantAnalysisSummary(participant);
+      if (monthValue) {
+        const relevantSessions = getSessionsForMonth(monthValue).filter((session) => {
+          return linkedParticipants.some((entry) => entry.course_id === session.course_id);
+        });
+        const relevantGroupedSessionIds = new Set(
+          relevantSessions.flatMap((session) => getGroupedSessionsForCourseDate(session).map((entry) => entry.id)),
+        );
+        const present = state.records.filter((record) => {
+          return relevantGroupedSessionIds.has(record.session_id)
+            && linkedParticipants.some((entry) => entry.id === record.participant_id)
+            && record.present;
+        }).length;
+        const total = relevantSessions.length;
+        summary = {
+          present,
+          total,
+          rate: total ? Math.round((present / total) * 100) : 0,
+        };
+      }
 
       entries.set(key, {
         key,
@@ -12075,8 +12098,8 @@ function getSelectedMonthLabel() {
   return date.toLocaleDateString("de-DE", { month: "long", year: "numeric" });
 }
 
-function getTopParticipantName() {
-  const ranked = getAnalysisParticipantEntries()
+function getTopParticipantName(options = {}) {
+  const ranked = getAnalysisParticipantEntries(options)
     .map((entry) => ({
       name: entry.name,
       rate: entry.rate,
@@ -12086,8 +12109,8 @@ function getTopParticipantName() {
   return ranked[0] ? `${ranked[0].name} (${ranked[0].rate}%)` : "Noch keine Daten";
 }
 
-function getLowAttendanceParticipants() {
-  return getAnalysisParticipantEntries().filter((entry) => entry.rate < 60);
+function getLowAttendanceParticipants(options = {}) {
+  return getAnalysisParticipantEntries(options).filter((entry) => entry.rate < 60);
 }
 
 function getUpcomingCourseDates(course, count) {
@@ -12169,11 +12192,11 @@ function formatCompactDateLabel(dateValue) {
   });
 }
 
-function getTopCourseByAttendance() {
+function getTopCourseByAttendance(options = {}) {
   const ranked = state.courses
     .map((course) => ({
       name: course.name,
-      rate: getCourseAttendanceAverage(course.id),
+      rate: getCourseAttendanceAverage(course.id, options),
     }))
     .filter((course) => course.rate !== null)
     .sort((left, right) => right.rate - left.rate);
@@ -12181,11 +12204,11 @@ function getTopCourseByAttendance() {
   return ranked[0] || null;
 }
 
-function getWeakestCourseByAttendance() {
+function getWeakestCourseByAttendance(options = {}) {
   const ranked = state.courses
     .map((course) => ({
       name: course.name,
-      rate: getCourseAttendanceAverage(course.id),
+      rate: getCourseAttendanceAverage(course.id, options),
     }))
     .filter((course) => course.rate !== null)
     .sort((left, right) => left.rate - right.rate);
@@ -12193,7 +12216,7 @@ function getWeakestCourseByAttendance() {
   return ranked[0] || null;
 }
 
-function getTopTrainerByAttendance() {
+function getTopTrainerByAttendance(options = {}) {
   const ranked = getTrainerSummaries()
     .map((trainer) => {
       const trainerCourses = state.courses.filter((course) => getCourseTrainerKey(course) === trainer.key);
@@ -12202,7 +12225,7 @@ function getTopTrainerByAttendance() {
       }
 
       const averages = trainerCourses
-        .map((course) => getCourseAttendanceAverage(course.id))
+        .map((course) => getCourseAttendanceAverage(course.id, options))
         .filter((value) => value !== null);
 
       if (!averages.length) {
@@ -12220,11 +12243,14 @@ function getTopTrainerByAttendance() {
   return ranked[0] || null;
 }
 
-function getBusiestWeekday() {
+function getBusiestWeekday(options = {}) {
+  const { monthValue = null } = options;
   const counts = state.courses.reduce((accumulator, course) => {
     const key = course.weekday || "Unbekannt";
     accumulator[key] ||= 0;
-    accumulator[key] += getSessionsForCourse(course.id).length;
+    accumulator[key] += monthValue
+      ? getSessionsForMonth(monthValue).filter((session) => session.course_id === course.id).length
+      : getSessionsForCourse(course.id).length;
     return accumulator;
   }, {});
 
@@ -12235,8 +12261,8 @@ function getBusiestWeekday() {
   return ranked[0] || null;
 }
 
-function getCourseAttendanceAverage(courseId) {
-  return getCourseAttendanceAggregate(courseId).rate;
+function getCourseAttendanceAverage(courseId, options = {}) {
+  return getCourseAttendanceAggregate(courseId, options).rate;
 }
 
 function getNextCourseForToday() {
