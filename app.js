@@ -7294,7 +7294,7 @@ function renderTodayDashboard() {
 
   items.forEach((item) => {
     const card = document.createElement("article");
-    card.className = "stat-card";
+    card.className = `stat-card today-stat-card${item.title === "Nächster Fokus" ? " today-focus-card" : ""}`;
     if (item.action) {
       card.classList.add("stat-card-clickable");
       card.role = "button";
