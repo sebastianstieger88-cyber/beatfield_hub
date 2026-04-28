@@ -329,6 +329,23 @@ label span,
   padding: 24px;
 }
 
+.setup-panel {
+  align-self: start;
+}
+
+.setup-panel .panel-heading {
+  margin-bottom: 14px;
+}
+
+.setup-panel .stats-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.setup-panel .stat-card {
+  min-height: 0;
+}
+
 .panel-heading {
   display: flex;
   align-items: center;
@@ -515,6 +532,7 @@ label span,
 .monthly-calendar-panel {
   display: grid;
   gap: 12px;
+  width: 100%;
 }
 
 .monthly-calendar-heading {
@@ -574,6 +592,7 @@ label span,
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 10px;
+  width: 100%;
 }
 
 .monthly-calendar-weekdays span {
@@ -584,7 +603,7 @@ label span,
 }
 
 .monthly-calendar-day {
-  min-height: 148px;
+  min-height: 172px;
   display: grid;
   align-content: start;
   gap: 10px;
@@ -659,7 +678,7 @@ label span,
   justify-content: flex-start;
   text-align: left;
   min-height: 0;
-  padding: 8px 10px;
+  padding: 10px 11px;
   border-radius: 12px;
   border: 1px solid transparent;
   font-size: 0.82rem;
