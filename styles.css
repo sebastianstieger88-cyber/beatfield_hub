@@ -734,6 +734,11 @@ label span,
   gap: 14px;
 }
 
+.booking-history-card-highlight {
+  border-color: rgba(245, 185, 66, 0.26);
+  box-shadow: 0 16px 36px rgba(245, 185, 66, 0.08);
+}
+
 .booking-history-head {
   display: flex;
   justify-content: space-between;
@@ -750,6 +755,23 @@ label span,
 .booking-history-list {
   display: grid;
   gap: 10px;
+}
+
+.booking-history-older {
+  display: grid;
+  gap: 12px;
+}
+
+.booking-history-older summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.booking-history-older-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
 }
 
 .booking-history-row {
