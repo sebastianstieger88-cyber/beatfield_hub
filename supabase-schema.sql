@@ -301,6 +301,21 @@ create table if not exists public.campus_music (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.campus_workouts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(user_id) on delete cascade,
+  title text not null,
+  template text not null default 'circuit' check (template in ('circuit', 'tabata')),
+  focus text,
+  duration text,
+  notes text,
+  warmup_id uuid references public.warmup_library(id) on delete set null,
+  finisher_id uuid references public.finisher_library(id) on delete set null,
+  exercise_ids uuid[] not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
@@ -343,6 +358,11 @@ $$;
 drop trigger if exists set_campus_specials_updated_at on public.campus_specials;
 create trigger set_campus_specials_updated_at
 before update on public.campus_specials
+for each row execute procedure public.set_updated_at();
+
+drop trigger if exists set_campus_workouts_updated_at on public.campus_workouts;
+create trigger set_campus_workouts_updated_at
+before update on public.campus_workouts
 for each row execute procedure public.set_updated_at();
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -607,6 +627,7 @@ alter table public.finisher_library enable row level security;
 alter table public.warmup_library enable row level security;
 alter table public.campus_music enable row level security;
 alter table public.campus_specials enable row level security;
+alter table public.campus_workouts enable row level security;
 alter table public.exercise_favorites enable row level security;
 alter table public.finisher_favorites enable row level security;
 alter table public.warmup_favorites enable row level security;
@@ -765,6 +786,14 @@ for all
 to authenticated
 using (public.current_user_role() = 'admin')
 with check (public.current_user_role() = 'admin');
+
+drop policy if exists "users manage own campus workouts" on public.campus_workouts;
+create policy "users manage own campus workouts"
+on public.campus_workouts
+for all
+to authenticated
+using (user_id = auth.uid())
+with check (user_id = auth.uid());
 
 drop policy if exists "users manage own exercise favorites" on public.exercise_favorites;
 create policy "users manage own exercise favorites"

@@ -959,7 +959,15 @@ async function fetchSupportData() {
       .eq("user_id", state.session.user.id)
     : Promise.resolve({ data: [], error: null });
 
-  const [seasonResult, seasonBookingResult, trainerResult, trainerDirectoryResult, inviteResult, participantResult, sessionResult, trialResult, dropInResult, exerciseResult, finisherResult, warmupResult, musicResult, specialsResult, exerciseFavoritesResult, finisherFavoritesResult, warmupFavoritesResult, specialFavoritesResult] = await Promise.all([
+  const savedWorkoutsQuery = state.session?.user?.id
+    ? state.supabase
+      .from("campus_workouts")
+      .select("id, user_id, title, template, focus, duration, notes, warmup_id, finisher_id, exercise_ids, created_at, updated_at")
+      .eq("user_id", state.session.user.id)
+      .order("updated_at", { ascending: false })
+    : Promise.resolve({ data: [], error: null });
+
+  const [seasonResult, seasonBookingResult, trainerResult, trainerDirectoryResult, inviteResult, participantResult, sessionResult, trialResult, dropInResult, exerciseResult, finisherResult, warmupResult, musicResult, specialsResult, exerciseFavoritesResult, finisherFavoritesResult, warmupFavoritesResult, specialFavoritesResult, savedWorkoutsResult] = await Promise.all([
     seasonsQuery,
     seasonBookingsQuery,
     trainerQuery,
@@ -978,6 +986,7 @@ async function fetchSupportData() {
     finisherFavoritesQuery,
     warmupFavoritesQuery,
     specialFavoritesQuery,
+    savedWorkoutsQuery,
   ]);
 
   if (seasonResult.error) {
@@ -1033,6 +1042,9 @@ async function fetchSupportData() {
   }
   if (specialFavoritesResult.error) {
     notify(getFriendlySupabaseMessage(specialFavoritesResult.error, "Special-Favoriten konnten nicht geladen werden."), true);
+  }
+  if (savedWorkoutsResult.error) {
+    notify(getFriendlySupabaseMessage(savedWorkoutsResult.error, "Gespeicherte Workouts konnten nicht geladen werden."), true);
   }
   if (seasonResult.error) {
     notify(getFriendlySupabaseMessage(seasonResult.error, "Seasons konnten nicht geladen werden."), true);
@@ -1119,6 +1131,15 @@ async function fetchSupportData() {
   }
   if (!specialFavoritesResult.error) {
     state.specialFavorites = specialFavoritesResult.data || [];
+  }
+  if (!savedWorkoutsResult.error) {
+    const remoteSavedWorkouts = (savedWorkoutsResult.data || []).map(mapSavedWorkoutRow);
+    state.savedWorkouts = remoteSavedWorkouts;
+    const mergedSavedWorkouts = await syncLocalSavedWorkoutsToSupabase(remoteSavedWorkouts);
+    if (Array.isArray(mergedSavedWorkouts)) {
+      state.savedWorkouts = mergedSavedWorkouts;
+    }
+    persistSavedWorkouts();
   }
 
   if (state.profile?.role === "trainer") {
@@ -5415,21 +5436,128 @@ function buildWorkoutSnapshot() {
   };
 }
 
-function saveCurrentWorkout() {
+function buildSavedWorkoutSignature(workout) {
+  return JSON.stringify({
+    template: workout?.template === "tabata" ? "tabata" : "circuit",
+    title: String(workout?.title || "").trim(),
+    focus: String(workout?.focus || "").trim(),
+    duration: String(workout?.duration || "").trim(),
+    notes: String(workout?.notes || "").trim(),
+    warmupId: workout?.warmupId || "",
+    finisherId: workout?.finisherId || "",
+    exerciseIds: Array.isArray(workout?.exerciseIds) ? workout.exerciseIds.filter(Boolean) : [],
+  });
+}
+
+function buildSavedWorkoutPayload(workout) {
+  return {
+    title: String(workout?.title || "").trim() || "BEATFIELD Workout",
+    template: workout?.template === "tabata" ? "tabata" : "circuit",
+    focus: String(workout?.focus || "").trim() || null,
+    duration: String(workout?.duration || "").trim() || null,
+    notes: String(workout?.notes || "").trim() || null,
+    warmup_id: workout?.warmupId || null,
+    finisher_id: workout?.finisherId || null,
+    exercise_ids: Array.isArray(workout?.exerciseIds) ? workout.exerciseIds.filter(Boolean) : [],
+  };
+}
+
+function mapSavedWorkoutRow(row) {
+  return {
+    id: row.id,
+    saved_at: row.updated_at || row.created_at || new Date().toISOString(),
+    template: row.template === "tabata" ? "tabata" : "circuit",
+    title: row.title || "BEATFIELD Workout",
+    focus: row.focus || "",
+    duration: row.duration || "",
+    notes: row.notes || "",
+    warmupId: row.warmup_id || "",
+    finisherId: row.finisher_id || "",
+    exerciseIds: Array.isArray(row.exercise_ids)
+      ? [...row.exercise_ids, ...Array.from({ length: Math.max(0, 14 - row.exercise_ids.length) }, () => "")]
+      : Array.from({ length: 14 }, () => ""),
+  };
+}
+
+function mergeSavedWorkoutCollections(primary, secondary) {
+  const merged = [];
+  const seen = new Set();
+  [...primary, ...secondary].forEach((entry) => {
+    const signature = buildSavedWorkoutSignature(entry);
+    if (seen.has(signature)) {
+      return;
+    }
+    seen.add(signature);
+    merged.push(entry);
+  });
+  return merged
+    .sort((left, right) => String(right.saved_at || "").localeCompare(String(left.saved_at || "")))
+    .slice(0, 24);
+}
+
+async function syncLocalSavedWorkoutsToSupabase(remoteSavedWorkouts = []) {
+  if (!state.supabase || !state.session?.user?.id || state.isOffline) {
+    return mergeSavedWorkoutCollections(remoteSavedWorkouts, loadSavedWorkouts());
+  }
+
+  const localSavedWorkouts = loadSavedWorkouts().filter((entry) => String(entry.id || "").startsWith("workout-"));
+  if (!localSavedWorkouts.length) {
+    return remoteSavedWorkouts;
+  }
+
+  const remoteSignatures = new Set(remoteSavedWorkouts.map((entry) => buildSavedWorkoutSignature(entry)));
+  const workoutsToInsert = localSavedWorkouts.filter((entry) => !remoteSignatures.has(buildSavedWorkoutSignature(entry)));
+  if (!workoutsToInsert.length) {
+    return mergeSavedWorkoutCollections(remoteSavedWorkouts, []);
+  }
+
+  const insertResult = await state.supabase
+    .from("campus_workouts")
+    .insert(workoutsToInsert.map((entry) => buildSavedWorkoutPayload(entry)))
+    .select("id, user_id, title, template, focus, duration, notes, warmup_id, finisher_id, exercise_ids, created_at, updated_at");
+
+  if (insertResult.error) {
+    notify(getFriendlySupabaseMessage(insertResult.error, "Lokale Workouts konnten nicht in die App übernommen werden."), true);
+    return mergeSavedWorkoutCollections(remoteSavedWorkouts, localSavedWorkouts);
+  }
+
+  const insertedRows = (insertResult.data || []).map(mapSavedWorkoutRow);
+  return mergeSavedWorkoutCollections(insertedRows, remoteSavedWorkouts);
+}
+
+async function saveCurrentWorkout() {
   const selection = validateWorkoutBuilderSelection();
   if (!selection) {
     return;
   }
 
   const snapshot = buildWorkoutSnapshot();
-  state.savedWorkouts = [
-    snapshot,
-    ...state.savedWorkouts.filter((entry) => entry.id !== snapshot.id),
-  ].slice(0, 24);
+  if (!state.supabase || !state.session?.user?.id || state.isOffline) {
+    state.savedWorkouts = mergeSavedWorkoutCollections([snapshot], state.savedWorkouts);
+    persistSavedWorkouts();
+    renderCampusOverview();
+    renderWorkoutBuilder();
+    notify(`Workout "${snapshot.title}" wurde lokal gespeichert.`);
+    return;
+  }
+
+  const insertResult = await state.supabase
+    .from("campus_workouts")
+    .insert(buildSavedWorkoutPayload(snapshot))
+    .select("id, user_id, title, template, focus, duration, notes, warmup_id, finisher_id, exercise_ids, created_at, updated_at")
+    .single();
+
+  if (insertResult.error) {
+    notify(getFriendlySupabaseMessage(insertResult.error, "Workout konnte nicht gespeichert werden."), true);
+    return;
+  }
+
+  const savedWorkout = mapSavedWorkoutRow(insertResult.data);
+  state.savedWorkouts = mergeSavedWorkoutCollections([savedWorkout], state.savedWorkouts);
   persistSavedWorkouts();
   renderCampusOverview();
   renderWorkoutBuilder();
-  notify(`Workout "${snapshot.title}" wurde gespeichert.`);
+  notify(`Workout "${savedWorkout.title}" wurde gespeichert.`);
 }
 
 function applySavedWorkout(workoutId) {
@@ -5456,15 +5584,37 @@ function applySavedWorkout(workoutId) {
   notify(`Workout "${workout.title || "BEATFIELD Workout"}" wurde geladen.`);
 }
 
-function deleteSavedWorkout(workoutId) {
+async function deleteSavedWorkout(workoutId) {
   const workout = state.savedWorkouts.find((entry) => entry.id === workoutId) || null;
+  if (!workout) {
+    return;
+  }
+
+  if (String(workout.id || "").startsWith("workout-") || !state.supabase || !state.session?.user?.id || state.isOffline) {
+    state.savedWorkouts = state.savedWorkouts.filter((entry) => entry.id !== workoutId);
+    persistSavedWorkouts();
+    renderCampusOverview();
+    renderWorkoutBuilder();
+    notify(`Workout "${workout.title || "BEATFIELD Workout"}" wurde entfernt.`);
+    return;
+  }
+
+  const deleteResult = await state.supabase
+    .from("campus_workouts")
+    .delete()
+    .eq("id", workoutId)
+    .eq("user_id", state.session.user.id);
+
+  if (deleteResult.error) {
+    notify(getFriendlySupabaseMessage(deleteResult.error, "Workout konnte nicht gelöscht werden."), true);
+    return;
+  }
+
   state.savedWorkouts = state.savedWorkouts.filter((entry) => entry.id !== workoutId);
   persistSavedWorkouts();
   renderCampusOverview();
   renderWorkoutBuilder();
-  if (workout) {
-    notify(`Workout "${workout.title || "BEATFIELD Workout"}" wurde entfernt.`);
-  }
+  notify(`Workout "${workout.title || "BEATFIELD Workout"}" wurde entfernt.`);
 }
 
 function getWorkoutBuilderSelection() {
