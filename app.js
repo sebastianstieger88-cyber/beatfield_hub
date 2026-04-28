@@ -8568,15 +8568,13 @@ function renderSingleSessionSelect(selectElement) {
   }
   selectElement.innerHTML = "";
   const preferredSeasonId = getPreferredTrialSeasonId();
-  const sessionOptions = preferredSeasonId
-    ? getSeasonSessions(preferredSeasonId)
-    : getUpcomingTrialSessions();
+  const sessionOptions = getTrialSessionOptions(preferredSeasonId);
 
   if (!sessionOptions.length) {
     const option = document.createElement("option");
     option.value = "";
     option.textContent = preferredSeasonId
-      ? "Keine Termine in der gewählten Season"
+      ? "Keine Termine in aktueller oder kommender Season"
       : "Keine kommenden Termine verfügbar";
     selectElement.appendChild(option);
     return;
@@ -11559,6 +11557,23 @@ function getPreferredTrialSeasonId() {
     return state.attendanceSeasonId;
   }
   return state.seasons.find((entry) => entry.status === "aktiv")?.id || null;
+}
+
+function getTrialSessionOptions(preferredSeasonId = null) {
+  const upcomingSessions = getUpcomingTrialSessions();
+  if (!preferredSeasonId) {
+    return upcomingSessions;
+  }
+
+  const seasonIds = [preferredSeasonId];
+  const preferredSeason = state.seasons.find((entry) => entry.id === preferredSeasonId) || null;
+  const nextSeason = preferredSeason ? getNextSeasonForRenewal(preferredSeason) : null;
+  if (nextSeason?.id && !seasonIds.includes(nextSeason.id)) {
+    seasonIds.push(nextSeason.id);
+  }
+
+  const preferredSessions = upcomingSessions.filter((session) => seasonIds.includes(session.season_id));
+  return preferredSessions.length ? preferredSessions : upcomingSessions;
 }
 
 function getUpcomingTrialSessions() {
