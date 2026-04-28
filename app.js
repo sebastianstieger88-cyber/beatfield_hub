@@ -86,13 +86,14 @@ const state = {
   selectedWarmupId: null,
   selectedSpecialId: null,
   workoutBuilder: {
+    template: "circuit",
     title: "",
     focus: "",
     duration: "",
     notes: "",
     warmupId: "",
     finisherId: "",
-    exerciseIds: Array.from({ length: 7 }, () => ""),
+    exerciseIds: Array.from({ length: 14 }, () => ""),
   },
   specialSignedUrls: {},
   specialUrlLoadingId: null,
@@ -323,6 +324,7 @@ const specialDetailTitle = document.querySelector("#specialDetailTitle");
 const specialDetailBody = document.querySelector("#specialDetailBody");
 const closeSpecialDetailModalBtn = document.querySelector("#closeSpecialDetailModalBtn");
 const workoutBuilderForm = document.querySelector("#workoutBuilderForm");
+const workoutTemplateSelect = document.querySelector("#workoutTemplateSelect");
 const workoutTitleInput = document.querySelector("#workoutTitleInput");
 const workoutFocusInput = document.querySelector("#workoutFocusInput");
 const workoutDurationInput = document.querySelector("#workoutDurationInput");
@@ -333,6 +335,8 @@ const workoutNotesInput = document.querySelector("#workoutNotesInput");
 const workoutResetBtn = document.querySelector("#workoutResetBtn");
 const workoutPdfBtn = document.querySelector("#workoutPdfBtn");
 const workoutExcelBtn = document.querySelector("#workoutExcelBtn");
+const workoutStationsTitle = document.querySelector("#workoutStationsTitle");
+const workoutStationsMeta = document.querySelector("#workoutStationsMeta");
 const workoutPreviewTitle = document.querySelector("#workoutPreviewTitle");
 const workoutPreviewBody = document.querySelector("#workoutPreviewBody");
 const contentPanels = [
@@ -518,6 +522,7 @@ campusResetSearchBtn?.addEventListener("click", () => {
   resetCampusSearch();
   renderCampusOverview();
 });
+workoutTemplateSelect?.addEventListener("change", () => updateWorkoutBuilderTemplate(workoutTemplateSelect.value || "circuit"));
 workoutTitleInput?.addEventListener("input", () => updateWorkoutBuilderField("title", workoutTitleInput.value || ""));
 workoutFocusInput?.addEventListener("input", () => updateWorkoutBuilderField("focus", workoutFocusInput.value || ""));
 workoutDurationInput?.addEventListener("input", () => updateWorkoutBuilderField("duration", workoutDurationInput.value || ""));
@@ -5031,6 +5036,41 @@ function updateWorkoutBuilderField(field, value) {
   renderWorkoutBuilder();
 }
 
+function getWorkoutBuilderTemplateConfig(template = state.workoutBuilder.template) {
+  if (template === "tabata") {
+    return {
+      template: "tabata",
+      slots: 14,
+      stationCount: 7,
+      title: "7 Tabata-Stationen",
+      meta: "Wähle für jede der 7 Stationen zwei Übungen aus.",
+      previewLabel: "Tabata",
+      exportLabel: "Tabata",
+    };
+  }
+
+  return {
+    template: "circuit",
+    slots: 7,
+    stationCount: 7,
+    title: "7 Stationen Zirkel",
+    meta: "Wähle genau sieben Übungen für den Circuit aus.",
+    previewLabel: "Zirkel",
+    exportLabel: "Zirkeltraining",
+  };
+}
+
+function updateWorkoutBuilderTemplate(template) {
+  const nextTemplate = template === "tabata" ? "tabata" : "circuit";
+  state.workoutBuilder = {
+    ...state.workoutBuilder,
+    template: nextTemplate,
+    exerciseIds: Array.from({ length: 14 }, () => ""),
+  };
+  renderCampusOverview();
+  renderWorkoutBuilder();
+}
+
 function updateWorkoutBuilderExercise(index, value) {
   const exerciseIds = [...state.workoutBuilder.exerciseIds];
   exerciseIds[index] = value;
@@ -5044,41 +5084,69 @@ function updateWorkoutBuilderExercise(index, value) {
 
 function resetWorkoutBuilder() {
   state.workoutBuilder = {
+    template: "circuit",
     title: "",
     focus: "",
     duration: "",
     notes: "",
     warmupId: "",
     finisherId: "",
-    exerciseIds: Array.from({ length: 7 }, () => ""),
+    exerciseIds: Array.from({ length: 14 }, () => ""),
   };
   renderCampusOverview();
   renderWorkoutBuilder();
 }
 
 function getWorkoutBuilderSelection() {
+  const config = getWorkoutBuilderTemplateConfig();
   const selectedWarmup = getWarmupById(state.workoutBuilder.warmupId);
   const selectedFinisher = getFinisherById(state.workoutBuilder.finisherId);
-  const selectedExercises = state.workoutBuilder.exerciseIds
+  const exerciseIds = state.workoutBuilder.exerciseIds.slice(0, config.slots);
+  const selectedExercises = exerciseIds
     .map((exerciseId, index) => ({
       station: index + 1,
+      slot: index,
       item: getExerciseById(exerciseId),
     }))
     .filter((entry) => entry.item);
 
+  const groupedStations = Array.from({ length: config.stationCount }, (_, index) => {
+    if (config.template === "tabata") {
+      const firstSlot = index * 2;
+      const secondSlot = firstSlot + 1;
+      return {
+        station: index + 1,
+        items: [
+          getExerciseById(exerciseIds[firstSlot]),
+          getExerciseById(exerciseIds[secondSlot]),
+        ],
+      };
+    }
+
+    return {
+      station: index + 1,
+      items: [getExerciseById(exerciseIds[index])],
+    };
+  });
+
   return {
+    template: config.template,
+    templateTitle: config.exportLabel,
     title: String(state.workoutBuilder.title || "").trim() || "BEATFIELD Workout Builder",
     focus: String(state.workoutBuilder.focus || "").trim(),
     duration: String(state.workoutBuilder.duration || "").trim(),
     notes: String(state.workoutBuilder.notes || "").trim(),
     warmup: selectedWarmup || null,
     exercises: selectedExercises,
+    groupedStations,
     finisher: selectedFinisher || null,
   };
 }
 
 function validateWorkoutBuilderSelection() {
-  const missingStations = state.workoutBuilder.exerciseIds
+  const config = getWorkoutBuilderTemplateConfig();
+  const exerciseIds = state.workoutBuilder.exerciseIds.slice(0, config.slots);
+  const missingStations = exerciseIds
     .map((exerciseId, index) => (!exerciseId ? index + 1 : null))
     .filter(Boolean);
 
@@ -5090,9 +5158,9 @@ function validateWorkoutBuilderSelection() {
     notify(`Bitte alle 7 Stationen belegen. Es fehlen: ${missingStations.join(", ")}.`, true);
     return null;
   }
-  const uniqueExerciseIds = new Set(state.workoutBuilder.exerciseIds.filter(Boolean));
-  if (uniqueExerciseIds.size !== state.workoutBuilder.exerciseIds.filter(Boolean).length) {
-    notify("Bitte jede Übung nur einmal im Zirkel verwenden.", true);
+  const uniqueExerciseIds = new Set(exerciseIds.filter(Boolean));
+  if (uniqueExerciseIds.size !== exerciseIds.filter(Boolean).length) {
+    notify(config.template === "tabata" ? "Bitte jede Übung im Tabata nur einmal verwenden." : "Bitte jede Übung nur einmal im Zirkel verwenden.", true);
     return null;
   }
   if (!state.workoutBuilder.finisherId) {
@@ -5100,7 +5168,7 @@ function validateWorkoutBuilderSelection() {
     return null;
   }
   const selection = getWorkoutBuilderSelection();
-  if (!selection.warmup || selection.exercises.length !== 7 || !selection.finisher) {
+  if (!selection.warmup || selection.exercises.length !== config.slots || !selection.finisher) {
     notify("Das Workout konnte nicht vollständig aus den Bibliotheken aufgebaut werden.", true);
     return null;
   }
@@ -5110,6 +5178,18 @@ function validateWorkoutBuilderSelection() {
 function renderWorkoutBuilder() {
   if (!workoutBuilderPanel || !workoutPreviewBody) {
     return;
+  }
+
+  const config = getWorkoutBuilderTemplateConfig();
+
+  if (workoutTemplateSelect) {
+    workoutTemplateSelect.value = config.template;
+  }
+  if (workoutStationsTitle) {
+    workoutStationsTitle.textContent = config.title;
+  }
+  if (workoutStationsMeta) {
+    workoutStationsMeta.textContent = config.meta;
   }
 
   if (workoutTitleInput) {
@@ -5140,15 +5220,41 @@ function renderWorkoutBuilder() {
   }
 
   if (workoutExerciseSelects) {
-    workoutExerciseSelects.innerHTML = Array.from({ length: 7 }, (_, index) => `
-      <label class="workout-station-field">
-        <span>Station ${index + 1}</span>
-        <select data-workout-station="${index}">
-          <option value="">Bitte wählen</option>
-          ${state.exercises.map((exercise) => `<option value="${escapeHtml(exercise.id)}"${exercise.id === state.workoutBuilder.exerciseIds[index] ? " selected" : ""}>${escapeHtml(exercise.title || "Ohne Titel")}${exercise.focus ? ` • ${escapeHtml(exercise.focus)}` : ""}</option>`).join("")}
-        </select>
-      </label>
-    `).join("");
+    if (config.template === "tabata") {
+      workoutExerciseSelects.innerHTML = Array.from({ length: config.stationCount }, (_, stationIndex) => {
+        const firstSlot = stationIndex * 2;
+        const secondSlot = firstSlot + 1;
+        return `
+          <div class="workout-station-card">
+            <p class="eyebrow">Station ${stationIndex + 1}</p>
+            <label class="workout-station-field">
+              <span>Übung A</span>
+              <select data-workout-station="${firstSlot}">
+                <option value="">Bitte wählen</option>
+                ${state.exercises.map((exercise) => `<option value="${escapeHtml(exercise.id)}"${exercise.id === state.workoutBuilder.exerciseIds[firstSlot] ? " selected" : ""}>${escapeHtml(exercise.title || "Ohne Titel")}${exercise.focus ? ` • ${escapeHtml(exercise.focus)}` : ""}</option>`).join("")}
+              </select>
+            </label>
+            <label class="workout-station-field">
+              <span>Übung B</span>
+              <select data-workout-station="${secondSlot}">
+                <option value="">Bitte wählen</option>
+                ${state.exercises.map((exercise) => `<option value="${escapeHtml(exercise.id)}"${exercise.id === state.workoutBuilder.exerciseIds[secondSlot] ? " selected" : ""}>${escapeHtml(exercise.title || "Ohne Titel")}${exercise.focus ? ` • ${escapeHtml(exercise.focus)}` : ""}</option>`).join("")}
+              </select>
+            </label>
+          </div>
+        `;
+      }).join("");
+    } else {
+      workoutExerciseSelects.innerHTML = Array.from({ length: config.stationCount }, (_, index) => `
+        <label class="workout-station-field">
+          <span>Station ${index + 1}</span>
+          <select data-workout-station="${index}">
+            <option value="">Bitte wählen</option>
+            ${state.exercises.map((exercise) => `<option value="${escapeHtml(exercise.id)}"${exercise.id === state.workoutBuilder.exerciseIds[index] ? " selected" : ""}>${escapeHtml(exercise.title || "Ohne Titel")}${exercise.focus ? ` • ${escapeHtml(exercise.focus)}` : ""}</option>`).join("")}
+          </select>
+        </label>
+      `).join("");
+    }
 
     workoutExerciseSelects.querySelectorAll("[data-workout-station]").forEach((select) => {
       select.addEventListener("change", () => {
@@ -5162,13 +5268,38 @@ function renderWorkoutBuilder() {
     workoutPreviewTitle.textContent = selection.title || "Workout-Vorschau";
   }
 
-  const stationRows = Array.from({ length: 7 }, (_, index) => {
-    const exercise = getExerciseById(state.workoutBuilder.exerciseIds[index]);
+  const stationRows = selection.groupedStations.map((group) => {
+    if (selection.template === "tabata") {
+      const [exerciseA, exerciseB] = group.items;
+      return `
+        <div class="workout-preview-item${!exerciseA || !exerciseB ? " is-empty" : ""}">
+          <div class="workout-preview-station-copy">
+            <p class="exercise-detail-label">Station ${group.station}</p>
+            <div class="workout-preview-pair">
+              <div>
+                <strong>${escapeHtml(exerciseA?.title || "Übung A fehlt")}</strong>
+                <p class="stat-meta">${exerciseA ? escapeHtml([exerciseA.category, exerciseA.focus, exerciseA.level].filter(Boolean).join(" • ") || "Übung") : "Noch nicht belegt"}</p>
+              </div>
+              <div>
+                <strong>${escapeHtml(exerciseB?.title || "Übung B fehlt")}</strong>
+                <p class="stat-meta">${exerciseB ? escapeHtml([exerciseB.category, exerciseB.focus, exerciseB.level].filter(Boolean).join(" • ") || "Übung") : "Noch nicht belegt"}</p>
+              </div>
+            </div>
+          </div>
+          <div class="mini-actions">
+            ${exerciseA ? `<button type="button" class="ghost" data-workout-exercise-detail="${escapeHtml(exerciseA.id)}">A Details</button>` : ""}
+            ${exerciseB ? `<button type="button" class="ghost" data-workout-exercise-detail="${escapeHtml(exerciseB.id)}">B Details</button>` : ""}
+          </div>
+        </div>
+      `;
+    }
+
+    const exercise = group.items[0];
     if (!exercise) {
       return `
         <div class="workout-preview-item is-empty">
           <div>
-            <p class="exercise-detail-label">Station ${index + 1}</p>
+            <p class="exercise-detail-label">Station ${group.station}</p>
             <p class="exercise-copy-muted">Noch nicht belegt</p>
           </div>
         </div>
@@ -5177,7 +5308,7 @@ function renderWorkoutBuilder() {
     return `
       <div class="workout-preview-item">
         <div>
-          <p class="exercise-detail-label">Station ${index + 1}</p>
+          <p class="exercise-detail-label">Station ${group.station}</p>
           <strong>${escapeHtml(exercise.title || "Ohne Titel")}</strong>
           <p class="stat-meta">${escapeHtml([exercise.category, exercise.focus, exercise.level].filter(Boolean).join(" • ") || "Übung")}</p>
         </div>
@@ -5192,7 +5323,8 @@ function renderWorkoutBuilder() {
     <div class="workout-preview-meta">
       ${selection.focus ? `<span class="course-status-pill">${escapeHtml(selection.focus)}</span>` : ""}
       ${selection.duration ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(selection.duration)}</span>` : ""}
-      <span class="course-status-pill course-status-pill-warn">${selection.exercises.length}/7 Stationen gewählt</span>
+      <span class="course-status-pill">${escapeHtml(selection.templateTitle)}</span>
+      <span class="course-status-pill course-status-pill-warn">${selection.exercises.length}/${config.slots} Übungen gewählt</span>
     </div>
     <div class="workout-preview-section">
       <div class="workout-preview-head">
@@ -5207,8 +5339,8 @@ function renderWorkoutBuilder() {
     <div class="workout-preview-section">
       <div class="workout-preview-head">
         <div>
-          <p class="eyebrow">Zirkel</p>
-          <h4>7 Stationen Circuit</h4>
+          <p class="eyebrow">${escapeHtml(selection.templateTitle)}</p>
+          <h4>${escapeHtml(config.title)}</h4>
         </div>
       </div>
       <div class="workout-preview-list">${stationRows}</div>
@@ -5245,15 +5377,25 @@ function renderWorkoutBuilder() {
 }
 
 function buildWorkoutPrintHtml(selection) {
-  const stationMarkup = selection.exercises.map(({ station, item }) => `
-    <tr>
-      <td>${station}</td>
-      <td>${escapeHtml(item.title || "Ohne Titel")}</td>
-      <td>${escapeHtml(item.category || "-")}</td>
-      <td>${escapeHtml(item.focus || "-")}</td>
-      <td>${escapeHtml(item.level || "-")}</td>
-    </tr>
-  `).join("");
+  const stationMarkup = selection.template === "tabata"
+    ? selection.groupedStations.map((group) => `
+      <tr>
+        <td>${group.station}</td>
+        <td>${escapeHtml(group.items[0]?.title || "-")}</td>
+        <td>${escapeHtml(group.items[1]?.title || "-")}</td>
+        <td>${escapeHtml(group.items[0]?.focus || group.items[1]?.focus || "-")}</td>
+        <td>${escapeHtml(group.items[0]?.level || group.items[1]?.level || "-")}</td>
+      </tr>
+    `).join("")
+    : selection.groupedStations.map((group) => `
+      <tr>
+        <td>${group.station}</td>
+        <td>${escapeHtml(group.items[0]?.title || "-")}</td>
+        <td>${escapeHtml(group.items[0]?.category || "-")}</td>
+        <td>${escapeHtml(group.items[0]?.focus || "-")}</td>
+        <td>${escapeHtml(group.items[0]?.level || "-")}</td>
+      </tr>
+    `).join("");
 
   return `<!doctype html>
   <html lang="de">
@@ -5282,10 +5424,12 @@ function buildWorkoutPrintHtml(selection) {
         </div>
       </div>
       <div class="section">
-        <h3>7 Stationen Zirkel</h3>
+        <h3>${escapeHtml(selection.template === "tabata" ? "7 Stationen Tabata" : "7 Stationen Zirkel")}</h3>
         <table>
           <thead>
-            <tr><th>Station</th><th>Übung</th><th>Körperbereich</th><th>Bewegungsmuster</th><th>Muskelgruppe</th></tr>
+            ${selection.template === "tabata"
+              ? "<tr><th>Station</th><th>Übung A</th><th>Übung B</th><th>Fokus</th><th>Level / Dauer</th></tr>"
+              : "<tr><th>Station</th><th>Übung</th><th>Körperbereich</th><th>Bewegungsmuster</th><th>Muskelgruppe</th></tr>"}
           </thead>
           <tbody>${stationMarkup}</tbody>
         </table>
@@ -5354,15 +5498,25 @@ function handleWorkoutExcelExport() {
   const rows = [
     ["Bereich", "Titel", "Kategorie", "Fokus", "Level / Dauer", "Equipment", "Beschreibung"],
     ["Warm-Up", selection.warmup.title || "", "", "", selection.warmup.level || "", selection.warmup.equipment || "", selection.warmup.description || ""],
-    ...selection.exercises.map(({ station, item }) => [
-      `Station ${station}`,
-      item.title || "",
-      item.category || "",
-      item.focus || "",
-      item.level || "",
-      item.equipment || "",
-      item.description || "",
-    ]),
+    ...(selection.template === "tabata"
+      ? selection.groupedStations.map((group) => [
+          `Station ${group.station}`,
+          `${group.items[0]?.title || ""} / ${group.items[1]?.title || ""}`,
+          "",
+          group.items[0]?.focus || group.items[1]?.focus || "",
+          group.items[0]?.level || group.items[1]?.level || "",
+          [group.items[0]?.equipment, group.items[1]?.equipment].filter(Boolean).join(" / "),
+          [group.items[0]?.description, group.items[1]?.description].filter(Boolean).join(" | "),
+        ])
+      : selection.groupedStations.map((group) => [
+          `Station ${group.station}`,
+          group.items[0]?.title || "",
+          group.items[0]?.category || "",
+          group.items[0]?.focus || "",
+          group.items[0]?.level || "",
+          group.items[0]?.equipment || "",
+          group.items[0]?.description || "",
+        ])),
     ["Finisher", selection.finisher.title || "", selection.finisher.category || "", selection.finisher.focus || "", selection.finisher.level || "", selection.finisher.equipment || "", selection.finisher.description || ""],
     ["Coach-Notiz", selection.notes || "", "", "", "", "", ""],
   ];

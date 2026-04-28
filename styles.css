@@ -1429,6 +1429,15 @@ button.danger {
   gap: 8px;
 }
 
+.workout-station-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(103, 193, 47, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
 .workout-builder-actions {
   justify-content: flex-start;
 }
@@ -1477,6 +1486,18 @@ button.danger {
 
 .workout-preview-item.is-empty {
   opacity: 0.72;
+}
+
+.workout-preview-station-copy {
+  display: grid;
+  gap: 10px;
+  flex: 1;
+}
+
+.workout-preview-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .specials-layout {

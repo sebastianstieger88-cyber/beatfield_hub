@@ -504,6 +504,13 @@
           <form id="workoutBuilderForm" class="stack workout-builder-form">
             <div class="exercise-toolbar workout-builder-toolbar">
               <label>
+                <span>Template</span>
+                <select id="workoutTemplateSelect" name="template">
+                  <option value="circuit">Zirkeltraining</option>
+                  <option value="tabata">Tabata</option>
+                </select>
+              </label>
+              <label>
                 <span>Titel</span>
                 <input id="workoutTitleInput" name="title" type="text" placeholder="z. B. Full Body Outdoor Circuit">
               </label>
@@ -524,8 +531,8 @@
             </label>
             <div class="workout-stations">
               <div class="workout-stations-head">
-                <h3>7 Stationen Zirkel</h3>
-                <p class="stat-meta">Wähle genau sieben Übungen für den Circuit aus.</p>
+                <h3 id="workoutStationsTitle">7 Stationen Zirkel</h3>
+                <p id="workoutStationsMeta" class="stat-meta">Wähle genau sieben Übungen für den Circuit aus.</p>
               </div>
               <div id="workoutExerciseSelects" class="workout-station-grid"></div>
             </div>
