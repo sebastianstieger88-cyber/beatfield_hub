@@ -197,6 +197,15 @@ create table if not exists public.session_overrides (
   constraint session_overrides_distinct_sessions check (source_session_id <> target_session_id)
 );
 
+create table if not exists public.session_exclusions (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid not null references public.attendance_sessions(id) on delete cascade,
+  participant_id uuid not null references public.participants(id) on delete cascade,
+  season_booking_id uuid references public.season_bookings(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (session_id, participant_id)
+);
+
 create table if not exists public.exercise_library (
   id uuid primary key default gen_random_uuid(),
   notion_page_id text not null unique,
@@ -572,6 +581,7 @@ alter table public.attendance_sessions enable row level security;
 alter table public.attendance_records enable row level security;
 alter table public.beat_out_entries enable row level security;
 alter table public.session_overrides enable row level security;
+alter table public.session_exclusions enable row level security;
 alter table public.exercise_library enable row level security;
 alter table public.finisher_library enable row level security;
 alter table public.warmup_library enable row level security;
@@ -1022,5 +1032,41 @@ with check (
     from public.attendance_sessions target_sessions
     where target_sessions.id = session_overrides.target_session_id
       and public.user_owns_course(target_sessions.course_id)
+  )
+);
+
+drop policy if exists "session exclusions visible to course owners" on public.session_exclusions;
+create policy "session exclusions visible to course owners"
+on public.session_exclusions
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.attendance_sessions
+    where attendance_sessions.id = session_exclusions.session_id
+      and public.user_owns_course(attendance_sessions.course_id)
+  )
+);
+
+drop policy if exists "session exclusions managed by course owners" on public.session_exclusions;
+create policy "session exclusions managed by course owners"
+on public.session_exclusions
+for all
+to authenticated
+using (
+  exists (
+    select 1
+    from public.attendance_sessions
+    where attendance_sessions.id = session_exclusions.session_id
+      and public.user_owns_course(attendance_sessions.course_id)
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.attendance_sessions
+    where attendance_sessions.id = session_exclusions.session_id
+      and public.user_owns_course(attendance_sessions.course_id)
   )
 );

@@ -18,6 +18,7 @@ const state = {
   seasonDraftDates: [],
   seasonBookings: [],
   sessionOverrides: [],
+  sessionExclusions: [],
   trainers: [],
   trainerDirectory: [],
   invites: [],
@@ -172,6 +173,8 @@ const cancelBookingEditBtn = document.querySelector("#cancelBookingEditBtn");
 const bookingStartDateInput = document.querySelector("#bookingStartDateInput");
 const participantForm = document.querySelector("#participantForm");
 const participantFormNotice = document.querySelector("#participantFormNotice");
+const sessionExclusionsCard = document.querySelector("#sessionExclusionsCard");
+const sessionExclusionsList = document.querySelector("#sessionExclusionsList");
 const openBookingPanelBtn = document.querySelector("#openBookingPanelBtn");
 const trialForm = document.querySelector("#trialForm");
 const dropInForm = document.querySelector("#dropInForm");
@@ -1100,20 +1103,35 @@ async function fetchSupportData() {
       .order("created_at", { ascending: false })
     : { data: [], error: null };
 
+  const sessionIds = state.sessions.map((session) => session.id);
+  const sessionExclusionResult = sessionIds.length
+    ? await state.supabase
+      .from("session_exclusions")
+      .select("id, session_id, participant_id, season_booking_id, created_at")
+      .in("session_id", sessionIds)
+      .order("created_at", { ascending: false })
+    : { data: [], error: null };
+
   if (sessionOverrideResult.error) {
     notify(getFriendlySupabaseMessage(sessionOverrideResult.error, "Termin-Umbuchungen konnten nicht geladen werden."), true);
   } else {
     state.sessionOverrides = sessionOverrideResult.data || [];
   }
 
+  if (sessionExclusionResult.error) {
+    notify(getFriendlySupabaseMessage(sessionExclusionResult.error, "Termin-Ausschlüsse konnten nicht geladen werden."), true);
+  } else {
+    state.sessionExclusions = sessionExclusionResult.data || [];
+  }
+
   if (state.selectedSeasonId && !state.seasons.some((season) => season.id === state.selectedSeasonId)) {
     state.selectedSeasonId = null;
   }
 
-  const sessionIds = state.sessions.map((session) => session.id);
   if (!sessionIds.length) {
     state.records = [];
     state.beatOutEntries = [];
+    state.sessionExclusions = [];
     return;
   }
 
@@ -2600,34 +2618,27 @@ async function handleParticipantDelete(participant, course) {
 
     const booking = getParticipantSeasonBooking(participant);
     if (booking) {
-      const weekdayToRemove = normalizeWeekdayLabel(course.weekday);
-      const remainingDays = (booking.selected_days || []).filter((day) => normalizeWeekdayLabel(day) !== weekdayToRemove);
-
-      if (!remainingDays.length) {
-        openDeleteParticipantModal({
-          mode: "delete-whole-booking",
-          booking,
-          text: `${participant.full_name} ist hier über eine Season-Buchung eingetragen. Dieser Schritt entfernt ihn nicht nur aus dem heutigen Termin, sondern aus diesem Kurstag für die gesamte Season. Da keine weiteren gebuchten Tage übrig bleiben, würde die ganze Buchung gelöscht werden.`,
-          confirmLabel: "Gesamte Buchung löschen",
-        });
+      const focusedStandaloneSession = getAttendanceStandaloneFocusSession(course.id);
+      const sessionDate = focusedStandaloneSession?.session_date || getEffectiveAttendanceDate();
+      const session = focusedStandaloneSession || getSessionForCourseAndDate(course.id, sessionDate);
+      if (!session?.id) {
+        notify("Für diesen Schritt braucht die App einen konkreten Season-Termin. Bitte oben einen gültigen Termin auswählen.", true);
         return;
       }
 
-      const nextPackageType = getPackageTypeForDayCount(remainingDays.length);
-      if (!nextPackageType) {
-        notify("Die Season-Buchung konnte nicht auf ein gültiges Paket umgestellt werden.", true);
+      if (getSessionExclusionForParticipantSession(participant.id, session.id)) {
+        notify(`${participant.full_name} ist für diesen Termin bereits ausgesetzt.`, true);
         return;
       }
 
       openDeleteParticipantModal({
-        mode: "remove-season-day",
+        mode: "exclude-session",
         booking,
         participant,
         course,
-        remainingDays,
-        nextPackageType,
-        text: `${participant.full_name} wird damit nicht nur aus dem heutigen Termin entfernt, sondern aus allen ${course.weekday}-Terminen dieser Season. Die Buchung wird danach auf ${nextPackageType} umgestellt.`,
-        confirmLabel: "Aus Kurstag entfernen",
+        session,
+        text: `${participant.full_name} wird nur aus diesem einen Termin am ${formatDateLabel(session.session_date)} entfernt. Alle anderen Termine seiner Season-Buchung bleiben unverändert bestehen.`,
+        confirmLabel: "Nur diesen Termin entfernen",
       });
       return;
     }
@@ -2738,6 +2749,77 @@ async function performSeasonBookingDayRemoval({ booking, participant, course, re
   render();
   notify(`${participant.full_name} wurde aus ${course.name} für die gesamte Season entfernt.`);
   await refreshVisibleData({ context: "Participant booking delete refresh", silent: true });
+}
+
+async function excludeParticipantFromSingleSession({ booking, participant, session }) {
+  const exclusionInsertResult = await state.supabase
+    .from("session_exclusions")
+    .insert({
+      session_id: session.id,
+      participant_id: participant.id,
+      season_booking_id: booking?.id || participant.season_booking_id || null,
+    })
+    .select("id, session_id, participant_id, season_booking_id, created_at")
+    .single();
+
+  if (exclusionInsertResult.error) {
+    notify(getFriendlySupabaseMessage(exclusionInsertResult.error, "Teilnehmer konnte nicht nur für diesen Termin entfernt werden."), true);
+    return;
+  }
+
+  const [recordDeleteResult, beatOutDeleteResult] = await Promise.all([
+    state.supabase
+      .from("attendance_records")
+      .delete()
+      .eq("session_id", session.id)
+      .eq("participant_id", participant.id),
+    state.supabase
+      .from("beat_out_entries")
+      .delete()
+      .eq("session_id", session.id)
+      .eq("participant_id", participant.id),
+  ]);
+
+  if (recordDeleteResult.error) {
+    notify(getFriendlySupabaseMessage(recordDeleteResult.error, "Anwesenheit für den ausgesetzten Termin konnte nicht bereinigt werden."), true);
+    return;
+  }
+
+  if (beatOutDeleteResult.error) {
+    notify(getFriendlySupabaseMessage(beatOutDeleteResult.error, "BEAT-OUT für den ausgesetzten Termin konnte nicht bereinigt werden."), true);
+    return;
+  }
+
+  state.sessionExclusions = [
+    exclusionInsertResult.data,
+    ...state.sessionExclusions.filter((entry) => entry.id !== exclusionInsertResult.data.id),
+  ];
+  state.records = state.records.filter((entry) => !(entry.session_id === session.id && entry.participant_id === participant.id));
+  state.beatOutEntries = state.beatOutEntries.filter((entry) => !(entry.session_id === session.id && entry.participant_id === participant.id));
+  persistOfflineCache();
+  render();
+  notify(`${participant.full_name} ist nur für ${formatDateLabel(session.session_date)} ausgesetzt.`);
+}
+
+async function restoreParticipantSessionExclusion(exclusion) {
+  if (!exclusion?.id) {
+    return;
+  }
+
+  const deleteResult = await state.supabase
+    .from("session_exclusions")
+    .delete()
+    .eq("id", exclusion.id);
+
+  if (deleteResult.error) {
+    notify(getFriendlySupabaseMessage(deleteResult.error, "Termin-Ausschluss konnte nicht aufgehoben werden."), true);
+    return;
+  }
+
+  state.sessionExclusions = state.sessionExclusions.filter((entry) => entry.id !== exclusion.id);
+  persistOfflineCache();
+  render();
+  notify("Teilnehmer ist für diesen Termin wieder aktiv.");
 }
 
 async function syncSeasonBookingParticipants({ bookingId, seasonId, fullName, phone, selectedDays, startDate, relevantCourses }) {
@@ -3874,13 +3956,8 @@ async function handleDeleteParticipantConfirm() {
   }
   closeDeleteParticipantModal();
 
-  if (context.mode === "delete-whole-booking") {
-    await handleBookingDelete(context.booking);
-    return;
-  }
-
-  if (context.mode === "remove-season-day") {
-    await performSeasonBookingDayRemoval(context);
+  if (context.mode === "exclude-session") {
+    await excludeParticipantFromSingleSession(context);
   }
 }
 
@@ -8466,6 +8543,7 @@ function renderParticipants() {
   const focusedStandaloneSession = getAttendanceStandaloneFocusSession(course.id);
   const sessionDate = focusedStandaloneSession?.session_date || getEffectiveAttendanceDate();
   const session = focusedStandaloneSession || getSessionForCourseAndDate(course.id, sessionDate);
+  renderSessionExclusions(session, course);
   const records = getRecordsForSession(session?.id);
   const rawSessionParticipants = getFilteredParticipants(course.id, session?.id);
   const sessionParticipants = isAdmin()
@@ -8748,6 +8826,43 @@ function renderParticipants() {
     }
 
     participantCards.appendChild(card);
+  });
+}
+
+function renderSessionExclusions(session, course) {
+  if (!sessionExclusionsCard || !sessionExclusionsList) {
+    return;
+  }
+
+  const exclusions = session?.id
+    ? state.sessionExclusions.filter((entry) => entry.session_id === session.id)
+    : [];
+
+  if (!session?.id || !exclusions.length) {
+    sessionExclusionsCard.classList.add("hidden");
+    sessionExclusionsList.innerHTML = "";
+    return;
+  }
+
+  sessionExclusionsCard.classList.remove("hidden");
+  sessionExclusionsList.innerHTML = "";
+  exclusions.forEach((exclusion) => {
+    const participant = state.participants.find((entry) => entry.id === exclusion.participant_id) || null;
+    const booking = participant ? getParticipantSeasonBooking(participant) : null;
+    const item = document.createElement("div");
+    item.className = "session-exclusion-item";
+    item.innerHTML = `
+      <div>
+        <strong>${escapeHtml(participant?.full_name || "Teilnehmer")}</strong>
+        <p class="stat-meta">${escapeHtml(course?.name || "Kurs")} • nur für ${escapeHtml(formatDateLabel(session.session_date))} ausgesetzt</p>
+        ${booking ? `<p class="stat-meta">Buchung bleibt aktiv: ${escapeHtml(booking.package_type)} • ${escapeHtml(formatSelectedDays(booking.selected_days))}</p>` : ""}
+      </div>
+      <button type="button" class="ghost">Wiederherstellen</button>
+    `;
+    item.querySelector("button")?.addEventListener("click", async () => {
+      await restoreParticipantSessionExclusion(exclusion);
+    });
+    sessionExclusionsList.appendChild(item);
   });
 }
 
@@ -9999,6 +10114,12 @@ function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
     return baseParticipants;
   }
 
+  const excludedParticipantIds = new Set(
+    state.sessionExclusions
+      .filter((entry) => !sessionId || entry.session_id === sessionId)
+      .map((entry) => entry.participant_id),
+  );
+
   const movedOutIds = new Set(
     state.sessionOverrides
       .filter((entry) => !sessionId || entry.source_session_id === sessionId)
@@ -10007,6 +10128,9 @@ function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
 
   const roster = baseParticipants.filter((participant) => {
     if (movedOutIds.has(participant.id)) {
+      return false;
+    }
+    if (excludedParticipantIds.has(participant.id)) {
       return false;
     }
     const booking = getParticipantSeasonBooking(participant);
@@ -10031,6 +10155,9 @@ function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
         return;
       }
       if (state.attendanceSeasonId && participant.season_id !== state.attendanceSeasonId) {
+        return;
+      }
+      if (excludedParticipantIds.has(participant.id)) {
         return;
       }
       if (!rosterIds.has(participant.id)) {
@@ -10473,6 +10600,14 @@ function getSessionOverrideForTarget(participantId, sessionId) {
   }
 
   return state.sessionOverrides.find((entry) => entry.participant_id === participantId && entry.target_session_id === sessionId) || null;
+}
+
+function getSessionExclusionForParticipantSession(participantId, sessionId) {
+  if (!participantId || !sessionId) {
+    return null;
+  }
+
+  return state.sessionExclusions.find((entry) => entry.participant_id === participantId && entry.session_id === sessionId) || null;
 }
 
 function getSessionOverrideLabel(override) {
