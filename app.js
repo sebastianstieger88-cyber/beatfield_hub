@@ -10676,6 +10676,30 @@ function getGroupedSessionsForCourseDate(session) {
   });
 }
 
+function getAnalysisRosterForSession(session, preferredSeasonId = null) {
+  if (!session?.course_id || !session?.session_date) {
+    return [];
+  }
+
+  const previousSeasonId = state.attendanceSeasonId;
+  const previousDate = attendanceDate?.value || "";
+
+  state.attendanceSeasonId = preferredSeasonId || session.season_id || null;
+  if (attendanceDate) {
+    attendanceDate.value = session.session_date;
+  }
+
+  const roster = getAttendanceParticipantsForCourse(session.course_id, session.id)
+    .filter((participant) => !participant.is_trial && !participant.is_dropin);
+
+  state.attendanceSeasonId = previousSeasonId;
+  if (attendanceDate) {
+    attendanceDate.value = previousDate;
+  }
+
+  return roster;
+}
+
 function getCourseAttendanceAggregate(courseId, options = {}) {
   const { monthValue = null } = options;
   const today = getToday();
@@ -10691,7 +10715,7 @@ function getCourseAttendanceAggregate(courseId, options = {}) {
   let total = 0;
 
   sessions.forEach((session) => {
-    const participants = getAnalysisParticipantsForSession(session);
+    const participants = getAnalysisRosterForSession(session, preferredSeasonId);
     const groupedSessionIds = new Set(getGroupedSessionsForCourseDate(session).map((entry) => entry.id));
     participants.forEach((participant) => {
       const record = state.records.find((entry) => {
