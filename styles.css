@@ -1661,6 +1661,10 @@ button.danger {
   background: rgba(8, 8, 8, 0.9);
 }
 
+.music-player {
+  width: 100%;
+}
+
 .exercise-active-filters {
   display: flex;
   flex-wrap: wrap;

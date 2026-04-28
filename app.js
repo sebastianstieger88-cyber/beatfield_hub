@@ -6,6 +6,7 @@ const ENABLE_OFFLINE_MODE = false;
 const OFFLINE_CACHE_KEY = "beatfield-offline-cache-v2";
 const OFFLINE_QUEUE_KEY = "beatfield-offline-queue-v2";
 const SPECIALS_BUCKET = "campus-specials";
+const MUSIC_BUCKET = "campus-music";
 const CAMPUS_RECENT_KEY = "beatfield-campus-recent-v1";
 const CAMPUS_SAVED_SEARCHES_KEY = "beatfield-campus-saved-searches-v1";
 
@@ -28,6 +29,7 @@ const state = {
   exercises: [],
   finishers: [],
   warmups: [],
+  music: [],
   specials: [],
   exerciseFavorites: [],
   finisherFavorites: [],
@@ -60,6 +62,8 @@ const state = {
   warmupFavoritesOnly: false,
   warmupPinFavorites: false,
   warmupSyncing: false,
+  musicSearch: "",
+  musicUploading: false,
   specialsSearch: "",
   campusSearch: "",
   campusSearchType: "all",
@@ -85,6 +89,7 @@ const state = {
   isOffline: !navigator.onLine,
   selectedFinisherId: null,
   selectedWarmupId: null,
+  selectedMusicId: null,
   selectedSpecialId: null,
   deleteParticipantContext: null,
   workoutBuilder: {
@@ -98,6 +103,8 @@ const state = {
     exerciseIds: Array.from({ length: 14 }, () => ""),
   },
   specialSignedUrls: {},
+  musicSignedUrls: {},
+  musicUrlLoadingId: null,
   specialUrlLoadingId: null,
   campusRecentItems: loadCampusRecentItems(),
   pendingActions: loadOfflineQueue(),
@@ -137,6 +144,7 @@ const workoutBuilderPanel = document.querySelector("#workoutBuilderPanel");
 const exercisePanel = document.querySelector("#exercisePanel");
 const finisherPanel = document.querySelector("#finisherPanel");
 const warmupPanel = document.querySelector("#warmupPanel");
+const musicPanel = document.querySelector("#musicPanel");
 const specialsPanel = document.querySelector("#specialsPanel");
 const planningPanel = document.querySelector("#planningPanel");
 const attendancePanel = document.querySelector("#attendancePanel");
@@ -219,6 +227,7 @@ const dropInCards = document.querySelector("#dropInCards");
 const exerciseCards = document.querySelector("#exerciseCards");
 const finisherCards = document.querySelector("#finisherCards");
 const warmupCards = document.querySelector("#warmupCards");
+const musicCards = document.querySelector("#musicCards");
 const specialsCards = document.querySelector("#specialsCards");
 const campusOverviewGrid = document.querySelector("#campusOverviewGrid");
 const campusRecentGrid = document.querySelector("#campusRecentGrid");
@@ -232,6 +241,7 @@ const exerciseSearch = document.querySelector("#exerciseSearch");
 const finisherSearch = document.querySelector("#finisherSearch");
 const warmupSearch = document.querySelector("#warmupSearch");
 const specialsSearch = document.querySelector("#specialsSearch");
+const musicSearch = document.querySelector("#musicSearch");
 const specialsSortSelect = document.querySelector("#specialsSortSelect");
 const exerciseCategoryFilter = document.querySelector("#exerciseCategoryFilter");
 const exerciseFocusFilter = document.querySelector("#exerciseFocusFilter");
@@ -245,6 +255,11 @@ const finisherSyncMeta = document.querySelector("#finisherSyncMeta");
 const warmupSyncBtn = document.querySelector("#warmupSyncBtn");
 const warmupSyncMeta = document.querySelector("#warmupSyncMeta");
 const specialsMeta = document.querySelector("#specialsMeta");
+const musicMeta = document.querySelector("#musicMeta");
+const musicPreviewCard = document.querySelector("#musicPreviewCard");
+const musicUploadForm = document.querySelector("#musicUploadForm");
+const musicUploadBtn = document.querySelector("#musicUploadBtn");
+const musicFileInput = document.querySelector("#musicFileInput");
 const specialsPreviewCard = document.querySelector("#specialsPreviewCard");
 const specialsUploadForm = document.querySelector("#specialsUploadForm");
 const specialsUploadBtn = document.querySelector("#specialsUploadBtn");
@@ -270,6 +285,7 @@ const exerciseTableBody = document.querySelector("#exerciseTableBody");
 const finisherTableBody = document.querySelector("#finisherTableBody");
 const warmupTableBody = document.querySelector("#warmupTableBody");
 const specialsTableBody = document.querySelector("#specialsTableBody");
+const musicTableBody = document.querySelector("#musicTableBody");
 const planningPreview = document.querySelector("#planningPreview");
 const planNextBtn = document.querySelector("#planNextBtn");
 const planMonthBtn = document.querySelector("#planMonthBtn");
@@ -324,9 +340,13 @@ const warmupDetailTitle = document.querySelector("#warmupDetailTitle");
 const warmupDetailBody = document.querySelector("#warmupDetailBody");
 const closeWarmupDetailModalBtn = document.querySelector("#closeWarmupDetailModalBtn");
 const specialDetailModal = document.querySelector("#specialDetailModal");
+const musicDetailModal = document.querySelector("#musicDetailModal");
 const specialDetailTitle = document.querySelector("#specialDetailTitle");
+const musicDetailTitle = document.querySelector("#musicDetailTitle");
 const specialDetailBody = document.querySelector("#specialDetailBody");
+const musicDetailBody = document.querySelector("#musicDetailBody");
 const closeSpecialDetailModalBtn = document.querySelector("#closeSpecialDetailModalBtn");
+const closeMusicDetailModalBtn = document.querySelector("#closeMusicDetailModalBtn");
 const deleteParticipantModal = document.querySelector("#deleteParticipantModal");
 const deleteParticipantText = document.querySelector("#deleteParticipantText");
 const deleteParticipantConfirmBtn = document.querySelector("#deleteParticipantConfirmBtn");
@@ -362,6 +382,7 @@ const contentPanels = [
   exercisePanel,
   finisherPanel,
   warmupPanel,
+  musicPanel,
   specialsPanel,
   courseListPanel,
   planningPanel,
@@ -518,6 +539,11 @@ warmupResetFiltersBtn?.addEventListener("click", () => {
   renderWarmups();
 });
 warmupSyncBtn?.addEventListener("click", handleWarmupSync);
+musicSearch?.addEventListener("input", () => {
+  state.musicSearch = musicSearch.value || "";
+  renderMusic();
+});
+musicUploadForm?.addEventListener("submit", handleMusicUpload);
 specialsSearch?.addEventListener("input", () => {
   state.specialsSearch = specialsSearch.value || "";
   renderSpecials();
@@ -588,6 +614,12 @@ closeWarmupDetailModalBtn?.addEventListener("click", closeWarmupDetailModal);
 warmupDetailModal?.addEventListener("click", (event) => {
   if (event.target === warmupDetailModal) {
     closeWarmupDetailModal();
+  }
+});
+closeMusicDetailModalBtn?.addEventListener("click", closeMusicDetailModal);
+musicDetailModal?.addEventListener("click", (event) => {
+  if (event.target === musicDetailModal) {
+    closeMusicDetailModal();
   }
 });
 closeSpecialDetailModalBtn?.addEventListener("click", closeSpecialDetailModal);
@@ -885,6 +917,11 @@ async function fetchSupportData() {
     .select("id, notion_page_id, title, category, focus, level, equipment, coaching_cues, description, video_url, source_url, tags, notion_last_edited_at, notion_archived, synced_at")
     .order("title");
 
+  const musicQuery = state.supabase
+    .from("campus_music")
+    .select("id, title, description, file_name, storage_path, mime_type, file_size, created_at, updated_at, uploaded_by")
+    .order("updated_at", { ascending: false });
+
   const specialsQuery = state.supabase
     .from("campus_specials")
     .select("id, title, description, file_name, storage_path, mime_type, file_size, created_at, updated_at, uploaded_by")
@@ -918,7 +955,7 @@ async function fetchSupportData() {
       .eq("user_id", state.session.user.id)
     : Promise.resolve({ data: [], error: null });
 
-  const [seasonResult, seasonBookingResult, trainerResult, trainerDirectoryResult, inviteResult, participantResult, sessionResult, trialResult, dropInResult, exerciseResult, finisherResult, warmupResult, specialsResult, exerciseFavoritesResult, finisherFavoritesResult, warmupFavoritesResult, specialFavoritesResult] = await Promise.all([
+  const [seasonResult, seasonBookingResult, trainerResult, trainerDirectoryResult, inviteResult, participantResult, sessionResult, trialResult, dropInResult, exerciseResult, finisherResult, warmupResult, musicResult, specialsResult, exerciseFavoritesResult, finisherFavoritesResult, warmupFavoritesResult, specialFavoritesResult] = await Promise.all([
     seasonsQuery,
     seasonBookingsQuery,
     trainerQuery,
@@ -931,6 +968,7 @@ async function fetchSupportData() {
     exerciseQuery,
     finisherQuery,
     warmupQuery,
+    musicQuery,
     specialsQuery,
     exerciseFavoritesQuery,
     finisherFavoritesQuery,
@@ -973,6 +1011,9 @@ async function fetchSupportData() {
   }
   if (warmupResult.error) {
     notify(getFriendlySupabaseMessage(warmupResult.error, "Warm-Ups konnten nicht geladen werden."), true);
+  }
+  if (musicResult.error) {
+    notify(getFriendlySupabaseMessage(musicResult.error, "Musik konnte nicht geladen werden."), true);
   }
   if (specialsResult.error) {
     notify(getFriendlySupabaseMessage(specialsResult.error, "Specials konnten nicht geladen werden."), true);
@@ -1056,6 +1097,9 @@ async function fetchSupportData() {
   }
   if (!warmupResult.error) {
     state.warmups = (warmupResult.data || []).filter((warmup) => !warmup.notion_archived);
+  }
+  if (!musicResult.error) {
+    state.music = musicResult.data || [];
   }
   if (!specialsResult.error) {
     state.specials = specialsResult.data || [];
@@ -3457,6 +3501,7 @@ function render() {
   renderExercises();
   renderFinishers();
   renderWarmups();
+  renderMusic();
   renderSpecials();
   renderTodayDashboard();
   renderCourseList();
@@ -3470,6 +3515,7 @@ function render() {
   renderMobileSessionSummary();
   renderParticipantProfile();
   renderExerciseDetailView();
+  renderMusicDetailView();
   renderSpecialDetailView();
   updateNavigationVisibility(navigationSections);
   mobileMonthBtn?.classList.toggle("hidden", !isAdmin());
@@ -3928,6 +3974,15 @@ function registerCampusRecentItem({ type, id, title, panel }) {
   renderCampusOverview();
 }
 
+function getMusicById(musicId) {
+  return state.music.find((item) => item.id === musicId) || null;
+}
+
+function closeMusicDetailModal() {
+  state.selectedMusicId = null;
+  musicDetailModal?.classList.add("hidden");
+}
+
 function closeSpecialDetailModal() {
   state.selectedSpecialId = null;
   specialDetailModal?.classList.add("hidden");
@@ -3958,6 +4013,97 @@ async function handleDeleteParticipantConfirm() {
 
   if (context.mode === "exclude-session") {
     await excludeParticipantFromSingleSession(context);
+  }
+}
+
+function openMusicDetailModal(musicId) {
+  state.selectedMusicId = musicId;
+  const music = getMusicById(musicId);
+  if (music) {
+    registerCampusRecentItem({ type: "music", id: music.id, title: music.title || "Musik", panel: "#musicPanel" });
+  }
+  renderMusic();
+  queueMusicSignedUrl(musicId);
+  renderMusicDetailView();
+}
+
+function getCachedMusicSignedUrl(musicId) {
+  const cached = state.musicSignedUrls[musicId];
+  if (!cached || !cached.url || !cached.expiresAt) {
+    return null;
+  }
+  if (cached.expiresAt <= Date.now() + 30_000) {
+    return null;
+  }
+  return cached.url;
+}
+
+async function ensureMusicSignedUrl(musicId, { forceRefresh = false, download = false } = {}) {
+  if (!state.supabase) {
+    throw new Error("Supabase ist nicht verbunden.");
+  }
+
+  const music = getMusicById(musicId);
+  if (!music?.storage_path) {
+    throw new Error("Für diesen Track ist noch keine Audio-Datei hinterlegt.");
+  }
+
+  if (!download && !forceRefresh) {
+    const cachedUrl = getCachedMusicSignedUrl(musicId);
+    if (cachedUrl) {
+      return cachedUrl;
+    }
+  }
+
+  const { data, error } = await state.supabase
+    .storage
+    .from(MUSIC_BUCKET)
+    .createSignedUrl(music.storage_path, 60 * 60, download ? { download: music.file_name || `${music.title || "track"}.mp3` } : undefined);
+
+  if (error) {
+    throw error;
+  }
+
+  const signedUrl = data?.signedUrl || null;
+  if (!signedUrl) {
+    throw new Error("Die Audio-Vorschau konnte nicht erzeugt werden.");
+  }
+
+  if (!download) {
+    state.musicSignedUrls[musicId] = {
+      url: signedUrl,
+      expiresAt: Date.now() + 55 * 60 * 1000,
+    };
+  }
+
+  return signedUrl;
+}
+
+async function queueMusicSignedUrl(musicId) {
+  if (!musicId || state.musicUrlLoadingId === musicId || getCachedMusicSignedUrl(musicId)) {
+    return;
+  }
+
+  state.musicUrlLoadingId = musicId;
+  renderMusic();
+
+  try {
+    await ensureMusicSignedUrl(musicId);
+  } catch (error) {
+    notify(getFriendlySupabaseMessage(error, "Audio-Vorschau konnte nicht geladen werden."), true);
+  } finally {
+    state.musicUrlLoadingId = null;
+    renderMusic();
+    renderMusicDetailView();
+  }
+}
+
+async function handleMusicDownload(musicId) {
+  try {
+    const signedUrl = await ensureMusicSignedUrl(musicId, { forceRefresh: true, download: true });
+    window.open(signedUrl, "_blank", "noopener,noreferrer");
+  } catch (error) {
+    notify(getFriendlySupabaseMessage(error, "Download konnte nicht vorbereitet werden."), true);
   }
 }
 
@@ -4926,6 +5072,7 @@ function renderCampusOverview() {
   const latestExerciseSync = state.exercises.map((item) => item.synced_at).filter(Boolean).sort((a, b) => String(b).localeCompare(String(a)))[0] || null;
   const latestFinisherSync = state.finishers.map((item) => item.synced_at).filter(Boolean).sort((a, b) => String(b).localeCompare(String(a)))[0] || null;
   const latestWarmupSync = state.warmups.map((item) => item.synced_at).filter(Boolean).sort((a, b) => String(b).localeCompare(String(a)))[0] || null;
+  const latestMusicUpdate = state.music.map((item) => item.updated_at || item.created_at).filter(Boolean).sort((a, b) => String(b).localeCompare(String(a)))[0] || null;
   const latestSpecialUpdate = state.specials.map((item) => item.updated_at || item.created_at).filter(Boolean).sort((a, b) => String(b).localeCompare(String(a)))[0] || null;
 
   const cards = [
@@ -4964,6 +5111,15 @@ function renderCampusOverview() {
       sync: latestWarmupSync,
       panel: "#warmupPanel",
       copy: "Kompakte Warm-Up-Sammlung für schnelle Trainer-Inspiration im Alltag."
+    },
+    {
+      eyebrow: "CAMPUS",
+      title: "Musik",
+      count: state.music.length,
+      favorites: 0,
+      sync: latestMusicUpdate,
+      panel: "#musicPanel",
+      copy: "Tracks und Playbacks für Trainer mit Vorschau, Details und Download."
     },
     {
       eyebrow: "CAMPUS",
@@ -5021,6 +5177,7 @@ function renderCampusOverview() {
           exercise: "#exercisePanel",
           finisher: "#finisherPanel",
           warmup: "#warmupPanel",
+          music: "#musicPanel",
           special: "#specialsPanel",
         };
         openCampusResult({ type, id, panel: panelMap[type] });
@@ -5059,6 +5216,14 @@ function renderCampusOverview() {
         active: state.campusSearchType === "warmup",
         action: () => {
           state.campusSearchType = "warmup";
+          renderCampusOverview();
+        },
+      },
+      {
+        label: "Musik",
+        active: state.campusSearchType === "music",
+        action: () => {
+          state.campusSearchType = "music";
           renderCampusOverview();
         },
       },
@@ -5149,6 +5314,8 @@ function renderCampusOverview() {
         openFinisherDetailModal(id);
       } else if (type === "warmup") {
         openWarmupDetailModal(id);
+      } else if (type === "music") {
+        openMusicDetailModal(id);
       } else if (type === "special") {
         openSpecialDetailModal(id);
       }
@@ -5688,6 +5855,26 @@ function getFilteredSpecials() {
   });
 }
 
+function getFilteredMusic() {
+  const searchNeedle = String(state.musicSearch || "").trim().toLowerCase();
+  return state.music.filter((item) => {
+    if (!searchNeedle) {
+      return true;
+    }
+
+    const haystack = [
+      item.title,
+      item.description,
+      item.file_name,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return haystack.includes(searchNeedle);
+  });
+}
+
 function getCampusSearchResults() {
   const needle = String(state.campusSearch || "").trim().toLowerCase();
   if (!needle) {
@@ -5698,6 +5885,7 @@ function getCampusSearchResults() {
     ...state.exercises.map((item) => ({ type: "exercise", id: item.id, title: item.title, meta: [item.category, item.focus, item.level].filter(Boolean).join(" • "), panel: "#exercisePanel", search: [item.title, item.category, item.focus, item.level, item.description].filter(Boolean).join(" ") })),
     ...state.finishers.map((item) => ({ type: "finisher", id: item.id, title: item.title, meta: [item.category, item.focus, item.level].filter(Boolean).join(" • "), panel: "#finisherPanel", search: [item.title, item.category, item.focus, item.level, item.description].filter(Boolean).join(" ") })),
     ...state.warmups.map((item) => ({ type: "warmup", id: item.id, title: item.title, meta: [item.level, item.equipment].filter(Boolean).join(" • "), panel: "#warmupPanel", search: [item.title, item.level, item.equipment, item.description].filter(Boolean).join(" ") })),
+    ...state.music.map((item) => ({ type: "music", id: item.id, title: item.title, meta: [item.file_name, formatFileSize(item.file_size)].filter(Boolean).join(" • "), panel: "#musicPanel", search: [item.title, item.file_name, item.description].filter(Boolean).join(" ") })),
     ...state.specials.map((item) => ({ type: "special", id: item.id, title: item.title, meta: [item.file_name, formatFileSize(item.file_size)].filter(Boolean).join(" • "), panel: "#specialsPanel", search: [item.title, item.file_name, item.description].filter(Boolean).join(" ") })),
   ];
 
@@ -5715,6 +5903,8 @@ function openCampusResult(result) {
     openFinisherDetailModal(result.id);
   } else if (result.type === "warmup") {
     openWarmupDetailModal(result.id);
+  } else if (result.type === "music") {
+    openMusicDetailModal(result.id);
   } else if (result.type === "special") {
     openSpecialDetailModal(result.id);
   }
@@ -5726,6 +5916,7 @@ function getCampusTypeLabel(type) {
     exercise: "Übungen",
     finisher: "Finisher",
     warmup: "Warm-Ups",
+    music: "Musik",
     special: "Specials",
   }[type] || type;
 }
@@ -6093,6 +6284,318 @@ function renderSpecialDetailView() {
   });
 
   specialDetailModal.classList.remove("hidden");
+}
+
+function renderMusic() {
+  if (!musicMeta || !musicPreviewCard || !musicTableBody || !musicCards) {
+    return;
+  }
+
+  if (musicSearch) {
+    musicSearch.value = state.musicSearch || "";
+  }
+
+  musicUploadForm?.classList.toggle("hidden", !isAdmin());
+  if (musicUploadBtn) {
+    musicUploadBtn.disabled = state.musicUploading;
+    musicUploadBtn.textContent = state.musicUploading ? "Lädt hoch..." : "Musik hochladen";
+  }
+
+  const visibleMusic = getFilteredMusic();
+  if (state.selectedMusicId && !visibleMusic.some((item) => item.id === state.selectedMusicId)) {
+    state.selectedMusicId = visibleMusic[0]?.id || null;
+  }
+  if (!state.selectedMusicId && visibleMusic.length) {
+    state.selectedMusicId = visibleMusic[0].id;
+  }
+
+  const selectedMusic = getMusicById(state.selectedMusicId);
+  const selectedMusicUrl = selectedMusic ? getCachedMusicSignedUrl(selectedMusic.id) : null;
+  const latestMusicUpdate = state.music.map((item) => item.updated_at || item.created_at).filter(Boolean).sort((a, b) => String(b).localeCompare(String(a)))[0] || null;
+
+  if (selectedMusic && !selectedMusicUrl) {
+    queueMusicSignedUrl(selectedMusic.id);
+  }
+
+  musicMeta.innerHTML = `
+    <h3>Bibliotheksstatus</h3>
+    <p class="stat-meta">${state.music.length} Tracks in der App.</p>
+    <p class="stat-meta">${latestMusicUpdate ? `Zuletzt aktualisiert: ${escapeHtml(formatDateTimeLabel(latestMusicUpdate))}` : "Noch kein Upload vorhanden."}</p>
+    <p class="stat-meta">${isAdmin() ? "Audio-Dateien lädst du hier direkt in den CAMPUS hoch. Trainer können sie sofort anhören oder herunterladen." : "Hier findest du Musik und Playbacks zum direkten Anhören oder Herunterladen."}</p>
+  `;
+
+  musicPreviewCard.innerHTML = selectedMusic
+    ? `
+      <div>
+        <p class="eyebrow">Audio-Vorschau</p>
+        <h3>${escapeHtml(selectedMusic.title || "Track")}</h3>
+      </div>
+      <div class="specials-preview-meta">
+        <span class="course-status-pill">${escapeHtml(selectedMusic.file_name || "Audio-Datei")}</span>
+        <span class="course-status-pill course-status-pill-info">${escapeHtml(formatFileSize(selectedMusic.file_size))}</span>
+        <span class="course-status-pill course-status-pill-warn">${escapeHtml(formatDateTimeLabel(selectedMusic.updated_at || selectedMusic.created_at))}</span>
+      </div>
+      ${String(selectedMusic.description || "").trim() ? `<p class="exercise-copy">${escapeHtml(selectedMusic.description)}</p>` : `<p class="exercise-copy-muted">Noch keine zusätzliche Beschreibung hinterlegt.</p>`}
+      <div class="stat-card-actions exercise-actions">
+        <button type="button" class="ghost" data-music-detail="${escapeHtml(selectedMusic.id)}">Details</button>
+        <button type="button" class="ghost" data-music-download="${escapeHtml(selectedMusic.id)}">Download</button>
+        ${isAdmin() ? `<button type="button" class="danger" data-music-delete="${escapeHtml(selectedMusic.id)}">Löschen</button>` : ""}
+      </div>
+      <div class="specials-preview-frame">
+        ${selectedMusicUrl
+          ? `<div class="stack"><audio class="music-player" controls preload="metadata" src="${escapeHtml(selectedMusicUrl)}"></audio></div>`
+          : `<div class="specials-preview-placeholder"><p>${state.musicUrlLoadingId === selectedMusic.id ? "Audio-Vorschau wird geladen..." : "Audio-Vorschau wird vorbereitet..."}</p></div>`}
+      </div>
+    `
+    : `
+      <div class="specials-preview-placeholder">
+        <p>Noch kein Track ausgewählt. Wähle unten Musik aus der Liste.</p>
+      </div>
+    `;
+
+  if (!visibleMusic.length) {
+    musicTableBody.innerHTML = `
+      <tr>
+        <td colspan="5">
+          <div class="empty-state">
+            <p>Noch keine Musik sichtbar. Lade zuerst einen Track hoch oder passe die Suche an.</p>
+          </div>
+        </td>
+      </tr>
+    `;
+    musicCards.innerHTML = `
+      <div class="empty-state">
+        <p>Noch keine Musik sichtbar. Lade zuerst einen Track hoch oder passe die Suche an.</p>
+      </div>
+    `;
+  } else {
+    musicTableBody.innerHTML = visibleMusic.map((item) => `
+      <tr class="${item.id === state.selectedMusicId ? "exercise-row-favorite" : ""}">
+        <td><strong>${escapeHtml(item.title || "Ohne Titel")}</strong></td>
+        <td>${escapeHtml(item.file_name || "-")}</td>
+        <td>${escapeHtml(formatFileSize(item.file_size))}</td>
+        <td>${escapeHtml(formatDateTimeLabel(item.updated_at || item.created_at))}</td>
+        <td>
+          <div class="mini-actions table-actions">
+            <button type="button" class="ghost" data-music-preview="${escapeHtml(item.id)}">Vorschau</button>
+            <button type="button" class="ghost" data-music-detail="${escapeHtml(item.id)}">Details</button>
+            <button type="button" class="ghost" data-music-download="${escapeHtml(item.id)}">Download</button>
+            ${isAdmin() ? `<button type="button" class="danger" data-music-delete="${escapeHtml(item.id)}">Löschen</button>` : ""}
+          </div>
+        </td>
+      </tr>
+    `).join("");
+
+    musicCards.innerHTML = visibleMusic.map((item) => `
+      <article class="exercise-card ${item.id === state.selectedMusicId ? "exercise-card-favorite" : ""}">
+        <div class="exercise-card-head">
+          <div>
+            <p class="eyebrow">Musik</p>
+            <h3>${escapeHtml(item.title || "Ohne Titel")}</h3>
+          </div>
+          <div class="course-status-grid">
+            <span class="course-status-pill">${escapeHtml(formatFileSize(item.file_size))}</span>
+          </div>
+        </div>
+        <div class="exercise-meta-grid">
+          <p><strong>Datei</strong><span>${escapeHtml(item.file_name || "-")}</span></p>
+          <p><strong>Aktualisiert</strong><span>${escapeHtml(formatDateTimeLabel(item.updated_at || item.created_at))}</span></p>
+        </div>
+        ${String(item.description || "").trim() ? `<p class="exercise-copy">${escapeHtml(item.description)}</p>` : ""}
+        <div class="stat-card-actions exercise-actions">
+          <button type="button" class="ghost" data-music-preview="${escapeHtml(item.id)}">Vorschau</button>
+          <button type="button" class="ghost" data-music-detail="${escapeHtml(item.id)}">Details</button>
+          <button type="button" class="ghost" data-music-download="${escapeHtml(item.id)}">Download</button>
+          ${isAdmin() ? `<button type="button" class="danger" data-music-delete="${escapeHtml(item.id)}">Löschen</button>` : ""}
+        </div>
+      </article>
+    `).join("");
+  }
+
+  musicPanel?.querySelectorAll("[data-music-preview]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.selectedMusicId = button.dataset.musicPreview;
+      renderMusic();
+      queueMusicSignedUrl(button.dataset.musicPreview);
+    });
+  });
+  musicPanel?.querySelectorAll("[data-music-detail]").forEach((button) => {
+    button.addEventListener("click", () => openMusicDetailModal(button.dataset.musicDetail));
+  });
+  musicPanel?.querySelectorAll("[data-music-download]").forEach((button) => {
+    button.addEventListener("click", () => handleMusicDownload(button.dataset.musicDownload));
+  });
+  musicPanel?.querySelectorAll("[data-music-delete]").forEach((button) => {
+    button.addEventListener("click", () => handleMusicDelete(button.dataset.musicDelete));
+  });
+}
+
+function renderMusicDetailView() {
+  if (!musicDetailModal || !musicDetailBody || !musicDetailTitle) {
+    return;
+  }
+
+  const music = getMusicById(state.selectedMusicId);
+  if (!music) {
+    musicDetailModal.classList.add("hidden");
+    return;
+  }
+
+  const signedUrl = getCachedMusicSignedUrl(music.id);
+  musicDetailTitle.textContent = music.title || "Track-Details";
+  musicDetailBody.innerHTML = `
+    <div class="course-status-grid">
+      <span class="course-status-pill">${escapeHtml(music.file_name || "Audio-Datei")}</span>
+      <span class="course-status-pill course-status-pill-info">${escapeHtml(formatFileSize(music.file_size))}</span>
+      <span class="course-status-pill course-status-pill-warn">${escapeHtml(formatDateTimeLabel(music.updated_at || music.created_at))}</span>
+    </div>
+    ${String(music.description || "").trim() ? `
+      <section class="exercise-detail-card">
+        <h4>Beschreibung</h4>
+        <div class="exercise-detail-list">
+          <div class="exercise-detail-item">
+            <p class="exercise-copy">${escapeHtml(music.description)}</p>
+          </div>
+        </div>
+      </section>
+    ` : ""}
+    <div class="stat-card-actions exercise-actions">
+      <button type="button" class="ghost" data-music-download="${escapeHtml(music.id)}">Download</button>
+      ${signedUrl ? `<a class="ghost" href="${escapeHtml(signedUrl)}" target="_blank" rel="noreferrer">Audio separat öffnen</a>` : ""}
+    </div>
+    <div class="specials-detail-frame">
+      ${signedUrl
+        ? `<div class="stack" style="padding:24px;"><audio class="music-player" controls preload="metadata" src="${escapeHtml(signedUrl)}"></audio></div>`
+        : `<div class="specials-preview-placeholder"><p>${state.musicUrlLoadingId === music.id ? "Audio-Vorschau wird geladen..." : "Audio-Vorschau wird vorbereitet..."}</p></div>`}
+    </div>
+  `;
+
+  musicDetailBody.querySelectorAll("[data-music-download]").forEach((button) => {
+    button.addEventListener("click", () => handleMusicDownload(button.dataset.musicDownload));
+  });
+
+  musicDetailModal.classList.remove("hidden");
+}
+
+async function handleMusicUpload(event) {
+  event.preventDefault();
+
+  if (!isAdmin()) {
+    notify("Nur Admins können CAMPUS-Musik hochladen.", true);
+    return;
+  }
+  if (!state.supabase) {
+    return;
+  }
+
+  const formData = new FormData(musicUploadForm);
+  const title = String(formData.get("title") || "").trim();
+  const description = String(formData.get("description") || "").trim();
+  const file = formData.get("file");
+
+  if (!title) {
+    notify("Bitte einen Titel für den Track eingeben.", true);
+    return;
+  }
+  if (!(file instanceof File) || !file.size) {
+    notify("Bitte eine Audio-Datei auswählen.", true);
+    return;
+  }
+  if (file.type && !String(file.type).startsWith("audio/")) {
+    notify("Es können nur Audio-Dateien hochgeladen werden.", true);
+    return;
+  }
+
+  state.musicUploading = true;
+  renderMusic();
+  notify("Audio-Upload wird gestartet...");
+
+  const fileExtension = getFileExtension(file?.name) || "mp3";
+  const storagePath = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${fileExtension}`;
+
+  try {
+    const uploadResult = await withTimeout(
+      state.supabase
+        .storage
+        .from(MUSIC_BUCKET)
+        .upload(storagePath, file, {
+          contentType: file.type || "audio/mpeg",
+          upsert: false,
+        }),
+      45000,
+      "Der Audio-Upload zu Supabase dauert zu lange. Bitte später erneut versuchen.",
+    );
+
+    if (uploadResult.error) {
+      throw uploadResult.error;
+    }
+
+    const payload = {
+      title,
+      description: description || null,
+      file_name: file.name || "track.mp3",
+      storage_path: storagePath,
+      mime_type: file.type || "audio/mpeg",
+      file_size: file.size || null,
+      uploaded_by: state.session?.user?.id || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    const dbResult = await withTimeout(
+      state.supabase.from("campus_music").insert(payload),
+      20000,
+      "Der Bibliothekseintrag für die Musik konnte nicht rechtzeitig gespeichert werden.",
+    );
+
+    if (dbResult.error) {
+      await state.supabase.storage.from(MUSIC_BUCKET).remove([storagePath]);
+      throw dbResult.error;
+    }
+
+    musicUploadForm?.reset();
+    await withTimeout(
+      refreshVisibleData({ context: "Music upload refresh", silent: true }),
+      30000,
+      "Die Musik-Liste konnte nach dem Upload nicht rechtzeitig aktualisiert werden.",
+    );
+    state.selectedMusicId = state.music[0]?.id || state.selectedMusicId;
+    renderMusic();
+    notify(`Track "${title}" wurde hochgeladen.`);
+  } catch (error) {
+    notify(getFriendlySupabaseMessage(error, "Musik konnte nicht hochgeladen werden."), true);
+  } finally {
+    state.musicUploading = false;
+    renderMusic();
+  }
+}
+
+async function handleMusicDelete(musicId) {
+  const music = getMusicById(musicId);
+  if (!music || !isAdmin()) {
+    return;
+  }
+
+  const confirmed = window.confirm(`Soll "${music.title || music.file_name}" wirklich gelöscht werden?`);
+  if (!confirmed) {
+    return;
+  }
+
+  const deleteDbResult = await state.supabase.from("campus_music").delete().eq("id", music.id);
+  if (deleteDbResult.error) {
+    notify(getFriendlySupabaseMessage(deleteDbResult.error, "Musik konnte nicht gelöscht werden."), true);
+    return;
+  }
+
+  await state.supabase.storage.from(MUSIC_BUCKET).remove([music.storage_path]);
+  state.music = state.music.filter((item) => item.id !== music.id);
+  state.musicSignedUrls[music.id] = null;
+  if (state.selectedMusicId === music.id) {
+    state.selectedMusicId = state.music[0]?.id || null;
+  }
+  renderMusic();
+  closeMusicDetailModal();
+  renderCampusOverview();
+  notify(`"${music.title || music.file_name}" wurde gelöscht.`);
 }
 
 async function handleSpecialUpload(event) {
@@ -11758,6 +12261,7 @@ function getAvailableSections({ connected, loggedIn, appUnlocked }) {
         "#exercisePanel",
         "#finisherPanel",
         "#warmupPanel",
+        "#musicPanel",
         "#specialsPanel",
         "#courseListPanel",
         "#planningPanel",
@@ -11776,6 +12280,7 @@ function getAvailableSections({ connected, loggedIn, appUnlocked }) {
         "#exercisePanel",
         "#finisherPanel",
         "#warmupPanel",
+        "#musicPanel",
         "#specialsPanel",
         "#courseListPanel",
         "#attendancePanel",
@@ -11798,6 +12303,7 @@ function getNavigationSections(availableSections, { connected, loggedIn, appUnlo
     "#exercisePanel",
     "#finisherPanel",
     "#warmupPanel",
+    "#musicPanel",
     "#specialsPanel",
     "#courseListPanel",
     "#attendancePanel",
@@ -12288,9 +12794,11 @@ function getFriendlySupabaseMessage(error, fallback) {
     || normalized.includes("finisher_favorites")
     || normalized.includes("warmup_library")
     || normalized.includes("warmup_favorites")
+    || normalized.includes("campus_music")
     || normalized.includes("campus_specials")
     || normalized.includes("special_favorites")
     || normalized.includes("storage.objects")
+    || normalized.includes("campus-music")
     || normalized.includes("campus-specials")
     || normalized.includes("notion_page_id")
   ) {
@@ -12870,6 +13378,7 @@ function formatCampusRecentMeta(item) {
     exercise: "Übung",
     finisher: "Finisher",
     warmup: "Warm-Up",
+    music: "Musik",
     special: "Special",
   };
   const label = labels[item?.type] || "CAMPUS";

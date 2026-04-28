@@ -342,6 +342,19 @@ create table if not exists public.campus_specials (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.campus_music (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  description text,
+  file_name text not null,
+  storage_path text not null unique,
+  mime_type text not null,
+  file_size bigint,
+  uploaded_by uuid references public.profiles(user_id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 do $$
 begin
   if not exists (
@@ -377,6 +390,13 @@ for each row execute procedure public.set_updated_at();
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('campus-specials', 'campus-specials', false, 31457280, array['application/pdf'])
+on conflict (id) do update
+set public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('campus-music', 'campus-music', false, 31457280, array['audio/mpeg', 'audio/mp4', 'audio/x-m4a', 'audio/wav', 'audio/ogg', 'audio/webm'])
 on conflict (id) do update
 set public = excluded.public,
     file_size_limit = excluded.file_size_limit,
@@ -515,6 +535,7 @@ alter table public.drop_in_bookings enable row level security;
 alter table public.exercise_library enable row level security;
 alter table public.finisher_library enable row level security;
 alter table public.warmup_library enable row level security;
+alter table public.campus_music enable row level security;
 alter table public.campus_specials enable row level security;
 alter table public.exercise_favorites enable row level security;
 alter table public.finisher_favorites enable row level security;
@@ -647,6 +668,21 @@ to authenticated
 using (public.current_user_role() = 'admin')
 with check (public.current_user_role() = 'admin');
 
+drop policy if exists "authenticated can read campus music" on public.campus_music;
+create policy "authenticated can read campus music"
+on public.campus_music
+for select
+to authenticated
+using (public.current_user_role() in ('admin', 'trainer'));
+
+drop policy if exists "admins manage campus music" on public.campus_music;
+create policy "admins manage campus music"
+on public.campus_music
+for all
+to authenticated
+using (public.current_user_role() = 'admin')
+with check (public.current_user_role() = 'admin');
+
 drop policy if exists "users manage own exercise favorites" on public.exercise_favorites;
 create policy "users manage own exercise favorites"
 on public.exercise_favorites
@@ -722,6 +758,50 @@ for delete
 to authenticated
 using (
   bucket_id = 'campus-specials'
+  and public.current_user_role() = 'admin'
+);
+
+drop policy if exists "authenticated can read campus-music bucket" on storage.objects;
+create policy "authenticated can read campus-music bucket"
+on storage.objects
+for select
+to authenticated
+using (
+  bucket_id = 'campus-music'
+  and public.current_user_role() in ('admin', 'trainer')
+);
+
+drop policy if exists "admins upload campus-music bucket" on storage.objects;
+create policy "admins upload campus-music bucket"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'campus-music'
+  and public.current_user_role() = 'admin'
+);
+
+drop policy if exists "admins update campus-music bucket" on storage.objects;
+create policy "admins update campus-music bucket"
+on storage.objects
+for update
+to authenticated
+using (
+  bucket_id = 'campus-music'
+  and public.current_user_role() = 'admin'
+)
+with check (
+  bucket_id = 'campus-music'
+  and public.current_user_role() = 'admin'
+);
+
+drop policy if exists "admins delete campus-music bucket" on storage.objects;
+create policy "admins delete campus-music bucket"
+on storage.objects
+for delete
+to authenticated
+using (
+  bucket_id = 'campus-music'
   and public.current_user_role() = 'admin'
 );
 

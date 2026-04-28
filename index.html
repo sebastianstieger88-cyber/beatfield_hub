@@ -48,6 +48,7 @@
             <a href="#exercisePanel">&#220;bungen</a>
             <a href="#finisherPanel">Finisher</a>
             <a href="#warmupPanel">Warm-Up</a>
+            <a href="#musicPanel">Musik</a>
             <a href="#specialsPanel">Specials</a>
           </div>
         </details>
@@ -765,6 +766,55 @@
         <div id="specialsCards" class="exercise-grid"></div>
       </section>
 
+      <section class="panel wide hidden" id="musicPanel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">CAMPUS</p>
+            <h2>Musik für Trainer</h2>
+          </div>
+        </div>
+        <form id="musicUploadForm" class="stack inline-form hidden">
+          <label>
+            <span>Titel</span>
+            <input name="title" type="text" placeholder="z. B. Saturday Push Playlist" required>
+          </label>
+          <label>
+            <span>Beschreibung</span>
+            <input name="description" type="text" placeholder="Kurzbeschreibung für Trainer">
+          </label>
+          <label>
+            <span>Audio-Datei</span>
+            <input id="musicFileInput" name="file" type="file" accept="audio/*" required>
+          </label>
+          <button id="musicUploadBtn" type="submit" class="primary">Musik hochladen</button>
+        </form>
+        <div class="exercise-toolbar finisher-toolbar specials-toolbar">
+          <label>
+            <span>Suche</span>
+            <input id="musicSearch" type="search" placeholder="Titel, Beschreibung oder Dateiname">
+          </label>
+        </div>
+        <div id="musicMeta" class="stat-card exercise-sync-meta"></div>
+        <div class="specials-layout">
+          <div id="musicPreviewCard" class="stat-card specials-preview-card"></div>
+          <div class="table-wrap exercise-table-wrap">
+            <table class="exercise-table">
+              <thead>
+                <tr>
+                  <th>Track</th>
+                  <th>Datei</th>
+                  <th>Gr&#246;&#223;e</th>
+                  <th>Aktualisiert</th>
+                  <th>Aktion</th>
+                </tr>
+              </thead>
+              <tbody id="musicTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="musicCards" class="exercise-grid"></div>
+      </section>
+
       <section class="panel hidden" id="courseListPanel">
         <div class="panel-heading">
           <div>
@@ -1020,6 +1070,19 @@
         <button id="closeSpecialDetailModalBtn" type="button" class="ghost">Schlie&#223;en</button>
       </div>
       <div id="specialDetailBody" class="stack"></div>
+    </div>
+  </div>
+
+  <div id="musicDetailModal" class="overlay hidden">
+    <div class="modal-card">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Musik</p>
+          <h2 id="musicDetailTitle">Track-Details</h2>
+        </div>
+        <button id="closeMusicDetailModalBtn" type="button" class="ghost">Schlie&#223;en</button>
+      </div>
+      <div id="musicDetailBody" class="stack"></div>
     </div>
   </div>
 
