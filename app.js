@@ -11389,6 +11389,14 @@ function getDistinctSessionsByCourseDate(sessions, preferredSeasonId = null) {
 
 function getSessionsForMonth(monthValue) {
   const preferredSeasonId = getPreferredAnalysisSeasonId();
+  if (preferredSeasonId) {
+    const preferredSeasonSessions = getSeasonSessions(preferredSeasonId)
+      .filter((session) => String(session.session_date).startsWith(monthValue));
+    if (preferredSeasonSessions.length) {
+      return getDistinctSessionsByCourseDate(preferredSeasonSessions, preferredSeasonId);
+    }
+  }
+
   return getDistinctSessionsByCourseDate(
     state.sessions.filter((session) => String(session.session_date).startsWith(monthValue)),
     preferredSeasonId,
