@@ -7881,20 +7881,126 @@ function renderSeasons() {
     return;
   }
 
+  const activeCount = state.seasons.filter((season) => season.status === "aktiv").length;
+  const plannedCount = state.seasons.filter((season) => season.status === "geplant").length;
+  const closedCount = state.seasons.filter((season) => season.status === "abgeschlossen").length;
+  const focusedSeason = state.seasons.find((entry) => entry.id === state.selectedSeasonId) || null;
+
+  const overviewCard = document.createElement("article");
+  overviewCard.className = "stat-card season-overview-card";
+  overviewCard.innerHTML = `
+    <div class="season-overview-head">
+      <div>
+        <p class="eyebrow">Season-Übersicht</p>
+        <h3>${focusedSeason ? escapeHtml(focusedSeason.name) : "Alle Seasons"}</h3>
+        <p class="stat-meta">${focusedSeason ? "Aktuell im Fokus für Buchungen und Verlängerungen." : "Wähle eine Season als Fokus oder arbeite über die Gesamtübersicht."}</p>
+      </div>
+      <div class="course-status-grid">
+        <span class="course-status-pill">${state.seasons.length} gesamt</span>
+        <span class="course-status-pill course-status-pill-info">${activeCount} aktiv</span>
+        <span class="course-status-pill">${plannedCount} geplant</span>
+        <span class="course-status-pill course-status-pill-warn">${closedCount} abgeschlossen</span>
+      </div>
+    </div>
+  `;
+  seasonList.appendChild(overviewCard);
+
   visibleSeasons.forEach((season) => {
     const card = document.createElement("article");
-    card.className = "stat-card";
-    const bookings = state.seasonBookings.filter((booking) => booking.season_id === season.id);
     const trainingDates = getSeasonTrainingDates(season.id);
+    const isFocused = state.selectedSeasonId === season.id;
+    card.className = `stat-card season-card${season.status === "aktiv" ? " season-card-active" : ""}${isFocused ? " season-card-focused" : ""}`;
+    const bookings = state.seasonBookings.filter((booking) => booking.season_id === season.id);
+    const nextSeason = getNextSeasonForRenewal(season);
+    const dateRangeLabel = `${formatDateLabel(season.start_date)} bis ${formatDateLabel(season.end_date)}`;
+    const nextSeasonLabel = nextSeason ? nextSeason.name : "Noch keine Folge-Season";
+    const monthCount = new Set(trainingDates.map((dateValue) => String(dateValue || "").slice(0, 7)).filter(Boolean)).size;
+    const weekdayMap = new Map();
+    trainingDates.forEach((dateValue) => {
+      const weekday = getWeekdayLabelFromDate(dateValue);
+      weekdayMap.set(weekday, (weekdayMap.get(weekday) || 0) + 1);
+    });
+    const weekdaySummary = Array.from(weekdayMap.entries())
+      .slice(0, 4)
+      .map(([weekday, count]) => `${weekday} · ${count}x`);
+    const previewDates = trainingDates.slice(0, 4);
+    const remainingPreviewCount = Math.max(trainingDates.length - previewDates.length, 0);
     card.innerHTML = `
-      <h3>${escapeHtml(season.name)}</h3>
-      <p class="stat-meta">${escapeHtml(season.start_date)} bis ${escapeHtml(season.end_date)}</p>
-      <p class="stat-meta">Status: ${escapeHtml(season.status)}</p>
-      <p class="stat-meta">${bookings.length} Buchungen</p>
+      <div class="season-card-head">
+        <div>
+          <h3>${escapeHtml(season.name)}</h3>
+          <p class="stat-meta">${escapeHtml(dateRangeLabel)}</p>
+        </div>
+        <div class="course-status-grid">
+          <span class="course-status-pill course-status-pill-info">${escapeHtml(season.status)}</span>
+          ${isFocused ? '<span class="course-status-pill">im Fokus</span>' : ""}
+          <span class="course-status-pill">${bookings.length} Buchungen</span>
+          <span class="course-status-pill">${trainingDates.length} Termine</span>
+        </div>
+      </div>
+      <div class="season-card-summary">
+        <div class="season-card-summary-item">
+          <strong>Nächste Folge-Season</strong>
+          <span>${escapeHtml(nextSeasonLabel)}</span>
+        </div>
+        <div class="season-card-summary-item">
+          <strong>Datumsfenster</strong>
+          <span>${escapeHtml(season.start_date)} bis ${escapeHtml(season.end_date)}</span>
+        </div>
+        <div class="season-card-summary-item">
+          <strong>Trainingsrhythmus</strong>
+          <span>${weekdaySummary.length ? escapeHtml(weekdaySummary.join(" · ")) : "Noch keine Trainingstage"}</span>
+        </div>
+        <div class="season-card-summary-item">
+          <strong>Kalenderumfang</strong>
+          <span>${monthCount || 0} Monate · ${trainingDates.length} Termine</span>
+        </div>
+      </div>
     `;
 
+    const previewBlock = document.createElement("div");
+    previewBlock.className = "season-preview-block";
+    previewBlock.innerHTML = `
+      <div class="season-preview-head">
+        <strong>Schnellüberblick</strong>
+        <span class="stat-meta">Die ersten Termine auf einen Blick</span>
+      </div>
+    `;
+    const previewChips = document.createElement("div");
+    previewChips.className = "season-preview-chips";
+    if (!previewDates.length) {
+      const emptyPreview = document.createElement("span");
+      emptyPreview.className = "season-preview-chip is-muted";
+      emptyPreview.textContent = "Noch keine Termine";
+      previewChips.appendChild(emptyPreview);
+    } else {
+      previewDates.forEach((dateValue) => {
+        const chip = document.createElement("span");
+        chip.className = "season-preview-chip";
+        chip.textContent = `${getWeekdayLabelFromDate(dateValue)}, ${formatCompactDateLabel(dateValue)}`;
+        previewChips.appendChild(chip);
+      });
+      if (remainingPreviewCount > 0) {
+        const moreChip = document.createElement("span");
+        moreChip.className = "season-preview-chip is-muted";
+        moreChip.textContent = `+${remainingPreviewCount} weitere`;
+        previewChips.appendChild(moreChip);
+      }
+    }
+    previewBlock.appendChild(previewChips);
+    card.appendChild(previewBlock);
+
     const schedule = renderSeasonTrainingSchedule(trainingDates);
-    card.appendChild(schedule);
+    const scheduleDetails = document.createElement("details");
+    scheduleDetails.className = "season-card-details";
+    if (season.status === "aktiv" || isFocused) {
+      scheduleDetails.open = true;
+    }
+    scheduleDetails.innerHTML = `
+      <summary>Kalender & konkrete Termine · ${trainingDates.length} Termine in ${monthCount || 0} Monaten</summary>
+    `;
+    scheduleDetails.appendChild(schedule);
+    card.appendChild(scheduleDetails);
 
     if (season.status === "aktiv") {
       const addDateRow = document.createElement("div");
@@ -7915,7 +8021,7 @@ function renderSeasons() {
     }
 
     const actions = document.createElement("div");
-    actions.className = "stat-card-actions";
+    actions.className = "stat-card-actions season-card-actions";
     const selectBtn = document.createElement("button");
     selectBtn.type = "button";
     selectBtn.className = "ghost";
@@ -7935,15 +8041,6 @@ function renderSeasons() {
       openSeasonEdit(season);
     });
     actions.appendChild(editBtn);
-
-    const duplicateBtn = document.createElement("button");
-    duplicateBtn.type = "button";
-    duplicateBtn.className = "ghost";
-    duplicateBtn.textContent = "Season duplizieren";
-    duplicateBtn.addEventListener("click", async () => {
-      await handleSeasonDuplicate(season, false);
-    });
-    actions.appendChild(duplicateBtn);
 
     const carryOverBtn = document.createElement("button");
     carryOverBtn.type = "button";
@@ -7965,6 +8062,25 @@ function renderSeasons() {
       actions.appendChild(activateBtn);
     }
 
+    card.appendChild(actions);
+
+    const secondaryActions = document.createElement("details");
+    secondaryActions.className = "season-secondary-actions";
+    secondaryActions.innerHTML = `
+      <summary>Weitere Aktionen</summary>
+    `;
+    const secondaryActionList = document.createElement("div");
+    secondaryActionList.className = "stat-card-actions season-card-actions season-card-actions-secondary";
+
+    const duplicateBtnSecondary = document.createElement("button");
+    duplicateBtnSecondary.type = "button";
+    duplicateBtnSecondary.className = "ghost";
+    duplicateBtnSecondary.textContent = "Season duplizieren";
+    duplicateBtnSecondary.addEventListener("click", async () => {
+      await handleSeasonDuplicate(season, false);
+    });
+    secondaryActionList.appendChild(duplicateBtnSecondary);
+
     if (season.status !== "abgeschlossen") {
       const archiveBtn = document.createElement("button");
       archiveBtn.type = "button";
@@ -7973,7 +8089,7 @@ function renderSeasons() {
       archiveBtn.addEventListener("click", async () => {
         await handleSeasonArchive(season);
       });
-      actions.appendChild(archiveBtn);
+      secondaryActionList.appendChild(archiveBtn);
     }
 
     const deleteBtn = document.createElement("button");
@@ -7983,9 +8099,10 @@ function renderSeasons() {
     deleteBtn.addEventListener("click", async () => {
       await handleSeasonDelete(season);
     });
-    actions.appendChild(deleteBtn);
+    secondaryActionList.appendChild(deleteBtn);
 
-    card.appendChild(actions);
+    secondaryActions.appendChild(secondaryActionList);
+    card.appendChild(secondaryActions);
     seasonList.appendChild(card);
   });
 }
