@@ -1345,7 +1345,7 @@ button.danger {
   margin-top: 14px;
 }
 
-#todayPanel {
+#todayPanel:not(.hidden) {
   display: grid;
   gap: 18px;
 }
