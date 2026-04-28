@@ -1209,6 +1209,18 @@ button.danger {
   margin-bottom: 4px;
 }
 
+.participant-rate-cell,
+.participant-rate-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.participant-rate-cell .stat-meta,
+.participant-rate-stack .stat-meta {
+  font-size: 0.76rem;
+}
+
 @media (max-width: 720px) {
   .session-exclusion-item {
     flex-direction: column;

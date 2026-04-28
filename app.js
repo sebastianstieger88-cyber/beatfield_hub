@@ -8595,16 +8595,17 @@ function renderParticipants() {
     const booking = getParticipantSeasonBooking(participant);
     const beatOutEntry = getBeatOutEntryForParticipantSession(participant.id, session?.id);
     const bookingUsage = getBeatOutUsageForBooking(booking?.id);
-    const rate = isTrialParticipant
-      ? "Probe"
-      : isDropInParticipant
-        ? "Drop-In"
-        : calculateAttendanceRate(course.id, participant.id);
+    const attendanceSummary = !isTrialParticipant && !isDropInParticipant
+      ? getParticipantAttendanceSummary(participant, state.attendanceSeasonId)
+      : null;
     const rateBadge = isTrialParticipant
       ? "Probe"
       : isDropInParticipant
         ? "Drop-In"
-        : `${rate}%`;
+        : `${attendanceSummary.present} von ${attendanceSummary.total}`;
+    const rateMeta = !isTrialParticipant && !isDropInParticipant
+      ? `${attendanceSummary.rate}%`
+      : "";
     const targetOverride = session?.id ? getSessionOverrideForTarget(participant.id, session.id) : null;
     const overrideMeta = targetOverride ? getSessionOverrideLabel(targetOverride) : "";
       const overrideBadge = targetOverride
@@ -8633,7 +8634,12 @@ function renderParticipants() {
         </div>
       </td>
       <td><button type="button" class="attendance-toggle${isPresent ? " is-present" : ""}" aria-label="Anwesenheit umschalten"></button></td>
-      <td><span class="badge">${rateBadge}</span></td>
+      <td>
+        <div class="participant-rate-cell">
+          <span class="badge">${rateBadge}</span>
+          ${rateMeta ? `<span class="stat-meta">${escapeHtml(rateMeta)}</span>` : ""}
+        </div>
+      </td>
       <td>
         <div class="mini-actions table-actions">
           <button type="button" class="ghost participant-beatout-btn${beatOutEntry ? " is-active" : ""}">${beatOutEntry ? "BEAT-OUT aktiv" : "BEAT-OUT"}</button>
@@ -8730,7 +8736,10 @@ function renderParticipants() {
           ${dropInBadge}
           ${overrideBadge}
         </div>
-        <span class="badge">${rateBadge}</span>
+        <div class="participant-rate-stack">
+          <span class="badge">${rateBadge}</span>
+          ${rateMeta ? `<span class="stat-meta">${escapeHtml(rateMeta)}</span>` : ""}
+        </div>
       </div>
         <div class="participant-card-status-row">
           <div class="participant-card-status-copy">
@@ -9958,30 +9967,49 @@ function calculateAttendanceRate(courseId, participantId) {
   return Math.round((present / sessions.length) * 100);
 }
 
-function getParticipantAttendanceRate(participant) {
+function getParticipantAttendanceSummary(participant, seasonId = state.attendanceSeasonId) {
   if (!participant?.course_id || !participant?.id) {
-    return 0;
+    return { present: 0, total: 0, rate: 0 };
   }
 
-  return calculateAttendanceRate(participant.course_id, participant.id);
-}
+  const booking = getParticipantSeasonBooking(participant);
+  const today = getToday();
+  let sessions = getSessionsForCourse(participant.course_id).filter((session) => session.session_date <= today);
 
-function getParticipantSeasonAttendanceRate(participant, seasonId) {
-  if (!participant?.course_id || !participant?.id || !seasonId) {
-    return getParticipantAttendanceRate(participant);
+  if (seasonId) {
+    const season = state.seasons.find((entry) => entry.id === seasonId) || null;
+    sessions = sessions.filter((session) => {
+      if (session.season_id === seasonId) {
+        return true;
+      }
+      if (!season) {
+        return false;
+      }
+      return session.session_date >= season.start_date && session.session_date <= season.end_date;
+    });
   }
 
-  const season = state.seasons.find((entry) => entry.id === seasonId);
-  if (!season) {
-    return getParticipantAttendanceRate(participant);
+  if (booking?.start_date) {
+    sessions = sessions.filter((session) => session.session_date >= booking.start_date);
   }
 
-  const sessions = getSessionsForCourse(participant.course_id).filter((session) => {
-    return session.session_date >= season.start_date && session.session_date <= season.end_date;
-  });
+  const excludedSessionIds = new Set(
+    state.sessionExclusions
+      .filter((entry) => entry.participant_id === participant.id)
+      .map((entry) => entry.session_id),
+  );
 
-  if (!sessions.length) {
-    return 0;
+  const movedOutSessionIds = new Set(
+    state.sessionOverrides
+      .filter((entry) => entry.participant_id === participant.id)
+      .map((entry) => entry.source_session_id),
+  );
+
+  sessions = sessions.filter((session) => !excludedSessionIds.has(session.id) && !movedOutSessionIds.has(session.id));
+
+  const total = sessions.length;
+  if (!total) {
+    return { present: 0, total: 0, rate: 0 };
   }
 
   const sessionIds = new Set(sessions.map((session) => session.id));
@@ -9989,7 +10017,27 @@ function getParticipantSeasonAttendanceRate(participant, seasonId) {
     return sessionIds.has(record.session_id) && record.participant_id === participant.id && record.present;
   }).length;
 
-  return Math.round((present / sessions.length) * 100);
+  return {
+    present,
+    total,
+    rate: Math.round((present / total) * 100),
+  };
+}
+
+function getParticipantAttendanceRate(participant) {
+  if (!participant?.course_id || !participant?.id) {
+    return 0;
+  }
+
+  return getParticipantAttendanceSummary(participant, null).rate;
+}
+
+function getParticipantSeasonAttendanceRate(participant, seasonId) {
+  if (!participant?.course_id || !participant?.id || !seasonId) {
+    return getParticipantAttendanceRate(participant);
+  }
+
+  return getParticipantAttendanceSummary(participant, seasonId).rate;
 }
 
 function getSelectedCourse() {
