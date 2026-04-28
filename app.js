@@ -9818,8 +9818,8 @@ function renderBusinessDashboard() {
   const summaryCards = [
     { title: "Teilnehmer gesamt", value: state.participants.length, meta: `Gesamt | ${newParticipantsThisMonth} neu im ${getSelectedMonthLabel()}` },
     { title: "Aktive Trainer", value: activeTrainerIds.size, meta: `Gesamt | ${state.courses.length} Kurse im System` },
-    { title: "Sessions im Monat", value: monthSessions.length, meta: `Monat | alle Termine im ${getSelectedMonthLabel()}` },
-    { title: "No-Show-Rate", value: `${noShowRate}%`, meta: `Monat | dazu ${avgAttendance}% Anwesenheit` },
+    { title: "Termine im Monat", value: monthSessions.length, meta: `Monat | alle Termine im ${getSelectedMonthLabel()}` },
+    { title: "Fehlquote", value: `${noShowRate}%`, meta: `Monat | dazu ${avgAttendance}% dokumentierte Anwesenheit` },
     { title: "Probetrainings", value: monthTrials.length, meta: `Monat | ${convertedTrials} davon konvertiert` },
     { title: "Conversion", value: `${trialConversionRate}%`, meta: "Monat | Anteil der konvertierten Probetrainings" },
   ];
@@ -9842,12 +9842,12 @@ function renderBusinessDashboard() {
 
   const insightCards = [
     {
-      title: "Stärkster Kurs",
+      title: "Bester Kurs",
       value: topCourse ? `${topCourse.name} (${topCourse.rate}%)` : "Noch keine Daten",
       meta: `Monat | beste Anwesenheitsquote im ${getSelectedMonthLabel()}`,
     },
     {
-      title: "Stärkster Trainer",
+      title: "Bester Trainer",
       value: topTrainer ? `${topTrainer.name} (${topTrainer.rate}%)` : "Noch keine Daten",
       meta: `Monat | beste Durchschnittsquote im ${getSelectedMonthLabel()}`,
     },
@@ -9857,7 +9857,7 @@ function renderBusinessDashboard() {
       meta: busiestWeekday ? `Monat | ${busiestWeekday.sessions} Termine im ${getSelectedMonthLabel()}` : "Monat | noch ohne belastbare Daten",
     },
     {
-      title: "Handlungsbedarf",
+      title: "Auffälliger Kurs",
       value: weakestCourse ? `${weakestCourse.name} (${weakestCourse.rate}%)` : "Kein Ausreißer",
       meta: `Monat | niedrigste Anwesenheitsquote im ${getSelectedMonthLabel()}`,
     },
@@ -9954,8 +9954,8 @@ function renderMonthlyOverview() {
   const items = [
     { title: "Termine im Monat", value: monthSessions.length, meta: `Monat | alle relevanten Termine im ${getSelectedMonthLabel()}` },
     { title: "Aktive Kurse", value: monthCourseIds.size, meta: "Monat | Kurse mit dokumentierten Sessions" },
-    { title: "Durchschnitt", value: averageDisplay, meta: totalMarked ? "Monat | dokumentierte Anwesenheit im Monat" : "Monat | noch keine dokumentierten Anwesenheiten" },
-    { title: "Top Teilnehmer", value: getTopParticipantName({ monthValue: getSelectedMonth() }), meta: `Monat | beste Monatsquote im ${getSelectedMonthLabel()}` },
+    { title: "Monatsquote", value: averageDisplay, meta: totalMarked ? "Monat | dokumentierte Anwesenheit im Monat" : "Monat | noch keine dokumentierten Anwesenheiten" },
+    { title: "Bester Teilnehmer", value: getTopParticipantName({ monthValue: getSelectedMonth() }), meta: `Monat | beste Monatsquote im ${getSelectedMonthLabel()}` },
   ];
 
   items.forEach((item) => {
@@ -10242,17 +10242,17 @@ function renderReportPreview() {
     {
       title: "Report-Fokus",
       value: selectedCourse ? selectedCourse.name : "Alle Kurse",
-      meta: `Report | Monat: ${getSelectedMonthLabel()}`,
+      meta: `Report | Grundlage ist ${getSelectedMonthLabel()}`,
     },
     {
-      title: "Suchfilter",
+      title: "Aktiver Filter",
       value: state.participantSearch || "Kein Filter",
-      meta: "Report | für Teilnehmerlisten und Ranking",
+      meta: "Report | wirkt auf Listen und Export",
     },
     {
-      title: "Aufmerksamkeiten",
+      title: "Unter 60%",
       value: getLowAttendanceParticipants({ monthValue: getSelectedMonth() }).length,
-      meta: `Report | Teilnehmer unter 60% in ${getSelectedMonthLabel()}`,
+      meta: `Report | Teilnehmer unter 60% im ${getSelectedMonthLabel()}`,
     },
   ];
 
