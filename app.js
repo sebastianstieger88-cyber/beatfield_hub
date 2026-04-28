@@ -10665,6 +10665,17 @@ function getAnalysisParticipantEntries() {
   return Array.from(entries.values());
 }
 
+function getGroupedSessionsForCourseDate(session) {
+  if (!session?.course_id || !session?.session_date) {
+    return [];
+  }
+
+  return state.sessions.filter((entry) => {
+    return entry.course_id === session.course_id
+      && entry.session_date === session.session_date;
+  });
+}
+
 function getCourseAttendanceAggregate(courseId, options = {}) {
   const { monthValue = null } = options;
   const today = getToday();
@@ -10681,8 +10692,11 @@ function getCourseAttendanceAggregate(courseId, options = {}) {
 
   sessions.forEach((session) => {
     const participants = getAnalysisParticipantsForSession(session);
+    const groupedSessionIds = new Set(getGroupedSessionsForCourseDate(session).map((entry) => entry.id));
     participants.forEach((participant) => {
-      const record = getRecordsForSession(session.id).find((entry) => entry.participant_id === participant.id);
+      const record = state.records.find((entry) => {
+        return groupedSessionIds.has(entry.session_id) && entry.participant_id === participant.id;
+      }) || null;
       const isPresent = Boolean(record?.present);
       total += 1;
       if (isPresent) {
