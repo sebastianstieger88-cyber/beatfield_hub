@@ -10052,11 +10052,17 @@ function getSeasonBookingAttendanceSummary(booking, participant) {
     sessions = sessions.filter((session) => session.session_date >= booking.start_date);
   }
 
+  const linkedParticipants = state.participants.filter((entry) => entry.season_booking_id === booking.id);
+  const linkedParticipantIds = new Set(linkedParticipants.map((entry) => entry.id));
+  if (participant?.id) {
+    linkedParticipantIds.add(participant.id);
+  }
+
   const relatedOverrides = state.sessionOverrides.filter((entry) => {
-    return entry.season_booking_id === booking.id || (participant?.id && entry.participant_id === participant.id);
+    return entry.season_booking_id === booking.id || linkedParticipantIds.has(entry.participant_id);
   });
   const relatedExclusions = state.sessionExclusions.filter((entry) => {
-    return entry.season_booking_id === booking.id || (participant?.id && entry.participant_id === participant.id);
+    return entry.season_booking_id === booking.id || linkedParticipantIds.has(entry.participant_id);
   });
 
   const excludedSessionIds = new Set(relatedExclusions.map((entry) => entry.session_id));
@@ -10085,7 +10091,7 @@ function getSeasonBookingAttendanceSummary(booking, participant) {
 
   const sessionIds = new Set(relevantSessions.map((session) => session.id));
   const present = state.records.filter((record) => {
-    return sessionIds.has(record.session_id) && record.participant_id === participant?.id && record.present;
+    return sessionIds.has(record.session_id) && linkedParticipantIds.has(record.participant_id) && record.present;
   }).length;
 
   return {
