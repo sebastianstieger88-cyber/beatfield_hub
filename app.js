@@ -389,7 +389,6 @@ const contentPanels = [
   musicPanel,
   specialsPanel,
   courseListPanel,
-  planningPanel,
   attendancePanel,
   monthlyPanel,
   statsPanel,
@@ -7687,6 +7686,9 @@ function openDropInInAttendance(dropIn) {
 }
 
 function renderPlanning() {
+  if (!planningPreview || !planNextBtn || !planMonthBtn) {
+    return;
+  }
   planningPreview.innerHTML = "";
 
   const course = getSelectedCourse();
@@ -9764,11 +9766,11 @@ function renderStats() {
     card.className = "stat-card";
     card.innerHTML = `
       <h3>${escapeHtml(course.name)}</h3>
-      <p class="stat-meta">${courseParticipants.length} Teilnehmer</p>
-      <p class="stat-meta">${courseSessions.length} dokumentierte Termine</p>
-      <p class="stat-meta">Trainer: ${escapeHtml(getCourseTrainerName(course))}</p>
+      <p class="stat-meta">Gesamt | ${courseParticipants.length} Teilnehmer</p>
+      <p class="stat-meta">Gesamt | ${courseSessions.length} dokumentierte Termine</p>
+      <p class="stat-meta">Gesamt | Trainer: ${escapeHtml(getCourseTrainerName(course))}</p>
       <p class="hero-stat">${average}%</p>
-      <p class="stat-meta">durchschnittliche Anwesenheit</p>
+      <p class="stat-meta">Gesamt | durchschnittliche Anwesenheit</p>
     `;
     statsCards.appendChild(card);
   });
@@ -9814,12 +9816,12 @@ function renderBusinessDashboard() {
   const trialConversionRate = monthTrials.length ? Math.round((convertedTrials / monthTrials.length) * 100) : 0;
 
   const summaryCards = [
-    { title: "Teilnehmer gesamt", value: state.participants.length, meta: `Gesamt | ${newParticipantsThisMonth} neu in ${getSelectedMonthLabel()}` },
-    { title: "Aktive Trainer", value: activeTrainerIds.size, meta: `Gesamt | ${state.courses.length} Kurse live` },
-    { title: "Sessions im Monat", value: monthSessions.length, meta: `Monat | ${getSelectedMonthLabel()}` },
-    { title: "No-Show-Rate", value: `${noShowRate}%`, meta: `Monat | ${avgAttendance}% Anwesenheit` },
-    { title: "Probetrainings", value: monthTrials.length, meta: `Monat | ${convertedTrials} konvertiert` },
-    { title: "Conversion", value: `${trialConversionRate}%`, meta: `Monat | Probetrainings zu Teilnehmern` },
+    { title: "Teilnehmer gesamt", value: state.participants.length, meta: `Gesamt | ${newParticipantsThisMonth} neu im ${getSelectedMonthLabel()}` },
+    { title: "Aktive Trainer", value: activeTrainerIds.size, meta: `Gesamt | ${state.courses.length} Kurse im System` },
+    { title: "Sessions im Monat", value: monthSessions.length, meta: `Monat | alle Termine im ${getSelectedMonthLabel()}` },
+    { title: "No-Show-Rate", value: `${noShowRate}%`, meta: `Monat | dazu ${avgAttendance}% Anwesenheit` },
+    { title: "Probetrainings", value: monthTrials.length, meta: `Monat | ${convertedTrials} davon konvertiert` },
+    { title: "Conversion", value: `${trialConversionRate}%`, meta: "Monat | Anteil der konvertierten Probetrainings" },
   ];
 
   summaryCards.forEach((item) => {
@@ -9842,22 +9844,22 @@ function renderBusinessDashboard() {
     {
       title: "Stärkster Kurs",
       value: topCourse ? `${topCourse.name} (${topCourse.rate}%)` : "Noch keine Daten",
-      meta: `Monat | beste Anwesenheitsquote in ${getSelectedMonthLabel()}`,
+      meta: `Monat | beste Anwesenheitsquote im ${getSelectedMonthLabel()}`,
     },
     {
       title: "Stärkster Trainer",
       value: topTrainer ? `${topTrainer.name} (${topTrainer.rate}%)` : "Noch keine Daten",
-      meta: `Monat | durchschnittliche Anwesenheit in ${getSelectedMonthLabel()}`,
+      meta: `Monat | beste Durchschnittsquote im ${getSelectedMonthLabel()}`,
     },
     {
       title: "Bester Wochentag",
       value: busiestWeekday ? busiestWeekday.label : "Noch keine Daten",
-      meta: busiestWeekday ? `Monat | ${busiestWeekday.sessions} Sessions in ${getSelectedMonthLabel()}` : "Monat | ohne Datenbasis",
+      meta: busiestWeekday ? `Monat | ${busiestWeekday.sessions} Termine im ${getSelectedMonthLabel()}` : "Monat | noch ohne belastbare Daten",
     },
     {
       title: "Handlungsbedarf",
       value: weakestCourse ? `${weakestCourse.name} (${weakestCourse.rate}%)` : "Kein Ausreißer",
-      meta: `Monat | niedrigste Anwesenheitsquote in ${getSelectedMonthLabel()}`,
+      meta: `Monat | niedrigste Anwesenheitsquote im ${getSelectedMonthLabel()}`,
     },
   ];
 
@@ -9876,7 +9878,7 @@ function renderBusinessDashboard() {
   trialSeasonCard.className = "stat-card";
   trialSeasonCard.innerHTML = `
     <h3>Conversion pro Season</h3>
-    <p class="stat-meta">Monat | Probetrainings je Season und wie viele davon konvertiert wurden.</p>
+    <p class="stat-meta">Monat | Probetrainings nach Season und wie viele davon zu Buchungen wurden.</p>
   `;
   const trialSeasonList = document.createElement("div");
   trialSeasonList.className = "stack";
@@ -9950,10 +9952,10 @@ function renderMonthlyOverview() {
     : "noch keine dokumentierten Anwesenheiten";
 
   const items = [
-    { title: "Termine im Monat", value: monthSessions.length, meta: `Monat | ${getSelectedMonthLabel()}` },
-    { title: "Aktive Kurse", value: monthCourseIds.size, meta: "Monat | mit dokumentierten Sessions" },
-    { title: "Durchschnitt", value: averageDisplay, meta: totalMarked ? `Monat | Anwesenheit im Monat` : "Monat | noch keine dokumentierten Anwesenheiten" },
-    { title: "Top Teilnehmer", value: getTopParticipantName({ monthValue: getSelectedMonth() }), meta: `Monat | beste Quote in ${getSelectedMonthLabel()}` },
+    { title: "Termine im Monat", value: monthSessions.length, meta: `Monat | alle relevanten Termine im ${getSelectedMonthLabel()}` },
+    { title: "Aktive Kurse", value: monthCourseIds.size, meta: "Monat | Kurse mit dokumentierten Sessions" },
+    { title: "Durchschnitt", value: averageDisplay, meta: totalMarked ? "Monat | dokumentierte Anwesenheit im Monat" : "Monat | noch keine dokumentierten Anwesenheiten" },
+    { title: "Top Teilnehmer", value: getTopParticipantName({ monthValue: getSelectedMonth() }), meta: `Monat | beste Monatsquote im ${getSelectedMonthLabel()}` },
   ];
 
   items.forEach((item) => {
@@ -12794,7 +12796,6 @@ function getAvailableSections({ connected, loggedIn, appUnlocked }) {
         "#musicPanel",
         "#specialsPanel",
         "#courseListPanel",
-        "#planningPanel",
         "#attendancePanel",
         "#monthlyPanel",
         "#statsPanel",
