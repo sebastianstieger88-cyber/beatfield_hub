@@ -9519,12 +9519,8 @@ function renderStats() {
   state.courses.forEach((course) => {
     const courseParticipants = getParticipantsForCourse(course.id);
     const courseSessions = getSessionsForCourse(course.id);
-    const relevantRecords = state.records.filter((record) => {
-      return courseSessions.some((session) => session.id === record.session_id);
-    });
-    const average = courseParticipants.length && courseSessions.length
-      ? Math.round((relevantRecords.filter((record) => record.present).length / (courseParticipants.length * courseSessions.length)) * 100)
-      : 0;
+    const aggregate = getCourseAttendanceAggregate(course.id);
+    const average = aggregate.rate ?? 0;
 
     const card = document.createElement("article");
     card.className = "stat-card";
@@ -9557,7 +9553,8 @@ function renderBusinessDashboard() {
   const absentRecords = monthRecords.filter((record) => !record.present).length;
   const totalMarked = presentRecords + absentRecords;
   const noShowRate = totalMarked ? Math.round((absentRecords / totalMarked) * 100) : 0;
-  const avgAttendance = totalMarked ? Math.round((presentRecords / totalMarked) * 100) : 0;
+  const monthAggregate = getMonthAttendanceAggregate(selectedMonth);
+  const avgAttendance = monthAggregate.rate ?? 0;
   const activeTrainerIds = new Set(
     state.courses
       .map((course) => getCourseTrainerKey(course))
@@ -9701,11 +9698,8 @@ function renderMonthlyOverview() {
 
   const monthSessions = getSessionsForMonth(getSelectedMonth());
   const monthCourseIds = new Set(monthSessions.map((session) => session.course_id));
-  const monthParticipants = state.participants.filter((participant) => monthCourseIds.has(participant.course_id));
-  const monthRecords = state.records.filter((record) => monthSessions.some((session) => session.id === record.session_id));
-  const average = monthParticipants.length && monthSessions.length
-    ? Math.round((monthRecords.filter((record) => record.present).length / (monthParticipants.length * monthSessions.length)) * 100)
-    : 0;
+  const monthAggregate = getMonthAttendanceAggregate(getSelectedMonth());
+  const average = monthAggregate.rate ?? 0;
 
   const items = [
     { title: "Termine im Monat", value: monthSessions.length, meta: getSelectedMonthLabel() },
@@ -10368,7 +10362,7 @@ function exportSelectedCourseCsv() {
       participant.full_name,
       participant.phone,
       ...marks,
-      `${calculateAttendanceRate(course.id, participant.id)}%`,
+      `${getParticipantAnalysisSummary(participant).rate}%`,
     ]);
   });
 
@@ -10391,7 +10385,7 @@ function exportMonthlyReportCsv() {
         session.session_date,
         participant.full_name,
         record?.present ? "Ja" : beatOutEntry ? "BEAT-OUT" : "Nein",
-        `${calculateAttendanceRate(session.course_id, participant.id)}%`,
+        `${getParticipantAnalysisSummary(participant).rate}%`,
       ]);
     });
   });
@@ -10401,21 +10395,19 @@ function exportMonthlyReportCsv() {
 }
 
 function exportLeaderboardCsv() {
-  const rows = [["Kurs", "Teilnehmer", "Telefon", "Anwesenheitsquote", "Dokumentierte Termine"]];
+  const rows = [["Kurs", "Teilnehmer", "Telefon", "Anwesenheitsquote", "Gezählte Termine"]];
 
-  state.courses.forEach((course) => {
-    getFilteredParticipants(course.id)
-      .sort((left, right) => calculateAttendanceRate(course.id, right.id) - calculateAttendanceRate(course.id, left.id))
-      .forEach((participant) => {
-        rows.push([
-          course.name,
-          participant.full_name,
-          participant.phone,
-          `${calculateAttendanceRate(course.id, participant.id)}%`,
-          getSessionsForCourse(course.id).length,
-        ]);
-      });
-  });
+  getAnalysisParticipantEntries()
+    .sort((left, right) => right.rate - left.rate)
+    .forEach((entry) => {
+      rows.push([
+        entry.courseLabel,
+        entry.name,
+        entry.phone,
+        `${entry.rate}%`,
+        entry.summary.total,
+      ]);
+    });
 
   downloadCsv(`beatfield-ranking-${getSelectedMonth()}.csv`, rows);
   notify("Anwesenheitsranking exportiert.");
@@ -10430,9 +10422,15 @@ function exportTrainerReportCsv() {
     const trainerCourses = state.courses.filter((course) => getCourseTrainerKey(course) === trainer.key);
     const trainerSessions = trainerCourses.flatMap((course) => getSessionsForCourse(course.id));
     const trainerParticipants = trainerCourses.flatMap((course) => getParticipantsForCourse(course.id));
-    const trainerRecords = state.records.filter((record) => trainerSessions.some((session) => session.id === record.session_id));
-    const average = trainerParticipants.length && trainerSessions.length
-      ? Math.round((trainerRecords.filter((record) => record.present).length / (trainerParticipants.length * trainerSessions.length)) * 100)
+    const trainerAggregate = trainerCourses.reduce((aggregate, course) => {
+      const courseAggregate = getCourseAttendanceAggregate(course.id);
+      return {
+        present: aggregate.present + courseAggregate.present,
+        total: aggregate.total + courseAggregate.total,
+      };
+    }, { present: 0, total: 0 });
+    const average = trainerAggregate.total
+      ? Math.round((trainerAggregate.present / trainerAggregate.total) * 100)
       : 0;
 
     rows.push([
@@ -10464,17 +10462,12 @@ function downloadBlob(filename, blob) {
 }
 
 function calculateAttendanceRate(courseId, participantId) {
-  const sessions = getSessionsForCourse(courseId);
-  if (!sessions.length) {
+  const participant = state.participants.find((entry) => entry.id === participantId) || null;
+  if (!participant) {
     return 0;
   }
 
-  const sessionIds = sessions.map((session) => session.id);
-  const present = state.records.filter((record) => {
-    return sessionIds.includes(record.session_id) && record.participant_id === participantId && record.present;
-  }).length;
-
-  return Math.round((present / sessions.length) * 100);
+  return getParticipantAnalysisSummary(participant).rate;
 }
 
 function getParticipantAttendanceSummary(participant, seasonId = state.attendanceSeasonId) {
@@ -10560,8 +10553,7 @@ function getSeasonBookingAttendanceSummary(booking, participant) {
     sessions = sessions.filter((session) => session.session_date >= booking.start_date);
   }
 
-  const linkedParticipants = state.participants.filter((entry) => entry.season_booking_id === booking.id);
-  const linkedParticipantIds = new Set(linkedParticipants.map((entry) => entry.id));
+  const linkedParticipantIds = new Set(getLinkedParticipantsForBooking(booking, participant).map((entry) => entry.id));
   if (participant?.id) {
     linkedParticipantIds.add(participant.id);
   }
@@ -10615,6 +10607,104 @@ function getParticipantAttendanceRate(participant) {
   }
 
   return getParticipantAttendanceSummary(participant, null).rate;
+}
+
+function getLinkedParticipantsForBooking(booking, participant = null) {
+  if (!booking?.id) {
+    return participant ? [participant] : [];
+  }
+
+  const linkedParticipants = state.participants.filter((entry) => entry.season_booking_id === booking.id);
+  if (participant?.id && !linkedParticipants.some((entry) => entry.id === participant.id)) {
+    linkedParticipants.push(participant);
+  }
+  return linkedParticipants;
+}
+
+function getParticipantAnalysisSummary(participant) {
+  const booking = getParticipantSeasonBooking(participant);
+  if (booking) {
+    return getSeasonBookingAttendanceSummary(booking, participant);
+  }
+  return getParticipantAttendanceSummary(participant, participant?.season_id || null);
+}
+
+function getAnalysisParticipantEntries() {
+  const entries = new Map();
+
+  state.courses.forEach((course) => {
+    getParticipantsForCourse(course.id).forEach((participant) => {
+      const booking = getParticipantSeasonBooking(participant);
+      const key = booking?.id ? `booking:${booking.id}` : `participant:${participant.id}`;
+      if (entries.has(key)) {
+        return;
+      }
+
+      const linkedParticipants = booking ? getLinkedParticipantsForBooking(booking, participant) : [participant];
+      const courseNames = Array.from(new Set(
+        linkedParticipants
+          .map((entry) => state.courses.find((courseEntry) => courseEntry.id === entry.course_id)?.name || null)
+          .filter(Boolean),
+      ));
+      const summary = getParticipantAnalysisSummary(participant);
+
+      entries.set(key, {
+        key,
+        participant,
+        booking,
+        linkedParticipants,
+        name: participant.full_name,
+        phone: participant.phone || "",
+        courseLabel: courseNames.join(" / ") || (state.courses.find((entry) => entry.id === participant.course_id)?.name || "-"),
+        summary,
+        rate: summary.rate,
+      });
+    });
+  });
+
+  return Array.from(entries.values());
+}
+
+function getCourseAttendanceAggregate(courseId, options = {}) {
+  const { monthValue = null } = options;
+  const today = getToday();
+  const sessions = getSessionsForCourse(courseId)
+    .filter((session) => session.session_date <= today)
+    .filter((session) => !monthValue || String(session.session_date || "").startsWith(monthValue));
+
+  let present = 0;
+  let total = 0;
+
+  sessions.forEach((session) => {
+    const participants = getAttendanceParticipantsForCourse(courseId, session.id);
+    participants.forEach((participant) => {
+      const record = getRecordsForSession(session.id).find((entry) => entry.participant_id === participant.id);
+      const isPresent = participant.is_dropin
+        ? participant.drop_in_status === "teilgenommen"
+        : Boolean(record?.present);
+      total += 1;
+      if (isPresent) {
+        present += 1;
+      }
+    });
+  });
+
+  return {
+    present,
+    total,
+    rate: total ? Math.round((present / total) * 100) : null,
+  };
+}
+
+function getMonthAttendanceAggregate(monthValue) {
+  return state.courses.reduce((aggregate, course) => {
+    const courseAggregate = getCourseAttendanceAggregate(course.id, { monthValue });
+    return {
+      present: aggregate.present + courseAggregate.present,
+      total: aggregate.total + courseAggregate.total,
+      rate: null,
+    };
+  }, { present: 0, total: 0, rate: null });
 }
 
 function getParticipantSeasonAttendanceRate(participant, seasonId) {
@@ -11826,17 +11916,18 @@ function getSelectedMonthLabel() {
 }
 
 function getTopParticipantName() {
-  const ranked = state.courses.flatMap((course) => getParticipantsForCourse(course.id).map((participant) => ({
-    name: participant.full_name,
-    rate: calculateAttendanceRate(course.id, participant.id),
-  }))).sort((left, right) => right.rate - left.rate);
+  const ranked = getAnalysisParticipantEntries()
+    .map((entry) => ({
+      name: entry.name,
+      rate: entry.rate,
+    }))
+    .sort((left, right) => right.rate - left.rate);
 
   return ranked[0] ? `${ranked[0].name} (${ranked[0].rate}%)` : "Noch keine Daten";
 }
 
 function getLowAttendanceParticipants() {
-  return state.courses.flatMap((course) => getParticipantsForCourse(course.id)
-    .filter((participant) => calculateAttendanceRate(course.id, participant.id) < 60));
+  return getAnalysisParticipantEntries().filter((entry) => entry.rate < 60);
 }
 
 function getUpcomingCourseDates(course, count) {
@@ -11985,14 +12076,7 @@ function getBusiestWeekday() {
 }
 
 function getCourseAttendanceAverage(courseId) {
-  const participants = getParticipantsForCourse(courseId);
-  const sessions = getSessionsForCourse(courseId);
-  if (!participants.length || !sessions.length) {
-    return null;
-  }
-
-  const relevantRecords = state.records.filter((record) => sessions.some((session) => session.id === record.session_id));
-  return Math.round((relevantRecords.filter((record) => record.present).length / (participants.length * sessions.length)) * 100);
+  return getCourseAttendanceAggregate(courseId).rate;
 }
 
 function getNextCourseForToday() {
