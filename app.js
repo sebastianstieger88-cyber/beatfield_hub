@@ -9698,13 +9698,21 @@ function renderMonthlyOverview() {
 
   const monthSessions = getSessionsForMonth(getSelectedMonth());
   const monthCourseIds = new Set(monthSessions.map((session) => session.course_id));
-  const monthAggregate = getMonthAttendanceAggregate(getSelectedMonth());
-  const average = monthAggregate.rate ?? 0;
+  const monthRecordSessionIds = new Set(
+    monthSessions.flatMap((session) => getGroupedSessionsForCourseDate(session).map((entry) => entry.id)),
+  );
+  const monthRecords = state.records.filter((record) => monthRecordSessionIds.has(record.session_id));
+  const presentMarked = monthRecords.filter((record) => record.present).length;
+  const totalMarked = monthRecords.length;
+  const averageDisplay = totalMarked ? `${Math.round((presentMarked / totalMarked) * 100)}%` : "–";
+  const averageMeta = totalMarked
+    ? "Anwesenheit im Monat"
+    : "noch keine dokumentierten Anwesenheiten";
 
   const items = [
     { title: "Termine im Monat", value: monthSessions.length, meta: getSelectedMonthLabel() },
     { title: "Aktive Kurse", value: monthCourseIds.size, meta: "mit dokumentierten Sessions" },
-    { title: "Durchschnitt", value: `${average}%`, meta: "Anwesenheit im Monat" },
+    { title: "Durchschnitt", value: averageDisplay, meta: averageMeta },
     { title: "Top Teilnehmer", value: getTopParticipantName(), meta: "beste Quote im Sichtbereich" },
   ];
 
