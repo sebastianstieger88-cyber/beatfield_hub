@@ -729,6 +729,47 @@ label span,
   gap: 14px;
 }
 
+.booking-history-card {
+  display: grid;
+  gap: 14px;
+}
+
+.booking-history-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: start;
+}
+
+.booking-history-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.booking-history-list {
+  display: grid;
+  gap: 10px;
+}
+
+.booking-history-row {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(103, 193, 47, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.booking-history-row-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.booking-history-actions {
+  justify-content: flex-start;
+}
+
 .weekday-picker {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2099,6 +2140,10 @@ th {
   }
 
   .list-row {
+    flex-direction: column;
+  }
+
+  .booking-history-head {
     flex-direction: column;
   }
 

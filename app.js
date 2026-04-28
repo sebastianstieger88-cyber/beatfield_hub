@@ -7405,88 +7405,120 @@ function renderSeasonBookings() {
     return;
   }
 
-  visibleBookings.forEach((booking) => {
-    const season = state.seasons.find((entry) => entry.id === booking.season_id);
-    const beatOutUsage = getBeatOutUsageForBooking(booking.id);
-    const rewardStatus = getFreeSeasonRewardStatus(booking);
-    const contactMeta = getContactStatusMeta(booking.contact_status);
+  const groupedBookings = groupSeasonBookingsByContact(visibleBookings);
+
+  groupedBookings.forEach((group) => {
+    const latestBooking = group.bookings[0];
+    const latestSeason = state.seasons.find((entry) => entry.id === latestBooking?.season_id);
+    const latestContactMeta = getContactStatusMeta(latestBooking?.contact_status);
+    const latestRewardStatus = latestBooking ? getFreeSeasonRewardStatus(latestBooking) : null;
+    const totalBeatOuts = group.bookings.reduce((sum, booking) => sum + getBeatOutUsageForBooking(booking.id).used, 0);
+    const phone = group.phone || latestBooking?.phone || "";
     const card = document.createElement("article");
-    card.className = "stat-card";
+    card.className = "stat-card booking-history-card";
     card.innerHTML = `
-      <h3>${escapeHtml(booking.full_name)}</h3>
-      <p class="stat-meta">${season ? escapeHtml(season.name) : "Ohne Season"}</p>
-      <p class="stat-meta">Paket: ${escapeHtml(booking.package_type)}</p>
-      <p class="stat-meta">Tage: ${escapeHtml(formatSelectedDays(booking.selected_days))}</p>
-      ${booking.start_date ? `<p class="stat-meta">Start ab: ${escapeHtml(formatDateLabel(booking.start_date))}</p>` : ""}
-      <p class="stat-meta">BEAT-OUTS: ${beatOutUsage.used}/${beatOutUsage.limit}</p>
-      <p class="stat-meta">Gratis-Season: ${rewardStatus.availableRewards} verfügbar | ${rewardStatus.redeemedRewards} eingelöst</p>
-      <p class="stat-meta">${booking.phone ? escapeHtml(booking.phone) : "Keine Telefonnummer"}</p>
-      <div class="trial-pipeline">
-        <span class="status-pill ${escapeHtml(contactMeta.tone)}">${escapeHtml(contactMeta.label)}</span>
-        <span class="stat-meta">${rewardStatus.nextMilestone ? `Noch ${rewardStatus.remainingToNext} bis ${rewardStatus.nextMilestone}` : "Höchste Freistufe erreicht"}</span>
+      <div class="booking-history-head">
+        <div>
+          <h3>${escapeHtml(group.fullName)}</h3>
+          <p class="stat-meta">${phone ? escapeHtml(phone) : "Keine Telefonnummer"}</p>
+          <p class="stat-meta">${group.bookings.length} ${group.bookings.length === 1 ? "Season-Buchung" : "Season-Buchungen"}${latestSeason ? ` • Aktuell: ${escapeHtml(latestSeason.name)}` : ""}</p>
+        </div>
+        <div class="trial-pipeline">
+          <span class="status-pill ${escapeHtml(latestContactMeta.tone)}">${escapeHtml(latestContactMeta.label)}</span>
+          <span class="stat-meta">${latestRewardStatus ? (latestRewardStatus.nextMilestone ? `Noch ${latestRewardStatus.remainingToNext} bis ${latestRewardStatus.nextMilestone}` : "Höchste Freistufe erreicht") : "-"}</span>
+        </div>
+      </div>
+      <div class="booking-history-summary">
+        <span class="course-status-pill">BEAT-OUTS gesamt: ${escapeHtml(String(totalBeatOuts))}</span>
+        ${latestRewardStatus ? `<span class="course-status-pill course-status-pill-info">Gratis-Seasons: ${escapeHtml(String(latestRewardStatus.availableRewards))} verfügbar</span>` : ""}
+        ${latestRewardStatus ? `<span class="course-status-pill course-status-pill-warn">${escapeHtml(String(latestRewardStatus.redeemedRewards))} eingelöst</span>` : ""}
       </div>
     `;
-    const actions = document.createElement("div");
-    actions.className = "stat-card-actions";
-    const editBtn = document.createElement("button");
-    editBtn.type = "button";
-    editBtn.className = "ghost";
-    editBtn.textContent = "Buchung bearbeiten";
-    editBtn.addEventListener("click", () => {
-      openBookingEdit(booking);
-    });
-    actions.appendChild(editBtn);
+    const historyList = document.createElement("div");
+    historyList.className = "booking-history-list";
 
-    const profileBtn = document.createElement("button");
-    profileBtn.type = "button";
-    profileBtn.className = "ghost";
-    profileBtn.textContent = "Profil";
-    profileBtn.addEventListener("click", () => {
-      const linkedParticipants = state.participants.filter((participant) => participant.season_booking_id === booking.id);
-      openParticipantProfile(linkedParticipants[0]?.id || null, booking.id);
-    });
-    actions.appendChild(profileBtn);
+    group.bookings.forEach((booking) => {
+      const season = state.seasons.find((entry) => entry.id === booking.season_id);
+      const beatOutUsage = getBeatOutUsageForBooking(booking.id);
+      const rewardStatus = getFreeSeasonRewardStatus(booking);
+      const contactMeta = getContactStatusMeta(booking.contact_status);
+      const row = document.createElement("div");
+      row.className = "booking-history-row";
+      row.innerHTML = `
+        <div class="booking-history-row-copy">
+          <strong>${season ? escapeHtml(season.name) : "Ohne Season"}</strong>
+          <div class="stat-meta">Paket: ${escapeHtml(booking.package_type)} • ${escapeHtml(formatSelectedDays(booking.selected_days))}</div>
+          ${booking.start_date ? `<div class="stat-meta">Start ab: ${escapeHtml(formatDateLabel(booking.start_date))}</div>` : ""}
+          <div class="stat-meta">BEAT-OUTS: ${beatOutUsage.used}/${beatOutUsage.limit} • Gratis-Season: ${rewardStatus.availableRewards} verfügbar | ${rewardStatus.redeemedRewards} eingelöst</div>
+        </div>
+      `;
 
-    const contactBtn = document.createElement("button");
-    contactBtn.type = "button";
-    contactBtn.className = "ghost";
-    contactBtn.textContent = `Kontakt: ${contactMeta.label}`;
-    contactBtn.addEventListener("click", async () => {
-      await updateBookingContactStatus(booking);
-    });
-    actions.appendChild(contactBtn);
+      const rowActions = document.createElement("div");
+      rowActions.className = "mini-actions booking-history-actions";
 
-    const carryBtn = document.createElement("button");
-    carryBtn.type = "button";
-    carryBtn.className = "ghost";
-    carryBtn.textContent = "Verlängern";
-    carryBtn.addEventListener("click", async () => {
-      if (season) {
-        await handleCarryOverBookingToNextSeason(booking, season);
-      }
-    });
-    actions.appendChild(carryBtn);
+      const contactBtn = document.createElement("button");
+      contactBtn.type = "button";
+      contactBtn.className = "ghost";
+      contactBtn.textContent = `Kontakt: ${contactMeta.label}`;
+      contactBtn.addEventListener("click", async () => {
+        await updateBookingContactStatus(booking);
+      });
+      rowActions.appendChild(contactBtn);
 
-    const redeemBtn = document.createElement("button");
-    redeemBtn.type = "button";
-    redeemBtn.className = rewardStatus.availableRewards > 0 ? "primary" : "ghost";
-    redeemBtn.textContent = rewardStatus.availableRewards > 0 ? "Gratis-Season einlösen" : "Keine Gratis-Season";
-    redeemBtn.disabled = rewardStatus.availableRewards <= 0;
-    redeemBtn.addEventListener("click", async () => {
-      await redeemFreeSeasonForBooking(booking);
-    });
-    actions.appendChild(redeemBtn);
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "ghost";
+      editBtn.textContent = "Bearbeiten";
+      editBtn.addEventListener("click", () => {
+        openBookingEdit(booking);
+      });
+      rowActions.appendChild(editBtn);
 
-    const deleteBtn = document.createElement("button");
-    deleteBtn.type = "button";
-    deleteBtn.className = "danger";
-    deleteBtn.textContent = "Buchung löschen";
-    deleteBtn.addEventListener("click", async () => {
-      await handleBookingDelete(booking);
-    });
-    actions.appendChild(deleteBtn);
+      const profileBtn = document.createElement("button");
+      profileBtn.type = "button";
+      profileBtn.className = "ghost";
+      profileBtn.textContent = "Profil";
+      profileBtn.addEventListener("click", () => {
+        const linkedParticipants = state.participants.filter((participant) => participant.season_booking_id === booking.id);
+        openParticipantProfile(linkedParticipants[0]?.id || null, booking.id);
+      });
+      rowActions.appendChild(profileBtn);
 
-    card.appendChild(actions);
+      const carryBtn = document.createElement("button");
+      carryBtn.type = "button";
+      carryBtn.className = "ghost";
+      carryBtn.textContent = "Verlängern";
+      carryBtn.addEventListener("click", async () => {
+        if (season) {
+          await handleCarryOverBookingToNextSeason(booking, season);
+        }
+      });
+      rowActions.appendChild(carryBtn);
+
+      const redeemBtn = document.createElement("button");
+      redeemBtn.type = "button";
+      redeemBtn.className = rewardStatus.availableRewards > 0 ? "primary" : "ghost";
+      redeemBtn.textContent = rewardStatus.availableRewards > 0 ? "Gratis-Season einlösen" : "Keine Gratis-Season";
+      redeemBtn.disabled = rewardStatus.availableRewards <= 0;
+      redeemBtn.addEventListener("click", async () => {
+        await redeemFreeSeasonForBooking(booking);
+      });
+      rowActions.appendChild(redeemBtn);
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "danger";
+      deleteBtn.textContent = "Löschen";
+      deleteBtn.addEventListener("click", async () => {
+        await handleBookingDelete(booking);
+      });
+      rowActions.appendChild(deleteBtn);
+
+      row.appendChild(rowActions);
+      historyList.appendChild(row);
+    });
+
+    card.appendChild(historyList);
     bookingList.appendChild(card);
   });
 }
@@ -10702,6 +10734,36 @@ function getNextContactStatus(currentStatus = "offen") {
 
 function getVisibleSeasonBookings() {
   return state.seasonBookings;
+}
+
+function groupSeasonBookingsByContact(bookings) {
+  const groups = new Map();
+
+  bookings.forEach((booking) => {
+    const key = `${String(booking.full_name || "").trim().toLowerCase()}::${String(booking.phone || "").trim()}`;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        fullName: booking.full_name || "Ohne Namen",
+        phone: booking.phone || "",
+        bookings: [],
+      });
+    }
+    groups.get(key).bookings.push(booking);
+  });
+
+  return Array.from(groups.values())
+    .map((group) => ({
+      ...group,
+      bookings: group.bookings.sort((left, right) => {
+        const leftSeason = state.seasons.find((entry) => entry.id === left.season_id);
+        const rightSeason = state.seasons.find((entry) => entry.id === right.season_id);
+        const leftDate = leftSeason?.start_date || left.start_date || left.created_at || "";
+        const rightDate = rightSeason?.start_date || right.start_date || right.created_at || "";
+        return String(rightDate).localeCompare(String(leftDate));
+      }),
+    }))
+    .sort((left, right) => left.fullName.localeCompare(right.fullName, "de"));
 }
 
 function getVisibleSeasons() {
