@@ -1076,6 +1076,51 @@ button.danger {
   grid-template-columns: 1.3fr 1.1fr 1fr 1.1fr auto;
 }
 
+.trial-section {
+  margin-top: 22px;
+  padding: 22px;
+  border: 1px solid rgba(103, 193, 47, 0.12);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01)),
+    rgba(16, 16, 16, 0.9);
+}
+
+.trial-section + .trial-section {
+  margin-top: 28px;
+}
+
+.trial-section-probe {
+  box-shadow: inset 0 1px 0 rgba(103, 193, 47, 0.08);
+}
+
+.trial-section-dropin {
+  border-color: rgba(255, 211, 122, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255, 211, 122, 0.08);
+}
+
+.trial-section-dropin .eyebrow {
+  color: #ffd37a;
+}
+
+.trial-section-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.trial-section-head h3 {
+  margin: 6px 0 0;
+  font-size: 1.35rem;
+}
+
+.trial-section-head .stat-meta {
+  max-width: 430px;
+  margin: 0;
+}
+
 .trainer-directory-form {
   grid-template-columns: 1.3fr 1.1fr 1fr 0.95fr auto;
 }
@@ -2366,6 +2411,14 @@ th {
   }
 
   h1 {
+    max-width: none;
+  }
+
+  .trial-section-head {
+    flex-direction: column;
+  }
+
+  .trial-section-head .stat-meta {
     max-width: none;
   }
 }

@@ -427,49 +427,67 @@
             <h2>Probetraining, Drop-In & Conversion</h2>
           </div>
         </div>
-        <form id="trialForm" class="stack inline-form trial-form">
-          <label>
-            <span>Name</span>
-            <input name="fullName" type="text" placeholder="Vor- und Nachname" required>
-          </label>
-          <label>
-            <span>E-Mail</span>
-            <input name="email" type="email" placeholder="max@beispiel.de">
-          </label>
-          <label>
-            <span>Telefon</span>
-            <input name="phone" type="tel" placeholder="Optional">
-          </label>
-          <label>
-            <span>Season-Termin</span>
-            <select name="sessionId" id="trialCourseSelect"></select>
-          </label>
-          <button type="submit" class="primary">Probetraining anlegen</button>
-        </form>
-        <div id="trialCards" class="stats-grid"></div>
-        <form id="dropInForm" class="stack inline-form trial-form">
-          <label>
-            <span>Name</span>
-            <input name="fullName" type="text" placeholder="Vor- und Nachname" required>
-          </label>
-          <label>
-            <span>E-Mail</span>
-            <input name="email" type="email" placeholder="optional">
-          </label>
-          <label>
-            <span>Telefon</span>
-            <input name="phone" type="tel" placeholder="Optional">
-          </label>
-          <label>
-            <span>Season-Termin</span>
-            <select name="sessionId" id="dropInSessionSelect"></select>
-          </label>
-          <button type="submit" class="primary">DROP-IN anlegen</button>
-        </form>
-        <div class="form-actions">
-          <button id="toggleArchivedDropInsBtn" type="button" class="ghost">Archiv anzeigen</button>
-        </div>
-        <div id="dropInCards" class="stats-grid"></div>
+        <section class="trial-section trial-section-probe">
+          <div class="trial-section-head">
+            <div>
+              <p class="eyebrow">Probetraining</p>
+              <h3>Neue Probetrainings anlegen</h3>
+            </div>
+            <p class="stat-meta">Für Interessenten, die einen Kurs testen und später konvertiert werden können.</p>
+          </div>
+          <form id="trialForm" class="stack inline-form trial-form">
+            <label>
+              <span>Name</span>
+              <input name="fullName" type="text" placeholder="Vor- und Nachname" required>
+            </label>
+            <label>
+              <span>E-Mail</span>
+              <input name="email" type="email" placeholder="max@beispiel.de">
+            </label>
+            <label>
+              <span>Telefon</span>
+              <input name="phone" type="tel" placeholder="Optional">
+            </label>
+            <label>
+              <span>Season-Termin</span>
+              <select name="sessionId" id="trialCourseSelect"></select>
+            </label>
+            <button type="submit" class="primary">Probetraining anlegen</button>
+          </form>
+          <div id="trialCards" class="stats-grid"></div>
+        </section>
+        <section class="trial-section trial-section-dropin">
+          <div class="trial-section-head">
+            <div>
+              <p class="eyebrow">DROP-IN</p>
+              <h3>Einzeltermine ohne Season</h3>
+            </div>
+            <p class="stat-meta">Für einmalige Teilnahmen mit eigener Buchung, eigener Historie und optionalem Archiv.</p>
+          </div>
+          <form id="dropInForm" class="stack inline-form trial-form">
+            <label>
+              <span>Name</span>
+              <input name="fullName" type="text" placeholder="Vor- und Nachname" required>
+            </label>
+            <label>
+              <span>E-Mail</span>
+              <input name="email" type="email" placeholder="optional">
+            </label>
+            <label>
+              <span>Telefon</span>
+              <input name="phone" type="tel" placeholder="Optional">
+            </label>
+            <label>
+              <span>Season-Termin</span>
+              <select name="sessionId" id="dropInSessionSelect"></select>
+            </label>
+            <button type="submit" class="primary">DROP-IN anlegen</button>
+          </form>
+          <div class="form-actions">
+            <button id="toggleArchivedDropInsBtn" type="button" class="ghost">Archiv anzeigen</button>
+          </div>
+          <div id="dropInCards" class="stats-grid"></div>
+        </section>
       </section>
 
       <section class="panel wide hidden" id="campusPanel">

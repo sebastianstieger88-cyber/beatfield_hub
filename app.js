@@ -4114,6 +4114,7 @@ function openSpecialDetailModal(specialId) {
   if (special) {
     registerCampusRecentItem({ type: "special", id: special.id, title: special.title || "Special", panel: "#specialsPanel" });
   }
+  specialDetailModal?.classList.remove("hidden");
   renderSpecials();
   queueSpecialSignedUrl(specialId);
   renderSpecialDetailView();
@@ -9576,12 +9577,12 @@ function renderBusinessDashboard() {
   const trialConversionRate = monthTrials.length ? Math.round((convertedTrials / monthTrials.length) * 100) : 0;
 
   const summaryCards = [
-    { title: "Teilnehmer gesamt", value: state.participants.length, meta: `${newParticipantsThisMonth} neu in ${getSelectedMonthLabel()}` },
-    { title: "Aktive Trainer", value: activeTrainerIds.size, meta: `${state.courses.length} Kurse live` },
-    { title: "Sessions im Monat", value: monthSessions.length, meta: getSelectedMonthLabel() },
-    { title: "No-Show-Rate", value: `${noShowRate}%`, meta: `${avgAttendance}% Anwesenheit` },
-    { title: "Probetrainings", value: monthTrials.length, meta: `${convertedTrials} konvertiert in ${getSelectedMonthLabel()}` },
-    { title: "Conversion", value: `${trialConversionRate}%`, meta: "Probetrainings zu Teilnehmern" },
+    { title: "Teilnehmer gesamt", value: state.participants.length, meta: `Gesamt | ${newParticipantsThisMonth} neu in ${getSelectedMonthLabel()}` },
+    { title: "Aktive Trainer", value: activeTrainerIds.size, meta: `Gesamt | ${state.courses.length} Kurse live` },
+    { title: "Sessions im Monat", value: monthSessions.length, meta: `Monat | ${getSelectedMonthLabel()}` },
+    { title: "No-Show-Rate", value: `${noShowRate}%`, meta: `Monat | ${avgAttendance}% Anwesenheit` },
+    { title: "Probetrainings", value: monthTrials.length, meta: `Monat | ${convertedTrials} konvertiert` },
+    { title: "Conversion", value: `${trialConversionRate}%`, meta: `Monat | Probetrainings zu Teilnehmern` },
   ];
 
   summaryCards.forEach((item) => {
@@ -9604,22 +9605,22 @@ function renderBusinessDashboard() {
     {
       title: "Stärkster Kurs",
       value: topCourse ? `${topCourse.name} (${topCourse.rate}%)` : "Noch keine Daten",
-      meta: `beste Anwesenheitsquote in ${getSelectedMonthLabel()}`,
+      meta: `Monat | beste Anwesenheitsquote in ${getSelectedMonthLabel()}`,
     },
     {
       title: "Stärkster Trainer",
       value: topTrainer ? `${topTrainer.name} (${topTrainer.rate}%)` : "Noch keine Daten",
-      meta: `durchschnittliche Anwesenheit in ${getSelectedMonthLabel()}`,
+      meta: `Monat | durchschnittliche Anwesenheit in ${getSelectedMonthLabel()}`,
     },
     {
       title: "Bester Wochentag",
       value: busiestWeekday ? busiestWeekday.label : "Noch keine Daten",
-      meta: busiestWeekday ? `${busiestWeekday.sessions} Sessions in ${getSelectedMonthLabel()}` : "ohne Datenbasis",
+      meta: busiestWeekday ? `Monat | ${busiestWeekday.sessions} Sessions in ${getSelectedMonthLabel()}` : "Monat | ohne Datenbasis",
     },
     {
       title: "Handlungsbedarf",
       value: weakestCourse ? `${weakestCourse.name} (${weakestCourse.rate}%)` : "Kein Ausreißer",
-      meta: `niedrigste Anwesenheitsquote in ${getSelectedMonthLabel()}`,
+      meta: `Monat | niedrigste Anwesenheitsquote in ${getSelectedMonthLabel()}`,
     },
   ];
 
@@ -9638,7 +9639,7 @@ function renderBusinessDashboard() {
   trialSeasonCard.className = "stat-card";
   trialSeasonCard.innerHTML = `
     <h3>Conversion pro Season</h3>
-    <p class="stat-meta">Probetrainings je Season und wie viele davon konvertiert wurden.</p>
+    <p class="stat-meta">Monat | Probetrainings je Season und wie viele davon konvertiert wurden.</p>
   `;
   const trialSeasonList = document.createElement("div");
   trialSeasonList.className = "stack";
@@ -9672,7 +9673,7 @@ function renderBusinessDashboard() {
   if (activeSeason) {
     businessInsights.appendChild(buildBeatOutOverviewCard(activeSeason, {
       title: "Aktuelle BEAT-OUTs & Gratis-Seasons",
-      subtitle: `${activeSeason.name}: aktuelle Season-Nutzung plus seasonübergreifende Freistufen pro Teilnehmer.`,
+      subtitle: `Aktive Season | ${activeSeason.name}: aktuelle Season-Nutzung plus seasonübergreifende Freistufen pro Teilnehmer.`,
       emptyText: "Noch keine BEAT-OUTs oder Gratis-Season-Dynamik in der aktiven Season.",
       maxItems: 999,
       includeRedeemAction: true,
@@ -9712,10 +9713,10 @@ function renderMonthlyOverview() {
     : "noch keine dokumentierten Anwesenheiten";
 
   const items = [
-    { title: "Termine im Monat", value: monthSessions.length, meta: getSelectedMonthLabel() },
-    { title: "Aktive Kurse", value: monthCourseIds.size, meta: "mit dokumentierten Sessions" },
-    { title: "Durchschnitt", value: averageDisplay, meta: averageMeta },
-    { title: "Top Teilnehmer", value: getTopParticipantName({ monthValue: getSelectedMonth() }), meta: `beste Quote in ${getSelectedMonthLabel()}` },
+    { title: "Termine im Monat", value: monthSessions.length, meta: `Monat | ${getSelectedMonthLabel()}` },
+    { title: "Aktive Kurse", value: monthCourseIds.size, meta: "Monat | mit dokumentierten Sessions" },
+    { title: "Durchschnitt", value: averageDisplay, meta: totalMarked ? `Monat | Anwesenheit im Monat` : "Monat | noch keine dokumentierten Anwesenheiten" },
+    { title: "Top Teilnehmer", value: getTopParticipantName({ monthValue: getSelectedMonth() }), meta: `Monat | beste Quote in ${getSelectedMonthLabel()}` },
   ];
 
   items.forEach((item) => {
@@ -10002,17 +10003,17 @@ function renderReportPreview() {
     {
       title: "Report-Fokus",
       value: selectedCourse ? selectedCourse.name : "Alle Kurse",
-      meta: `Monat: ${getSelectedMonthLabel()}`,
+      meta: `Report | Monat: ${getSelectedMonthLabel()}`,
     },
     {
       title: "Suchfilter",
       value: state.participantSearch || "Kein Filter",
-      meta: "für Teilnehmerlisten und Ranking",
+      meta: "Report | für Teilnehmerlisten und Ranking",
     },
     {
       title: "Aufmerksamkeiten",
       value: getLowAttendanceParticipants({ monthValue: getSelectedMonth() }).length,
-      meta: `Teilnehmer unter 60% in ${getSelectedMonthLabel()}`,
+      meta: `Report | Teilnehmer unter 60% in ${getSelectedMonthLabel()}`,
     },
   ];
 
