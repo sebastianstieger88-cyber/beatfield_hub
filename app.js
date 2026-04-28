@@ -8596,7 +8596,9 @@ function renderParticipants() {
     const beatOutEntry = getBeatOutEntryForParticipantSession(participant.id, session?.id);
     const bookingUsage = getBeatOutUsageForBooking(booking?.id);
     const attendanceSummary = !isTrialParticipant && !isDropInParticipant
-      ? getParticipantAttendanceSummary(participant, state.attendanceSeasonId)
+      ? (booking
+        ? getSeasonBookingAttendanceSummary(booking, participant)
+        : getParticipantAttendanceSummary(participant, state.attendanceSeasonId))
       : null;
     const rateBadge = isTrialParticipant
       ? "Probe"
@@ -10015,6 +10017,75 @@ function getParticipantAttendanceSummary(participant, seasonId = state.attendanc
   const sessionIds = new Set(sessions.map((session) => session.id));
   const present = state.records.filter((record) => {
     return sessionIds.has(record.session_id) && record.participant_id === participant.id && record.present;
+  }).length;
+
+  return {
+    present,
+    total,
+    rate: Math.round((present / total) * 100),
+  };
+}
+
+function getSeasonBookingAttendanceSummary(booking, participant) {
+  if (!booking?.id) {
+    return getParticipantAttendanceSummary(participant, state.attendanceSeasonId);
+  }
+
+  const season = state.seasons.find((entry) => entry.id === booking.season_id) || null;
+  if (!season) {
+    return getParticipantAttendanceSummary(participant, state.attendanceSeasonId);
+  }
+
+  const relevantWeekdays = new Set((booking.selected_days || []).map((day) => normalizeWeekdayLabel(day)));
+  let sessions = state.sessions.filter((session) => {
+    if (session.season_id !== booking.season_id) {
+      return false;
+    }
+    const course = state.courses.find((entry) => entry.id === session.course_id) || null;
+    if (!course) {
+      return false;
+    }
+    return relevantWeekdays.has(normalizeWeekdayLabel(course.weekday));
+  });
+
+  if (booking.start_date) {
+    sessions = sessions.filter((session) => session.session_date >= booking.start_date);
+  }
+
+  const relatedOverrides = state.sessionOverrides.filter((entry) => {
+    return entry.season_booking_id === booking.id || (participant?.id && entry.participant_id === participant.id);
+  });
+  const relatedExclusions = state.sessionExclusions.filter((entry) => {
+    return entry.season_booking_id === booking.id || (participant?.id && entry.participant_id === participant.id);
+  });
+
+  const excludedSessionIds = new Set(relatedExclusions.map((entry) => entry.session_id));
+  const sourceOverrideIds = new Set(relatedOverrides.map((entry) => entry.source_session_id));
+  const targetOverrideIds = new Set(relatedOverrides.map((entry) => entry.target_session_id));
+
+  const sessionMap = new Map(
+    sessions
+      .filter((session) => !excludedSessionIds.has(session.id) && !sourceOverrideIds.has(session.id))
+      .map((session) => [session.id, session]),
+  );
+
+  targetOverrideIds.forEach((sessionId) => {
+    const session = state.sessions.find((entry) => entry.id === sessionId) || null;
+    if (!session || excludedSessionIds.has(session.id)) {
+      return;
+    }
+    sessionMap.set(session.id, session);
+  });
+
+  const relevantSessions = Array.from(sessionMap.values());
+  const total = relevantSessions.length;
+  if (!total) {
+    return { present: 0, total: 0, rate: 0 };
+  }
+
+  const sessionIds = new Set(relevantSessions.map((session) => session.id));
+  const present = state.records.filter((record) => {
+    return sessionIds.has(record.session_id) && record.participant_id === participant?.id && record.present;
   }).length;
 
   return {
