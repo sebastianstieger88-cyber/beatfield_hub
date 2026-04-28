@@ -4022,6 +4022,7 @@ function openMusicDetailModal(musicId) {
   if (music) {
     registerCampusRecentItem({ type: "music", id: music.id, title: music.title || "Musik", panel: "#musicPanel" });
   }
+  musicDetailModal?.classList.remove("hidden");
   renderMusic();
   queueMusicSignedUrl(musicId);
   renderMusicDetailView();
@@ -6432,6 +6433,10 @@ function renderMusic() {
 
 function renderMusicDetailView() {
   if (!musicDetailModal || !musicDetailBody || !musicDetailTitle) {
+    return;
+  }
+
+  if (musicDetailModal.classList.contains("hidden")) {
     return;
   }
 
