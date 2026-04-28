@@ -10668,7 +10668,11 @@ function getAnalysisParticipantEntries() {
 function getCourseAttendanceAggregate(courseId, options = {}) {
   const { monthValue = null } = options;
   const today = getToday();
-  const sessions = getSessionsForCourse(courseId)
+  const preferredSeasonId = getPreferredAnalysisSeasonId();
+  const sessions = getDistinctSessionsByCourseDate(
+    getSessionsForCourse(courseId),
+    preferredSeasonId,
+  )
     .filter((session) => session.session_date <= today)
     .filter((session) => !monthValue || String(session.session_date || "").startsWith(monthValue));
 
@@ -10676,12 +10680,10 @@ function getCourseAttendanceAggregate(courseId, options = {}) {
   let total = 0;
 
   sessions.forEach((session) => {
-    const participants = getAttendanceParticipantsForCourse(courseId, session.id);
+    const participants = getAnalysisParticipantsForSession(session);
     participants.forEach((participant) => {
       const record = getRecordsForSession(session.id).find((entry) => entry.participant_id === participant.id);
-      const isPresent = participant.is_dropin
-        ? participant.drop_in_status === "teilgenommen"
-        : Boolean(record?.present);
+      const isPresent = Boolean(record?.present);
       total += 1;
       if (isPresent) {
         present += 1;
@@ -10705,6 +10707,59 @@ function getMonthAttendanceAggregate(monthValue) {
       rate: null,
     };
   }, { present: 0, total: 0, rate: null });
+}
+
+function getAnalysisParticipantsForSession(session) {
+  if (!session?.course_id || !session?.session_date) {
+    return [];
+  }
+
+  const baseParticipants = state.participants.filter((participant) => {
+    if (participant.course_id !== session.course_id) {
+      return false;
+    }
+    if (session.season_id && participant.season_id !== session.season_id) {
+      return false;
+    }
+    const booking = getParticipantSeasonBooking(participant);
+    return bookingAppliesToSessionDate(booking, session.session_date);
+  });
+
+  const excludedParticipantIds = new Set(
+    state.sessionExclusions
+      .filter((entry) => entry.session_id === session.id)
+      .map((entry) => entry.participant_id),
+  );
+
+  const movedOutIds = new Set(
+    state.sessionOverrides
+      .filter((entry) => entry.source_session_id === session.id)
+      .map((entry) => entry.participant_id),
+  );
+
+  const roster = baseParticipants.filter((participant) => {
+    return !excludedParticipantIds.has(participant.id) && !movedOutIds.has(participant.id);
+  });
+  const rosterIds = new Set(roster.map((participant) => participant.id));
+
+  state.sessionOverrides
+    .filter((entry) => entry.target_session_id === session.id)
+    .forEach((entry) => {
+      const participant = state.participants.find((item) => item.id === entry.participant_id) || null;
+      if (!participant) {
+        return;
+      }
+      if (session.season_id && participant.season_id !== session.season_id) {
+        return;
+      }
+      if (excludedParticipantIds.has(participant.id) || rosterIds.has(participant.id)) {
+        return;
+      }
+      roster.push(participant);
+      rosterIds.add(participant.id);
+    });
+
+  return roster;
 }
 
 function getParticipantSeasonAttendanceRate(participant, seasonId) {
@@ -11285,8 +11340,59 @@ function getSeasonTrainingDates(seasonId) {
   return Array.from(new Set(getSeasonSessions(seasonId).map((session) => session.session_date))).sort();
 }
 
+function getPreferredAnalysisSeasonId() {
+  return state.attendanceSeasonId
+    || state.selectedSeasonId
+    || state.seasons.find((season) => season.status === "aktiv")?.id
+    || null;
+}
+
+function getDistinctSessionsByCourseDate(sessions, preferredSeasonId = null) {
+  const deduped = new Map();
+
+  sessions.forEach((session) => {
+    if (!session?.course_id || !session?.session_date) {
+      return;
+    }
+
+    const key = `${session.course_id}::${session.session_date}`;
+    const existing = deduped.get(key) || null;
+    if (!existing) {
+      deduped.set(key, session);
+      return;
+    }
+
+    const sessionScore = [
+      session.season_id === preferredSeasonId ? 3 : 0,
+      session.season_id ? 2 : 0,
+      isSessionAlignedWithCourse(session) ? 1 : 0,
+    ].reduce((sum, value) => sum + value, 0);
+    const existingScore = [
+      existing.season_id === preferredSeasonId ? 3 : 0,
+      existing.season_id ? 2 : 0,
+      isSessionAlignedWithCourse(existing) ? 1 : 0,
+    ].reduce((sum, value) => sum + value, 0);
+
+    if (sessionScore > existingScore) {
+      deduped.set(key, session);
+    }
+  });
+
+  return Array.from(deduped.values()).sort((left, right) => {
+    const dateCompare = String(left.session_date || "").localeCompare(String(right.session_date || ""));
+    if (dateCompare !== 0) {
+      return dateCompare;
+    }
+    return String(left.course_id || "").localeCompare(String(right.course_id || ""));
+  });
+}
+
 function getSessionsForMonth(monthValue) {
-  return state.sessions.filter((session) => String(session.session_date).startsWith(monthValue));
+  const preferredSeasonId = getPreferredAnalysisSeasonId();
+  return getDistinctSessionsByCourseDate(
+    state.sessions.filter((session) => String(session.session_date).startsWith(monthValue)),
+    preferredSeasonId,
+  );
 }
 
 function getSessionForCourseAndDate(courseId, sessionDate) {
