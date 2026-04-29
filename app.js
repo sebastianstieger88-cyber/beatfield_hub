@@ -207,7 +207,6 @@ const attendanceSeasonSelect = document.querySelector("#attendanceSeasonSelect")
 const trainerDirectoryList = document.querySelector("#trainerDirectoryList");
 const seasonList = document.querySelector("#seasonList");
 const bookingList = document.querySelector("#bookingList");
-const bookingOverview = document.querySelector("#bookingOverview");
 const seasonFilterAllBtn = document.querySelector("#seasonFilterAllBtn");
 const seasonFilterPlannedBtn = document.querySelector("#seasonFilterPlannedBtn");
 const seasonFilterActiveBtn = document.querySelector("#seasonFilterActiveBtn");
@@ -8457,9 +8456,6 @@ function renderSeasonBookings() {
   }
 
   bookingList.innerHTML = "";
-  if (bookingOverview) {
-    bookingOverview.innerHTML = "";
-  }
 
   if (!isAdmin()) {
     return;
@@ -8467,14 +8463,34 @@ function renderSeasonBookings() {
 
   const visibleBookings = getVisibleSeasonBookings();
   const groupedBookings = groupSeasonBookingsByContact(visibleBookings);
-  renderBookingOverviewCards(visibleBookings, groupedBookings);
 
   if (!visibleBookings.length) {
     bookingList.appendChild(emptyStateTemplate.content.cloneNode(true));
     return;
   }
 
-  groupedBookings.forEach((group) => {
+  const tableWrap = document.createElement("div");
+  tableWrap.className = "booking-table-wrap";
+  const table = document.createElement("table");
+  table.className = "exercise-table booking-table";
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>Teilnehmer</th>
+        <th>Telefon</th>
+        <th>Aktuelle Season</th>
+        <th>Buchungen</th>
+        <th>Level-Up</th>
+        <th>BEAT-OUTs</th>
+        <th>Gratis-Seasons</th>
+        <th>Status</th>
+        <th>Aktion</th>
+      </tr>
+    </thead>
+  `;
+  const tbody = document.createElement("tbody");
+
+  groupedBookings.forEach((group, index) => {
     const latestBooking = group.bookings[0];
     const latestSeason = state.seasons.find((entry) => entry.id === latestBooking?.season_id);
     const latestContactMeta = getContactStatusMeta(latestBooking?.contact_status);
@@ -8483,64 +8499,74 @@ function renderSeasonBookings() {
     const totalBeatOuts = group.bookings.reduce((sum, booking) => sum + getBeatOutUsageForBooking(booking.id).used, 0);
     const phone = group.phone || latestBooking?.phone || "";
     const renewalMissing = isRenewalMissingForBookingGroup(group);
-    const card = document.createElement("article");
-    card.className = `stat-card booking-history-card${renewalMissing ? " booking-history-card-highlight" : ""}`;
-    card.innerHTML = `
-      <div class="booking-history-head">
-        <div class="booking-history-head-copy">
-          <h3>${escapeHtml(group.fullName)}</h3>
-          <p class="stat-meta">${phone ? escapeHtml(phone) : "Keine Telefonnummer"}</p>
-          <p class="stat-meta">${group.bookings.length} ${group.bookings.length === 1 ? "Season-Buchung" : "Season-Buchungen"}${latestSeason ? ` • Aktuell: ${escapeHtml(latestSeason.name)}` : ""}</p>
-        </div>
-        <div class="booking-history-head-status">
-          <span class="status-pill ${escapeHtml(latestContactMeta.tone)}">${escapeHtml(latestContactMeta.label)}</span>
-          <span class="stat-meta">${latestRewardStatus ? (latestRewardStatus.nextMilestone ? `Noch ${latestRewardStatus.remainingToNext} bis ${latestRewardStatus.nextMilestone}` : "Höchste Freistufe erreicht") : "-"}</span>
-        </div>
-      </div>
-      <div class="booking-history-summary">
-        <div class="booking-history-summary-item">
-          <span class="booking-history-summary-label">Aktive Season</span>
-          <strong>${latestSeason ? escapeHtml(latestSeason.name) : "–"}</strong>
-        </div>
-        <div class="booking-history-summary-item">
-          <span class="booking-history-summary-label">Level-Up</span>
-          <strong>${latestLevelStatus ? escapeHtml(String(latestLevelStatus.totalPoints)) : "–"}</strong>
-        </div>
-        <div class="booking-history-summary-item">
-          <span class="booking-history-summary-label">BEAT-OUTs gesamt</span>
-          <strong>${escapeHtml(String(totalBeatOuts))}</strong>
-        </div>
-        <div class="booking-history-summary-item">
-          <span class="booking-history-summary-label">Gratis-Seasons</span>
-          <strong>${latestRewardStatus ? `${escapeHtml(String(latestRewardStatus.availableRewards))} verf.` : "–"}</strong>
-        </div>
-        <div class="booking-history-summary-item booking-history-summary-item-wide">
-          <span class="booking-history-summary-label">Status</span>
-          <strong>${renewalMissing ? "Verlängerung offen" : "Verlängerung vorhanden"}</strong>
-        </div>
-      </div>
+    const summaryRow = document.createElement("tr");
+    summaryRow.className = `booking-table-row${renewalMissing ? " booking-table-row-highlight" : ""}`;
+    summaryRow.innerHTML = `
+      <td>
+        <strong>${escapeHtml(group.fullName)}</strong>
+        <div class="stat-meta">${group.bookings.length} ${group.bookings.length === 1 ? "Season-Buchung" : "Season-Buchungen"}</div>
+      </td>
+      <td>${phone ? escapeHtml(phone) : "<span class=\"stat-meta\">–</span>"}</td>
+      <td>${latestSeason ? escapeHtml(latestSeason.name) : "–"}</td>
+      <td>${escapeHtml(String(group.bookings.length))}</td>
+      <td>${latestLevelStatus ? `${escapeHtml(String(latestLevelStatus.totalPoints))} <span class="stat-meta">Punkte</span>` : "–"}</td>
+      <td>${escapeHtml(String(totalBeatOuts))}</td>
+      <td>${latestRewardStatus ? `${escapeHtml(String(latestRewardStatus.availableRewards))} <span class="stat-meta">verfügbar</span>` : "–"}</td>
+      <td>
+        <span class="status-pill ${escapeHtml(latestContactMeta.tone)}">${escapeHtml(latestContactMeta.label)}</span>
+        <div class="stat-meta">${renewalMissing ? "Verlängerung offen" : "Verlängerung vorhanden"}</div>
+      </td>
+      <td></td>
     `;
-    const historyList = document.createElement("div");
-    historyList.className = "booking-history-list";
 
-    historyList.appendChild(createBookingHistoryRow(group.bookings[0]));
+    const actionCell = summaryRow.lastElementChild;
+    const actionWrap = document.createElement("div");
+    actionWrap.className = "mini-actions table-actions";
 
-    if (group.bookings.length > 1) {
-      const olderDetails = document.createElement("details");
-      olderDetails.className = "booking-history-older";
-      olderDetails.innerHTML = `<summary>${group.bookings.length - 1} ältere ${group.bookings.length - 1 === 1 ? "Season" : "Seasons"} anzeigen</summary>`;
-      const olderList = document.createElement("div");
-      olderList.className = "booking-history-older-list";
-      group.bookings.slice(1).forEach((booking) => {
-        olderList.appendChild(createBookingHistoryRow(booking));
-      });
-      olderDetails.appendChild(olderList);
-      historyList.appendChild(olderDetails);
-    }
+    const detailRow = document.createElement("tr");
+    detailRow.className = "hidden";
+    const detailCell = document.createElement("td");
+    detailCell.colSpan = 9;
+    detailCell.className = "booking-table-detail-cell";
+    const detailPanel = document.createElement("div");
+    detailPanel.className = "booking-table-detail";
+    group.bookings.forEach((booking) => {
+      detailPanel.appendChild(createBookingHistoryRow(booking));
+    });
+    detailCell.appendChild(detailPanel);
+    detailRow.appendChild(detailCell);
 
-    card.appendChild(historyList);
-    bookingList.appendChild(card);
+    const detailBtn = document.createElement("button");
+    detailBtn.type = "button";
+    detailBtn.className = "ghost";
+    detailBtn.textContent = "Verlauf";
+    detailBtn.setAttribute("aria-expanded", "false");
+    detailBtn.addEventListener("click", () => {
+      const isOpen = !detailRow.classList.contains("hidden");
+      detailRow.classList.toggle("hidden", isOpen);
+      detailBtn.textContent = isOpen ? "Verlauf" : "Verlauf ausblenden";
+      detailBtn.setAttribute("aria-expanded", String(!isOpen));
+    });
+    actionWrap.appendChild(detailBtn);
+
+    const profileBtn = document.createElement("button");
+    profileBtn.type = "button";
+    profileBtn.className = "ghost";
+    profileBtn.textContent = "Profil";
+    profileBtn.addEventListener("click", () => {
+      const linkedParticipants = state.participants.filter((participant) => participant.season_booking_id === latestBooking?.id);
+      openParticipantProfile(linkedParticipants[0]?.id || null, latestBooking?.id || null);
+    });
+    actionWrap.appendChild(profileBtn);
+
+    actionCell?.appendChild(actionWrap);
+    tbody.appendChild(summaryRow);
+    tbody.appendChild(detailRow);
   });
+
+  table.appendChild(tbody);
+  tableWrap.appendChild(table);
+  bookingList.appendChild(tableWrap);
 }
 
 function createBookingHistoryRow(booking) {
@@ -8638,53 +8664,6 @@ function createBookingHistoryRow(booking) {
   return row;
 }
 
-function renderBookingOverviewCards(visibleBookings, groupedBookings) {
-  if (!bookingOverview) {
-    return;
-  }
-
-  const renewalOpenCount = groupedBookings.filter((group) => isRenewalMissingForBookingGroup(group)).length;
-  const withLevelUpCount = visibleBookings.filter((booking) => booking.counts_for_level_up !== false).length;
-  const currentSeasonName = state.seasons.find((entry) => entry.id === state.selectedSeasonId)?.name || "Alle Seasons";
-  const totalFreeSeasonRewards = visibleBookings.reduce((sum, booking) => {
-    const rewardStatus = getFreeSeasonRewardStatus(booking);
-    return sum + (rewardStatus?.availableRewards || 0);
-  }, 0);
-
-  const items = [
-    {
-      label: "Kontakte",
-      value: String(groupedBookings.length),
-      meta: `${visibleBookings.length} ${visibleBookings.length === 1 ? "Buchung" : "Buchungen"} im Blick`,
-    },
-    {
-      label: "Verlängerung offen",
-      value: String(renewalOpenCount),
-      meta: "Kontakte ohne spätere Anschluss-Season",
-    },
-    {
-      label: "Level-Up zählt",
-      value: String(withLevelUpCount),
-      meta: "Buchungen mit aktivem Level-Up",
-    },
-    {
-      label: "Gratis-Seasons",
-      value: String(totalFreeSeasonRewards),
-      meta: `${currentSeasonName} | aktuell verfügbar`,
-    },
-  ];
-
-  items.forEach((item) => {
-    const card = document.createElement("article");
-    card.className = "stat-card booking-overview-card";
-    card.innerHTML = `
-      <span class="booking-overview-label">${escapeHtml(item.label)}</span>
-      <strong class="booking-overview-value">${escapeHtml(item.value)}</strong>
-      <span class="stat-meta">${escapeHtml(item.meta)}</span>
-    `;
-    bookingOverview.appendChild(card);
-  });
-}
 
 function renderTrainerSelect() {
   trainerSelect.innerHTML = "";

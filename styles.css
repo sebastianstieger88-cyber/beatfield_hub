@@ -908,29 +908,6 @@ label span,
   gap: 14px;
 }
 
-.booking-overview {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin-bottom: 18px;
-}
-
-.booking-overview-card {
-  min-height: 0;
-  gap: 8px;
-}
-
-.booking-overview-label {
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.booking-overview-value {
-  font-size: clamp(1.6rem, 2vw, 2rem);
-  line-height: 1;
-}
-
 .booking-workspace {
   display: grid;
   grid-template-columns: 1fr;
@@ -976,6 +953,45 @@ label span,
 
 #bookingPanel .weekday-picker {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.booking-table-wrap {
+  max-height: 70vh;
+  overflow: auto;
+  border-radius: 22px;
+  border: 1px solid rgba(103, 193, 47, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.booking-table {
+  width: 100%;
+  min-width: 1180px;
+}
+
+.booking-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: rgba(14, 14, 14, 0.96);
+}
+
+.booking-table-row td {
+  vertical-align: top;
+}
+
+.booking-table-row-highlight td {
+  background: rgba(245, 185, 66, 0.04);
+}
+
+.booking-table-detail-cell {
+  padding: 0;
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.booking-table-detail {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
 }
 
 .booking-history-card {
@@ -2539,7 +2555,6 @@ th {
     grid-template-columns: 1fr;
   }
 
-  .booking-overview,
   .booking-history-summary,
   #bookingPanel .booking-grid,
   #bookingPanel .weekday-picker {
@@ -2847,7 +2862,6 @@ th {
 }
 
 @media (max-width: 640px) {
-  .booking-overview,
   .booking-history-summary,
   #bookingPanel .booking-grid,
   #bookingPanel .weekday-picker {
