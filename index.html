@@ -420,6 +420,32 @@
               </div>
               <p class="stat-meta">Scrollbare Kontakt-Tabelle mit schnellem Zugriff auf den Season-Verlauf jeder Person.</p>
             </div>
+            <div class="booking-table-toolbar">
+              <label>
+                <span>Suche</span>
+                <input id="bookingSearchInput" type="search" placeholder="Name oder Telefon">
+              </label>
+              <label>
+                <span>Verlängerung</span>
+                <select id="bookingRenewalFilter">
+                  <option value="all">Alle</option>
+                  <option value="open">Nur offen</option>
+                  <option value="done">Nur vorhanden</option>
+                </select>
+              </label>
+              <label>
+                <span>Paket</span>
+                <select id="bookingPackageFilter">
+                  <option value="all">Alle Pakete</option>
+                  <option value="1x TRAIN">1x TRAIN</option>
+                  <option value="2x BEAT">2x BEAT</option>
+                  <option value="3x REPEAT">3x REPEAT</option>
+                </select>
+              </label>
+              <div class="toolbar-actions booking-table-toolbar-actions">
+                <button id="resetBookingFiltersBtn" type="button" class="ghost">Filter zurücksetzen</button>
+              </div>
+            </div>
             <div id="bookingList" class="stats-grid booking-list-grid"></div>
           </section>
         </div>

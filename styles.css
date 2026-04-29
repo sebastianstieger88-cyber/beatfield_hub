@@ -947,6 +947,18 @@ label span,
   grid-template-columns: 1fr;
 }
 
+.booking-table-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) repeat(2, minmax(170px, 0.7fr)) auto;
+  gap: 14px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.booking-table-toolbar-actions {
+  justify-content: flex-end;
+}
+
 #bookingPanel .booking-grid {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
@@ -2561,6 +2573,14 @@ th {
     grid-template-columns: 1fr 1fr;
   }
 
+  .booking-table-toolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .booking-table-toolbar-actions {
+    justify-content: stretch;
+  }
+
   .booking-section-head {
     flex-direction: column;
   }
@@ -2863,6 +2883,7 @@ th {
 
 @media (max-width: 640px) {
   .booking-history-summary,
+  .booking-table-toolbar,
   #bookingPanel .booking-grid,
   #bookingPanel .weekday-picker {
     grid-template-columns: 1fr;

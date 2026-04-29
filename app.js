@@ -81,6 +81,9 @@ const state = {
   selectedSeasonId: null,
   attendanceSeasonId: null,
   seasonFilter: "all",
+  bookingSearch: "",
+  bookingRenewalFilter: "all",
+  bookingPackageFilter: "all",
   activeSection: null,
   editingBookingId: null,
   moveParticipantContext: null,
@@ -207,6 +210,10 @@ const attendanceSeasonSelect = document.querySelector("#attendanceSeasonSelect")
 const trainerDirectoryList = document.querySelector("#trainerDirectoryList");
 const seasonList = document.querySelector("#seasonList");
 const bookingList = document.querySelector("#bookingList");
+const bookingSearchInput = document.querySelector("#bookingSearchInput");
+const bookingRenewalFilter = document.querySelector("#bookingRenewalFilter");
+const bookingPackageFilter = document.querySelector("#bookingPackageFilter");
+const resetBookingFiltersBtn = document.querySelector("#resetBookingFiltersBtn");
 const seasonFilterAllBtn = document.querySelector("#seasonFilterAllBtn");
 const seasonFilterPlannedBtn = document.querySelector("#seasonFilterPlannedBtn");
 const seasonFilterActiveBtn = document.querySelector("#seasonFilterActiveBtn");
@@ -644,6 +651,33 @@ seasonFilterAllBtn?.addEventListener("click", () => setSeasonFilter("all"));
 seasonFilterPlannedBtn?.addEventListener("click", () => setSeasonFilter("geplant"));
 seasonFilterActiveBtn?.addEventListener("click", () => setSeasonFilter("aktiv"));
 seasonFilterClosedBtn?.addEventListener("click", () => setSeasonFilter("abgeschlossen"));
+bookingSearchInput?.addEventListener("input", (event) => {
+  state.bookingSearch = String(event.target.value || "");
+  renderSeasonBookings();
+});
+bookingRenewalFilter?.addEventListener("change", (event) => {
+  state.bookingRenewalFilter = String(event.target.value || "all");
+  renderSeasonBookings();
+});
+bookingPackageFilter?.addEventListener("change", (event) => {
+  state.bookingPackageFilter = String(event.target.value || "all");
+  renderSeasonBookings();
+});
+resetBookingFiltersBtn?.addEventListener("click", () => {
+  state.bookingSearch = "";
+  state.bookingRenewalFilter = "all";
+  state.bookingPackageFilter = "all";
+  if (bookingSearchInput) {
+    bookingSearchInput.value = "";
+  }
+  if (bookingRenewalFilter) {
+    bookingRenewalFilter.value = "all";
+  }
+  if (bookingPackageFilter) {
+    bookingPackageFilter.value = "all";
+  }
+  renderSeasonBookings();
+});
 attendanceDate?.addEventListener("change", render);
 attendanceSessionSelect?.addEventListener("change", () => {
   if (!attendanceDate) {
@@ -8461,11 +8495,29 @@ function renderSeasonBookings() {
     return;
   }
 
+  if (bookingSearchInput && bookingSearchInput.value !== state.bookingSearch) {
+    bookingSearchInput.value = state.bookingSearch;
+  }
+  if (bookingRenewalFilter && bookingRenewalFilter.value !== state.bookingRenewalFilter) {
+    bookingRenewalFilter.value = state.bookingRenewalFilter;
+  }
+  if (bookingPackageFilter && bookingPackageFilter.value !== state.bookingPackageFilter) {
+    bookingPackageFilter.value = state.bookingPackageFilter;
+  }
+
   const visibleBookings = getVisibleSeasonBookings();
-  const groupedBookings = groupSeasonBookingsByContact(visibleBookings);
+  const groupedBookings = getFilteredBookingGroups(visibleBookings);
 
   if (!visibleBookings.length) {
     bookingList.appendChild(emptyStateTemplate.content.cloneNode(true));
+    return;
+  }
+
+  if (!groupedBookings.length) {
+    const empty = document.createElement("article");
+    empty.className = "empty-state";
+    empty.innerHTML = "<p>Keine Teilnehmer passen zu den aktuellen Filtern.</p>";
+    bookingList.appendChild(empty);
     return;
   }
 
@@ -12390,6 +12442,38 @@ function getNextContactStatus(currentStatus = "offen") {
 
 function getVisibleSeasonBookings() {
   return state.seasonBookings;
+}
+
+function getFilteredBookingGroups(bookings) {
+  const searchNeedle = String(state.bookingSearch || "").trim().toLowerCase();
+  const renewalFilter = state.bookingRenewalFilter || "all";
+  const packageFilter = state.bookingPackageFilter || "all";
+
+  return groupSeasonBookingsByContact(bookings).filter((group) => {
+    const latestBooking = group.bookings[0];
+    const phone = String(group.phone || latestBooking?.phone || "");
+    const matchesSearch = !searchNeedle
+      || String(group.fullName || "").toLowerCase().includes(searchNeedle)
+      || phone.toLowerCase().includes(searchNeedle);
+
+    if (!matchesSearch) {
+      return false;
+    }
+
+    if (renewalFilter === "open" && !isRenewalMissingForBookingGroup(group)) {
+      return false;
+    }
+
+    if (renewalFilter === "done" && isRenewalMissingForBookingGroup(group)) {
+      return false;
+    }
+
+    if (packageFilter !== "all" && !group.bookings.some((booking) => booking.package_type === packageFilter)) {
+      return false;
+    }
+
+    return true;
+  });
 }
 
 function groupSeasonBookingsByContact(bookings) {
