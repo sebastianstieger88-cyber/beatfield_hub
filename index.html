@@ -346,62 +346,84 @@
         <div id="seasonList" class="stats-grid"></div>
       </section>
 
-      <section class="panel hidden" id="bookingPanel">
+      <section class="panel wide hidden" id="bookingPanel">
         <div class="panel-heading">
           <div>
             <p class="eyebrow">Version 4</p>
             <h2>Buchungen</h2>
+            <p class="stat-meta">Season-Buchungen, Verlängerungen und Kontaktstatus in einer kompakten Arbeitsansicht.</p>
           </div>
         </div>
-        <form id="seasonBookingForm" class="stack">
-          <input type="hidden" name="bookingId">
-          <div class="booking-grid">
-            <label>
-              <span>Season</span>
-              <select id="bookingSeasonSelect" name="seasonId"></select>
-            </label>
-            <label>
-              <span>Name</span>
-              <input name="fullName" type="text" placeholder="Vor- und Nachname" required>
-            </label>
-            <label>
-              <span>Telefon</span>
-              <input name="phone" type="tel" placeholder="Optional">
-            </label>
-            <label>
-              <span>Paket</span>
-              <select id="bookingPackageSelect" name="packageType">
-                <option value="1x TRAIN">1x TRAIN</option>
-                <option value="2x BEAT">2x BEAT</option>
-                <option value="3x REPEAT">3x REPEAT</option>
-              </select>
-            </label>
-            <label>
-              <span>Start ab</span>
-              <input id="bookingStartDateInput" name="startDate" type="date" inputmode="none">
-            </label>
-          </div>
-          <fieldset class="weekday-picker">
-            <legend>Trainingstage</legend>
-            <label class="checkbox-line">
-              <input type="checkbox" name="selectedDays" value="Montag">
-              <span>Montag</span>
-            </label>
-            <label class="checkbox-line">
-              <input type="checkbox" name="selectedDays" value="Mittwoch">
-              <span>Mittwoch</span>
-            </label>
-            <label class="checkbox-line">
-              <input type="checkbox" name="selectedDays" value="Samstag">
-              <span>Samstag</span>
-            </label>
-          </fieldset>
-          <div class="form-actions">
-            <button id="saveBookingBtn" type="submit" class="primary">Buchung speichern</button>
-            <button id="cancelBookingEditBtn" type="button" class="ghost hidden">Bearbeitung abbrechen</button>
-          </div>
-        </form>
-        <div id="bookingList" class="stats-grid"></div>
+        <div id="bookingOverview" class="stats-grid booking-overview"></div>
+        <div class="booking-workspace">
+          <section class="booking-form-shell">
+            <div class="booking-section-head">
+              <div>
+                <p class="eyebrow">Buchung</p>
+                <h3>Neue oder bestehende Season-Buchung</h3>
+              </div>
+              <p class="stat-meta">Lege Buchungen an, passe Starttermine an oder bearbeite bestehende Verlängerungen.</p>
+            </div>
+            <form id="seasonBookingForm" class="stack">
+              <input type="hidden" name="bookingId">
+              <div class="booking-grid">
+                <label>
+                  <span>Season</span>
+                  <select id="bookingSeasonSelect" name="seasonId"></select>
+                </label>
+                <label>
+                  <span>Name</span>
+                  <input name="fullName" type="text" placeholder="Vor- und Nachname" required>
+                </label>
+                <label>
+                  <span>Telefon</span>
+                  <input name="phone" type="tel" placeholder="Optional">
+                </label>
+                <label>
+                  <span>Paket</span>
+                  <select id="bookingPackageSelect" name="packageType">
+                    <option value="1x TRAIN">1x TRAIN</option>
+                    <option value="2x BEAT">2x BEAT</option>
+                    <option value="3x REPEAT">3x REPEAT</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Start ab</span>
+                  <input id="bookingStartDateInput" name="startDate" type="date" inputmode="none">
+                </label>
+              </div>
+              <fieldset class="weekday-picker">
+                <legend>Trainingstage</legend>
+                <label class="checkbox-line">
+                  <input type="checkbox" name="selectedDays" value="Montag">
+                  <span>Montag</span>
+                </label>
+                <label class="checkbox-line">
+                  <input type="checkbox" name="selectedDays" value="Mittwoch">
+                  <span>Mittwoch</span>
+                </label>
+                <label class="checkbox-line">
+                  <input type="checkbox" name="selectedDays" value="Samstag">
+                  <span>Samstag</span>
+                </label>
+              </fieldset>
+              <div class="form-actions">
+                <button id="saveBookingBtn" type="submit" class="primary">Buchung speichern</button>
+                <button id="cancelBookingEditBtn" type="button" class="ghost hidden">Bearbeitung abbrechen</button>
+              </div>
+            </form>
+          </section>
+          <section class="booking-list-shell">
+            <div class="booking-section-head">
+              <div>
+                <p class="eyebrow">Kontakte</p>
+                <h3>Buchungsverlauf pro Teilnehmer</h3>
+              </div>
+              <p class="stat-meta">Eine Karte pro Person, neueste Season zuerst, ältere Seasons einklappbar.</p>
+            </div>
+            <div id="bookingList" class="stats-grid booking-list-grid"></div>
+          </section>
+        </div>
       </section>
 
       <section class="panel wide hidden" id="todayPanel">
