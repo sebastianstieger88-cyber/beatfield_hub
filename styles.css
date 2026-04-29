@@ -933,8 +933,8 @@ label span,
 
 .booking-workspace {
   display: grid;
-  grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
-  gap: 20px;
+  grid-template-columns: 1fr;
+  gap: 18px;
   align-items: start;
 }
 
@@ -947,8 +947,7 @@ label span,
 }
 
 .booking-form-shell {
-  position: sticky;
-  top: 96px;
+  position: static;
 }
 
 .booking-section-head {
@@ -969,6 +968,14 @@ label span,
 
 .booking-list-grid {
   grid-template-columns: 1fr;
+}
+
+#bookingPanel .booking-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+#bookingPanel .weekday-picker {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .booking-history-card {
@@ -2533,16 +2540,10 @@ th {
   }
 
   .booking-overview,
-  .booking-history-summary {
+  .booking-history-summary,
+  #bookingPanel .booking-grid,
+  #bookingPanel .weekday-picker {
     grid-template-columns: 1fr 1fr;
-  }
-
-  .booking-workspace {
-    grid-template-columns: 1fr;
-  }
-
-  .booking-form-shell {
-    position: static;
   }
 
   .booking-section-head {
@@ -2839,8 +2840,17 @@ th {
     grid-template-columns: 1fr;
   }
 
-  .season-preview-head {
-    align-items: flex-start;
-    flex-direction: column;
+.season-preview-head {
+  align-items: flex-start;
+  flex-direction: column;
+  }
+}
+
+@media (max-width: 640px) {
+  .booking-overview,
+  .booking-history-summary,
+  #bookingPanel .booking-grid,
+  #bookingPanel .weekday-picker {
+    grid-template-columns: 1fr;
   }
 }
