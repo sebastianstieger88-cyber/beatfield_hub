@@ -8506,11 +8506,21 @@ function renderSeasonBookings() {
   }
 
   const visibleBookings = getVisibleSeasonBookings();
-  const groupedBookings = getFilteredBookingGroups(visibleBookings);
+  const baseGroups = groupSeasonBookingsByContact(visibleBookings);
+  let groupedBookings = getFilteredBookingGroups(visibleBookings);
+  const filtersAreActive = Boolean(
+    String(state.bookingSearch || "").trim()
+    || state.bookingRenewalFilter !== "all"
+    || state.bookingPackageFilter !== "all"
+  );
 
   if (!visibleBookings.length) {
     bookingList.appendChild(emptyStateTemplate.content.cloneNode(true));
     return;
+  }
+
+  if (!groupedBookings.length && !filtersAreActive) {
+    groupedBookings = baseGroups;
   }
 
   if (!groupedBookings.length) {
