@@ -8474,6 +8474,7 @@ function renderSeasonBookings() {
     const latestSeason = state.seasons.find((entry) => entry.id === latestBooking?.season_id);
     const latestContactMeta = getContactStatusMeta(latestBooking?.contact_status);
     const latestRewardStatus = latestBooking ? getFreeSeasonRewardStatus(latestBooking) : null;
+    const latestLevelStatus = latestBooking ? getLevelUpStatus(latestBooking) : null;
     const totalBeatOuts = group.bookings.reduce((sum, booking) => sum + getBeatOutUsageForBooking(booking.id).used, 0);
     const phone = group.phone || latestBooking?.phone || "";
     const renewalMissing = isRenewalMissingForBookingGroup(group);
@@ -8493,6 +8494,7 @@ function renderSeasonBookings() {
       </div>
       <div class="booking-history-summary">
         <span class="course-status-pill">BEAT-OUTS gesamt: ${escapeHtml(String(totalBeatOuts))}</span>
+        ${latestLevelStatus ? `<span class="course-status-pill course-status-pill-info">Level-Up: ${escapeHtml(String(latestLevelStatus.totalPoints))}</span>` : ""}
         ${latestRewardStatus ? `<span class="course-status-pill course-status-pill-info">Gratis-Seasons: ${escapeHtml(String(latestRewardStatus.availableRewards))} verfügbar</span>` : ""}
         ${latestRewardStatus ? `<span class="course-status-pill course-status-pill-warn">${escapeHtml(String(latestRewardStatus.redeemedRewards))} eingelöst</span>` : ""}
         ${renewalMissing ? `<span class="course-status-pill course-status-pill-warn">Verlängerung offen</span>` : `<span class="course-status-pill">Verlängerung vorhanden</span>`}
@@ -9856,6 +9858,7 @@ function renderParticipantProfile(fallbackBookingId = null) {
   const rate = participant ? getParticipantSeasonAttendanceRate(participant, season?.id) : 0;
   const beatOutUsage = booking ? getBeatOutUsageForBooking(booking.id) : { used: 0, limit: 0, remaining: 0 };
   const rewardStatus = getFreeSeasonRewardStatus(booking || participant || {});
+  const levelUpStatus = getLevelUpStatus(booking || participant || {});
   const contactMeta = getContactStatusMeta(booking?.contact_status);
   const history = participant ? getParticipantRecentHistory(participant.id, 6) : [];
 
@@ -9886,6 +9889,11 @@ function renderParticipantProfile(fallbackBookingId = null) {
         <h3>Gratis-Season Status</h3>
         <p class="hero-stat">${rewardStatus.availableRewards}</p>
         <p class="stat-meta">${rewardStatus.redeemedRewards} eingelöst | ${rewardStatus.nextMilestone ? `Nächste Schwelle bei ${rewardStatus.nextMilestone} BEAT-OUTs` : "12 BEAT-OUTs erreicht"}</p>
+      </article>
+      <article class="stat-card">
+        <h3>Level-Up</h3>
+        <p class="hero-stat">${levelUpStatus.totalPoints}</p>
+        <p class="stat-meta">${levelUpStatus.reachedMilestone ? `Geschenk bei ${levelUpStatus.totalPoints} erreicht` : `Noch ${levelUpStatus.remainingToNext} bis ${levelUpStatus.nextMilestone}`}</p>
       </article>
       <article class="stat-card">
         <h3>Kontaktstatus</h3>
