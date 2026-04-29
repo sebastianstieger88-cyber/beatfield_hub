@@ -84,6 +84,7 @@ const state = {
   bookingSearch: "",
   bookingRenewalFilter: "all",
   bookingPackageFilter: "all",
+  bookingSort: "name_asc",
   activeSection: null,
   editingBookingId: null,
   moveParticipantContext: null,
@@ -213,7 +214,14 @@ const bookingList = document.querySelector("#bookingList");
 const bookingSearchInput = document.querySelector("#bookingSearchInput");
 const bookingRenewalFilter = document.querySelector("#bookingRenewalFilter");
 const bookingPackageFilter = document.querySelector("#bookingPackageFilter");
+const bookingSortSelect = document.querySelector("#bookingSortSelect");
 const resetBookingFiltersBtn = document.querySelector("#resetBookingFiltersBtn");
+const bookingQuickAllBtn = document.querySelector("#bookingQuickAllBtn");
+const bookingQuickRenewalBtn = document.querySelector("#bookingQuickRenewalBtn");
+const bookingQuickTrainBtn = document.querySelector("#bookingQuickTrainBtn");
+const bookingQuickBeatBtn = document.querySelector("#bookingQuickBeatBtn");
+const bookingQuickRepeatBtn = document.querySelector("#bookingQuickRepeatBtn");
+const bookingTableActiveInfo = document.querySelector("#bookingTableActiveInfo");
 const seasonFilterAllBtn = document.querySelector("#seasonFilterAllBtn");
 const seasonFilterPlannedBtn = document.querySelector("#seasonFilterPlannedBtn");
 const seasonFilterActiveBtn = document.querySelector("#seasonFilterActiveBtn");
@@ -663,10 +671,15 @@ bookingPackageFilter?.addEventListener("change", (event) => {
   state.bookingPackageFilter = String(event.target.value || "all");
   renderSeasonBookings();
 });
+bookingSortSelect?.addEventListener("change", (event) => {
+  state.bookingSort = String(event.target.value || "name_asc");
+  renderSeasonBookings();
+});
 resetBookingFiltersBtn?.addEventListener("click", () => {
   state.bookingSearch = "";
   state.bookingRenewalFilter = "all";
   state.bookingPackageFilter = "all";
+  state.bookingSort = "name_asc";
   if (bookingSearchInput) {
     bookingSearchInput.value = "";
   }
@@ -676,6 +689,30 @@ resetBookingFiltersBtn?.addEventListener("click", () => {
   if (bookingPackageFilter) {
     bookingPackageFilter.value = "all";
   }
+  if (bookingSortSelect) {
+    bookingSortSelect.value = "name_asc";
+  }
+  renderSeasonBookings();
+});
+bookingQuickAllBtn?.addEventListener("click", () => {
+  state.bookingRenewalFilter = "all";
+  state.bookingPackageFilter = "all";
+  renderSeasonBookings();
+});
+bookingQuickRenewalBtn?.addEventListener("click", () => {
+  state.bookingRenewalFilter = state.bookingRenewalFilter === "open" ? "all" : "open";
+  renderSeasonBookings();
+});
+bookingQuickTrainBtn?.addEventListener("click", () => {
+  state.bookingPackageFilter = state.bookingPackageFilter === "1x TRAIN" ? "all" : "1x TRAIN";
+  renderSeasonBookings();
+});
+bookingQuickBeatBtn?.addEventListener("click", () => {
+  state.bookingPackageFilter = state.bookingPackageFilter === "2x BEAT" ? "all" : "2x BEAT";
+  renderSeasonBookings();
+});
+bookingQuickRepeatBtn?.addEventListener("click", () => {
+  state.bookingPackageFilter = state.bookingPackageFilter === "3x REPEAT" ? "all" : "3x REPEAT";
   renderSeasonBookings();
 });
 attendanceDate?.addEventListener("change", render);
@@ -8504,10 +8541,18 @@ function renderSeasonBookings() {
   if (bookingPackageFilter && bookingPackageFilter.value !== state.bookingPackageFilter) {
     bookingPackageFilter.value = state.bookingPackageFilter;
   }
+  if (bookingSortSelect && bookingSortSelect.value !== state.bookingSort) {
+    bookingSortSelect.value = state.bookingSort;
+  }
+  bookingQuickAllBtn?.classList.toggle("is-active", state.bookingRenewalFilter === "all" && state.bookingPackageFilter === "all");
+  bookingQuickRenewalBtn?.classList.toggle("is-active", state.bookingRenewalFilter === "open");
+  bookingQuickTrainBtn?.classList.toggle("is-active", state.bookingPackageFilter === "1x TRAIN");
+  bookingQuickBeatBtn?.classList.toggle("is-active", state.bookingPackageFilter === "2x BEAT");
+  bookingQuickRepeatBtn?.classList.toggle("is-active", state.bookingPackageFilter === "3x REPEAT");
 
   const visibleBookings = getVisibleSeasonBookings();
   const baseGroups = groupSeasonBookingsByContact(visibleBookings);
-  let groupedBookings = getFilteredBookingGroups(visibleBookings);
+  let groupedBookings = sortBookingGroups(getFilteredBookingGroups(visibleBookings));
   const filtersAreActive = Boolean(
     String(state.bookingSearch || "").trim()
     || state.bookingRenewalFilter !== "all"
@@ -8515,13 +8560,16 @@ function renderSeasonBookings() {
   );
 
   if (!visibleBookings.length) {
+    updateBookingTableActiveInfo();
     bookingList.appendChild(emptyStateTemplate.content.cloneNode(true));
     return;
   }
 
   if (!groupedBookings.length && !filtersAreActive) {
-    groupedBookings = baseGroups;
+    groupedBookings = sortBookingGroups(baseGroups);
   }
+
+  updateBookingTableActiveInfo();
 
   if (!groupedBookings.length) {
     const empty = document.createElement("article");
@@ -12484,6 +12532,78 @@ function getFilteredBookingGroups(bookings) {
 
     return true;
   });
+}
+
+function sortBookingGroups(groups) {
+  const sortMode = state.bookingSort || "name_asc";
+  const sorted = [...groups];
+
+  sorted.sort((left, right) => {
+    const leftLatest = left.bookings[0];
+    const rightLatest = right.bookings[0];
+    const leftLevel = getLevelUpStatus(leftLatest)?.totalPoints || 0;
+    const rightLevel = getLevelUpStatus(rightLatest)?.totalPoints || 0;
+    const leftBeatOuts = left.bookings.reduce((sum, booking) => sum + getBeatOutUsageForBooking(booking.id).used, 0);
+    const rightBeatOuts = right.bookings.reduce((sum, booking) => sum + getBeatOutUsageForBooking(booking.id).used, 0);
+    const leftRewards = getFreeSeasonRewardStatus(leftLatest)?.availableRewards || 0;
+    const rightRewards = getFreeSeasonRewardStatus(rightLatest)?.availableRewards || 0;
+    const leftRenewalOpen = isRenewalMissingForBookingGroup(left) ? 1 : 0;
+    const rightRenewalOpen = isRenewalMissingForBookingGroup(right) ? 1 : 0;
+
+    if (sortMode === "level_desc") {
+      return rightLevel - leftLevel || String(left.fullName || "").localeCompare(String(right.fullName || ""));
+    }
+
+    if (sortMode === "beatouts_desc") {
+      return rightBeatOuts - leftBeatOuts || String(left.fullName || "").localeCompare(String(right.fullName || ""));
+    }
+
+    if (sortMode === "rewards_desc") {
+      return rightRewards - leftRewards || String(left.fullName || "").localeCompare(String(right.fullName || ""));
+    }
+
+    if (sortMode === "renewal_open_first") {
+      return rightRenewalOpen - leftRenewalOpen || String(left.fullName || "").localeCompare(String(right.fullName || ""));
+    }
+
+    return String(left.fullName || "").localeCompare(String(right.fullName || ""), "de");
+  });
+
+  return sorted;
+}
+
+function updateBookingTableActiveInfo() {
+  if (!bookingTableActiveInfo) {
+    return;
+  }
+
+  const sortLabels = {
+    name_asc: "Name A-Z",
+    level_desc: "Level-Up absteigend",
+    beatouts_desc: "BEAT-OUTs absteigend",
+    rewards_desc: "Gratis-Seasons absteigend",
+    renewal_open_first: "Verlängerung offen zuerst",
+  };
+
+  const chips = [
+    `<span class="course-status-pill course-status-pill-info">Sortierung: ${escapeHtml(sortLabels[state.bookingSort] || "Name A-Z")}</span>`,
+  ];
+
+  if (state.bookingRenewalFilter === "open") {
+    chips.push('<span class="course-status-pill course-status-pill-warn">Filter: offene Verlängerungen</span>');
+  } else if (state.bookingRenewalFilter === "done") {
+    chips.push('<span class="course-status-pill">Filter: Verlängerung vorhanden</span>');
+  }
+
+  if (state.bookingPackageFilter !== "all") {
+    chips.push(`<span class="course-status-pill">${escapeHtml(state.bookingPackageFilter)}</span>`);
+  }
+
+  if (String(state.bookingSearch || "").trim()) {
+    chips.push(`<span class="course-status-pill">Suche: ${escapeHtml(String(state.bookingSearch || "").trim())}</span>`);
+  }
+
+  bookingTableActiveInfo.innerHTML = chips.join("");
 }
 
 function groupSeasonBookingsByContact(bookings) {

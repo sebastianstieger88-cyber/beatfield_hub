@@ -442,10 +442,28 @@
                   <option value="3x REPEAT">3x REPEAT</option>
                 </select>
               </label>
+              <label>
+                <span>Sortierung</span>
+                <select id="bookingSortSelect">
+                  <option value="name_asc">Name A-Z</option>
+                  <option value="level_desc">Level-Up absteigend</option>
+                  <option value="beatouts_desc">BEAT-OUTs absteigend</option>
+                  <option value="rewards_desc">Gratis-Seasons absteigend</option>
+                  <option value="renewal_open_first">Verlängerung offen zuerst</option>
+                </select>
+              </label>
               <div class="toolbar-actions booking-table-toolbar-actions">
                 <button id="resetBookingFiltersBtn" type="button" class="ghost">Filter zurücksetzen</button>
               </div>
             </div>
+            <div class="booking-quick-filters">
+              <button id="bookingQuickAllBtn" type="button" class="ghost">Alle</button>
+              <button id="bookingQuickRenewalBtn" type="button" class="ghost">Offene Verlängerungen</button>
+              <button id="bookingQuickTrainBtn" type="button" class="ghost">1x TRAIN</button>
+              <button id="bookingQuickBeatBtn" type="button" class="ghost">2x BEAT</button>
+              <button id="bookingQuickRepeatBtn" type="button" class="ghost">3x REPEAT</button>
+            </div>
+            <div id="bookingTableActiveInfo" class="booking-table-active-info"></div>
             <div id="bookingList" class="stats-grid booking-list-grid"></div>
           </section>
         </div>

@@ -949,7 +949,7 @@ label span,
 
 .booking-table-toolbar {
   display: grid;
-  grid-template-columns: minmax(220px, 1.4fr) repeat(2, minmax(170px, 0.7fr)) auto;
+  grid-template-columns: minmax(220px, 1.2fr) repeat(3, minmax(170px, 0.7fr)) auto;
   gap: 14px;
   align-items: end;
   margin-bottom: 16px;
@@ -957,6 +957,20 @@ label span,
 
 .booking-table-toolbar-actions {
   justify-content: flex-end;
+}
+
+.booking-quick-filters,
+.booking-table-active-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.booking-quick-filters button.is-active {
+  background: rgba(103, 193, 47, 0.18);
+  border-color: rgba(103, 193, 47, 0.2);
+  color: var(--text);
 }
 
 #bookingPanel .booking-grid {
@@ -978,6 +992,31 @@ label span,
 .booking-table {
   width: 100%;
   min-width: 1180px;
+}
+
+.booking-table th:nth-child(1),
+.booking-table td:nth-child(1) {
+  min-width: 220px;
+}
+
+.booking-table th:nth-child(2),
+.booking-table td:nth-child(2) {
+  min-width: 150px;
+}
+
+.booking-table th:nth-child(3),
+.booking-table td:nth-child(3) {
+  min-width: 170px;
+}
+
+.booking-table th:nth-child(8),
+.booking-table td:nth-child(8) {
+  min-width: 180px;
+}
+
+.booking-table th:nth-child(9),
+.booking-table td:nth-child(9) {
+  min-width: 170px;
 }
 
 .booking-table thead th {
@@ -2574,7 +2613,7 @@ th {
   }
 
   .booking-table-toolbar {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
   }
 
   .booking-table-toolbar-actions {
