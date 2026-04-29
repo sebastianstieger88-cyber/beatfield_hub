@@ -12027,6 +12027,26 @@ function getLifetimeRedeemedRewardCount(bookingOrParticipant) {
     .reduce((sum, entry) => sum + Math.max(Number(entry.free_seasons_redeemed || 0), 0), 0);
 }
 
+function getLifetimeSeasonBookingCount(bookingOrParticipant) {
+  const key = getPersonKey(bookingOrParticipant);
+  return state.seasonBookings.filter((entry) => getPersonKey(entry) === key).length;
+}
+
+function getLevelUpStatus(bookingOrParticipant) {
+  const totalPoints = getLifetimeSeasonBookingCount(bookingOrParticipant);
+  const nextMilestone = totalPoints > 0
+    ? Math.ceil((totalPoints + 1) / 5) * 5
+    : 5;
+  const remainingToNext = Math.max(nextMilestone - totalPoints, 0);
+  const reachedMilestone = totalPoints > 0 && totalPoints % 5 === 0;
+  return {
+    totalPoints,
+    nextMilestone,
+    remainingToNext,
+    reachedMilestone,
+  };
+}
+
 function getFreeSeasonRewardStatus(bookingOrParticipant) {
   const total = getLifetimeBeatOutCount(bookingOrParticipant);
   const milestones = [4, 8, 12];
@@ -12060,13 +12080,17 @@ function buildBeatOutOverviewCard(activeSeason, options = {}) {
     .map((booking) => {
       const usage = getBeatOutUsageForBooking(booking.id);
       const reward = getFreeSeasonRewardStatus(booking);
-      return { booking, usage, reward };
+      const levelUp = getLevelUpStatus(booking);
+      return { booking, usage, reward, levelUp };
     })
     .filter((entry) => entry.usage.limit > 0)
     .sort((left, right) => {
       const rewardCompare = right.reward.availableRewards - left.reward.availableRewards;
       if (rewardCompare !== 0) {
         return rewardCompare;
+      }
+      if (right.levelUp.totalPoints !== left.levelUp.totalPoints) {
+        return right.levelUp.totalPoints - left.levelUp.totalPoints;
       }
       if (left.reward.remainingToNext !== right.reward.remainingToNext) {
         return left.reward.remainingToNext - right.reward.remainingToNext;
@@ -12101,6 +12125,7 @@ function buildBeatOutOverviewCard(activeSeason, options = {}) {
           <th>Teilnehmer</th>
           <th>Paket</th>
           <th>Season</th>
+          <th>Level-Up</th>
           <th>Gesamt</th>
           <th>Gratis-Seasons</th>
           <th>Aktion</th>
@@ -12115,6 +12140,9 @@ function buildBeatOutOverviewCard(activeSeason, options = {}) {
         : entry.reward.nextMilestone
           ? `noch ${entry.reward.remainingToNext} bis ${entry.reward.nextMilestone}`
           : "höchste Freistufe";
+      const levelUpMeta = entry.levelUp.reachedMilestone
+        ? `Geschenk bei ${entry.levelUp.totalPoints}`
+        : `noch ${entry.levelUp.remainingToNext} bis ${entry.levelUp.nextMilestone}`;
 
       const tr = document.createElement("tr");
       tr.innerHTML = `
@@ -12124,6 +12152,10 @@ function buildBeatOutOverviewCard(activeSeason, options = {}) {
         </td>
         <td>${escapeHtml(entry.booking.package_type)}</td>
         <td>${entry.usage.used}/${entry.usage.limit}</td>
+        <td>
+          <strong>${entry.levelUp.totalPoints} Punkte</strong>
+          <div class="stat-meta">${escapeHtml(levelUpMeta)}</div>
+        </td>
         <td>${entry.reward.total} BEAT-OUTs</td>
         <td>${escapeHtml(nextRewardMeta)}</td>
         <td></td>
@@ -12176,6 +12208,9 @@ function buildBeatOutOverviewCard(activeSeason, options = {}) {
         : entry.reward.nextMilestone
           ? `${entry.reward.total} BEAT-OUTs gesamt | noch ${entry.reward.remainingToNext} bis ${entry.reward.nextMilestone}`
           : `${entry.reward.total} BEAT-OUTs gesamt | höchste Freistufe erreicht`;
+      const levelMeta = entry.levelUp.reachedMilestone
+        ? `Level-Up ${entry.levelUp.totalPoints} erreicht | Geschenk fällig`
+        : `Level-Up ${entry.levelUp.totalPoints} | noch ${entry.levelUp.remainingToNext} bis ${entry.levelUp.nextMilestone}`;
 
       const row = document.createElement("div");
       row.className = "list-row";
@@ -12183,6 +12218,7 @@ function buildBeatOutOverviewCard(activeSeason, options = {}) {
         <div>
           <strong>${escapeHtml(entry.booking.full_name)}</strong>
           <div class="stat-meta">${escapeHtml(entry.booking.package_type)} | ${entry.usage.used}/${entry.usage.limit} BEAT-OUTs in dieser Season</div>
+          <div class="stat-meta dashboard-detail-line">${escapeHtml(levelMeta)}</div>
           <div class="stat-meta dashboard-detail-line">${escapeHtml(nextRewardMeta)}</div>
           <div class="stat-meta dashboard-detail-line">${entry.reward.redeemedRewards} Gratis-Seasons bereits eingelöst</div>
         </div>
