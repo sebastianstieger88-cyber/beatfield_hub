@@ -81,6 +81,7 @@ create table if not exists public.season_bookings (
   package_type text not null check (package_type in ('1x TRAIN', '2x BEAT', '3x REPEAT')),
   contact_status text not null default 'offen' check (contact_status in ('offen', 'kontaktiert', 'zugesagt', 'pausiert')),
   free_seasons_redeemed integer not null default 0,
+  counts_for_level_up boolean not null default true,
   selected_days text[] not null,
   start_date date,
   created_at timestamptz not null default now()

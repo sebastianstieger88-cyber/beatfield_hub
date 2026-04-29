@@ -853,7 +853,7 @@ async function fetchSupportData() {
 
   const seasonBookingsQuery = state.supabase
     .from("season_bookings")
-    .select("id, season_id, full_name, phone, package_type, contact_status, free_seasons_redeemed, selected_days, start_date, created_at")
+    .select("id, season_id, full_name, phone, package_type, contact_status, free_seasons_redeemed, counts_for_level_up, selected_days, start_date, created_at")
     .order("created_at", { ascending: false });
 
   const trainerQuery = state.supabase
@@ -1795,6 +1795,7 @@ async function handleSeasonBookingCreate(event) {
         full_name: fullName,
         phone: phone || null,
         package_type: packageType,
+        counts_for_level_up: state.seasonBookings.find((entry) => entry.id === bookingId)?.counts_for_level_up !== false,
         selected_days: selectedDays,
         start_date: startDate,
         created_at: state.seasonBookings.find((entry) => entry.id === bookingId)?.created_at || new Date().toISOString(),
@@ -1809,10 +1810,11 @@ async function handleSeasonBookingCreate(event) {
           package_type: packageType,
           contact_status: "offen",
           free_seasons_redeemed: 0,
+          counts_for_level_up: true,
           selected_days: selectedDays,
           start_date: startDate,
         })
-        .select("id, season_id, full_name, phone, package_type, contact_status, free_seasons_redeemed, selected_days, start_date, created_at")
+        .select("id, season_id, full_name, phone, package_type, contact_status, free_seasons_redeemed, counts_for_level_up, selected_days, start_date, created_at")
         .single();
 
       if (bookingInsertResult.error) {
@@ -1990,6 +1992,7 @@ async function handleSeasonDuplicate(sourceSeason, carryOverBookings = false) {
           full_name: booking.full_name,
           phone: booking.phone || null,
           package_type: booking.package_type,
+          counts_for_level_up: booking.counts_for_level_up !== false,
           selected_days: booking.selected_days,
           start_date: null,
         })
@@ -2177,6 +2180,7 @@ async function cloneBookingIntoSeason(booking, targetSeason) {
       package_type: booking.package_type,
       contact_status: "zugesagt",
       free_seasons_redeemed: 0,
+      counts_for_level_up: booking.counts_for_level_up !== false,
       selected_days: booking.selected_days,
       start_date: targetSeason.start_date || null,
     })
@@ -2613,10 +2617,11 @@ async function handleParticipantCreate(event) {
           package_type: "1x TRAIN",
           contact_status: "offen",
           free_seasons_redeemed: 0,
+          counts_for_level_up: true,
           selected_days: [selectedDay],
           start_date: session?.session_date || null,
         })
-        .select("id, season_id, full_name, phone, package_type, contact_status, free_seasons_redeemed, selected_days, start_date, created_at")
+        .select("id, season_id, full_name, phone, package_type, contact_status, free_seasons_redeemed, counts_for_level_up, selected_days, start_date, created_at")
         .single();
 
       if (bookingInsertResult.error) {
@@ -3025,6 +3030,34 @@ function resetBookingForm() {
   }
   cancelBookingEditBtn?.classList.add("hidden");
   syncBookingDayInputs();
+}
+
+async function toggleBookingLevelUpCount(booking) {
+  if (!booking || !isAdmin() || !state.supabase) {
+    return;
+  }
+
+  const nextValue = booking.counts_for_level_up === false;
+  const updateResult = await state.supabase
+    .from("season_bookings")
+    .update({ counts_for_level_up: nextValue })
+    .eq("id", booking.id);
+
+  if (updateResult.error) {
+    notify(getFriendlySupabaseMessage(updateResult.error, "Level-Up-Zuordnung konnte nicht aktualisiert werden."), true);
+    return;
+  }
+
+  state.seasonBookings = state.seasonBookings.map((entry) => (
+    entry.id === booking.id
+      ? { ...entry, counts_for_level_up: nextValue }
+      : entry
+  ));
+
+  render();
+  notify(nextValue
+    ? `${booking.full_name} zählt in ${state.seasons.find((entry) => entry.id === booking.season_id)?.name || "dieser Season"} für Level-Up mit.`
+    : `${booking.full_name} zählt in ${state.seasons.find((entry) => entry.id === booking.season_id)?.name || "dieser Season"} nicht für Level-Up mit.`);
 }
 
 async function handleParticipantMove(participant, currentCourse) {
@@ -8492,6 +8525,7 @@ function createBookingHistoryRow(booking) {
   const season = state.seasons.find((entry) => entry.id === booking.season_id);
   const beatOutUsage = getBeatOutUsageForBooking(booking.id);
   const rewardStatus = getFreeSeasonRewardStatus(booking);
+  const levelUpStatus = getLevelUpStatus(booking);
   const contactMeta = getContactStatusMeta(booking.contact_status);
   const row = document.createElement("div");
   row.className = "booking-history-row";
@@ -8500,6 +8534,7 @@ function createBookingHistoryRow(booking) {
       <strong>${season ? escapeHtml(season.name) : "Ohne Season"}</strong>
       <div class="stat-meta">Paket: ${escapeHtml(booking.package_type)} • ${escapeHtml(formatSelectedDays(booking.selected_days))}</div>
       ${booking.start_date ? `<div class="stat-meta">Start ab: ${escapeHtml(formatDateLabel(booking.start_date))}</div>` : ""}
+      <div class="stat-meta">Level-Up: ${booking.counts_for_level_up !== false ? "zählt" : "zählt nicht"} • Stand gesamt: ${levelUpStatus.totalPoints}</div>
       <div class="stat-meta">BEAT-OUTS: ${beatOutUsage.used}/${beatOutUsage.limit} • Gratis-Season: ${rewardStatus.availableRewards} verfügbar | ${rewardStatus.redeemedRewards} eingelöst</div>
     </div>
   `;
@@ -8515,6 +8550,15 @@ function createBookingHistoryRow(booking) {
     await updateBookingContactStatus(booking);
   });
   rowActions.appendChild(contactBtn);
+
+  const levelUpBtn = document.createElement("button");
+  levelUpBtn.type = "button";
+  levelUpBtn.className = booking.counts_for_level_up !== false ? "ghost" : "danger";
+  levelUpBtn.textContent = booking.counts_for_level_up !== false ? "Level-Up: zählt" : "Level-Up: aus";
+  levelUpBtn.addEventListener("click", async () => {
+    await toggleBookingLevelUpCount(booking);
+  });
+  rowActions.appendChild(levelUpBtn);
 
   const editBtn = document.createElement("button");
   editBtn.type = "button";
@@ -9212,10 +9256,11 @@ async function convertTrialToParticipant(trial) {
         package_type: "1x TRAIN",
         contact_status: "zugesagt",
         free_seasons_redeemed: 0,
+        counts_for_level_up: true,
         selected_days: [selectedDay],
         start_date: session.session_date,
       })
-      .select("id, season_id, full_name, phone, package_type, contact_status, free_seasons_redeemed, selected_days, start_date, created_at")
+      .select("id, season_id, full_name, phone, package_type, contact_status, free_seasons_redeemed, counts_for_level_up, selected_days, start_date, created_at")
       .single();
 
     if (bookingInsertResult.error) {
@@ -12029,7 +12074,7 @@ function getLifetimeRedeemedRewardCount(bookingOrParticipant) {
 
 function getLifetimeSeasonBookingCount(bookingOrParticipant) {
   const key = getPersonKey(bookingOrParticipant);
-  return state.seasonBookings.filter((entry) => getPersonKey(entry) === key).length;
+  return state.seasonBookings.filter((entry) => getPersonKey(entry) === key && entry.counts_for_level_up !== false).length;
 }
 
 function getLevelUpStatus(bookingOrParticipant) {
