@@ -9654,10 +9654,18 @@ function renderParticipants() {
   const sessionParticipants = isAdmin()
     ? rawSessionParticipants
     : [...rawSessionParticipants].sort((left, right) => {
-        const leftRecord = records.find((entry) => entry.participant_id === left.id);
-        const rightRecord = records.find((entry) => entry.participant_id === right.id);
-        const leftPresent = left.is_dropin ? left.drop_in_status === "teilgenommen" : Boolean(leftRecord?.present);
-        const rightPresent = right.is_dropin ? right.drop_in_status === "teilgenommen" : Boolean(rightRecord?.present);
+      const leftRecord = records.find((entry) => entry.participant_id === left.id);
+      const rightRecord = records.find((entry) => entry.participant_id === right.id);
+      const leftPresent = left.is_trial
+        ? left.trial_status === "teilgenommen"
+        : left.is_dropin
+          ? left.drop_in_status === "teilgenommen"
+          : Boolean(leftRecord?.present);
+      const rightPresent = right.is_trial
+        ? right.trial_status === "teilgenommen"
+        : right.is_dropin
+          ? right.drop_in_status === "teilgenommen"
+          : Boolean(rightRecord?.present);
         const leftBeatOut = getBeatOutEntryForParticipantSession(left.id, session?.id);
         const rightBeatOut = getBeatOutEntryForParticipantSession(right.id, session?.id);
         const leftOverride = session?.id ? getSessionOverrideForTarget(left.id, session.id) : null;
@@ -9694,9 +9702,11 @@ function renderParticipants() {
     const isTrialParticipant = Boolean(participant.is_trial);
     const isDropInParticipant = Boolean(participant.is_dropin);
     const record = records.find((entry) => entry.participant_id === participant.id);
-    const isPresent = isDropInParticipant
-      ? participant.drop_in_status === "teilgenommen"
-      : Boolean(record?.present);
+    const isPresent = isTrialParticipant
+      ? participant.trial_status === "teilgenommen"
+      : isDropInParticipant
+        ? participant.drop_in_status === "teilgenommen"
+        : Boolean(record?.present);
     const booking = getParticipantSeasonBooking(participant);
     const beatOutEntry = getBeatOutEntryForParticipantSession(participant.id, session?.id);
     const bookingUsage = getBeatOutUsageForBooking(booking?.id);
@@ -9757,10 +9767,17 @@ function renderParticipants() {
     `;
 
     const toggleButton = row.querySelector(".attendance-toggle");
-    toggleButton.disabled = !canEditCourse(course) || isTrialParticipant;
+    toggleButton.disabled = !canEditCourse(course);
     if (!isTrialParticipant && !isDropInParticipant) {
       toggleButton.addEventListener("click", async () => {
         await toggleAttendance(course.id, participant.id);
+      });
+    } else if (isTrialParticipant) {
+      toggleButton.addEventListener("click", async () => {
+        await updateTrialStatus(
+          participant.trial_request_id,
+          participant.trial_status === "teilgenommen" ? "gebucht" : "teilgenommen",
+        );
       });
     } else if (isDropInParticipant) {
       toggleButton.addEventListener("click", async () => {
@@ -9825,7 +9842,7 @@ function renderParticipants() {
     const mobileStatusLabel = isDropInParticipant
       ? isPresent ? "DROP-IN teilgenommen" : "DROP-IN gebucht"
       : isTrialParticipant
-        ? "Probetraining"
+        ? isPresent ? "Probetraining teilgenommen" : "Probetraining gebucht"
         : isPresent
           ? "Anwesend"
           : beatOutEntry
@@ -9852,7 +9869,7 @@ function renderParticipants() {
           <div class="participant-card-status-copy">
             <span class="participant-card-section-label">Anwesenheit</span>
             <strong>${escapeHtml(mobileStatusLabel)}</strong>
-            <span class="participant-card-status-hint">${isTrialParticipant ? "Nur Ansicht" : isDropInParticipant ? "Tippen für Teilnahme" : "Tippen für schnellen Check-in"}</span>
+            <span class="participant-card-status-hint">${isTrialParticipant ? "Tippen für Teilnahme" : isDropInParticipant ? "Tippen für Teilnahme" : "Tippen für schnellen Check-in"}</span>
           </div>
           <button type="button" class="attendance-toggle${isPresent ? " is-present" : ""}" aria-label="Anwesenheit umschalten"></button>
         </div>
@@ -9865,7 +9882,7 @@ function renderParticipants() {
 
       const mobileToggle = card.querySelector(".attendance-toggle");
       const mobileStatusRow = card.querySelector(".participant-card-status-row");
-      mobileToggle.disabled = !canEditCourse(course) || isTrialParticipant;
+      mobileToggle.disabled = !canEditCourse(course);
       if (!isTrialParticipant && !isDropInParticipant) {
         mobileStatusRow.classList.add("participant-card-status-row-clickable");
         mobileStatusRow.addEventListener("click", async () => {
@@ -9874,6 +9891,21 @@ function renderParticipants() {
         mobileToggle.addEventListener("click", async (event) => {
           event.stopPropagation();
           await toggleAttendance(course.id, participant.id);
+        });
+      } else if (isTrialParticipant) {
+        mobileStatusRow.classList.add("participant-card-status-row-clickable");
+        mobileStatusRow.addEventListener("click", async () => {
+          await updateTrialStatus(
+            participant.trial_request_id,
+            participant.trial_status === "teilgenommen" ? "gebucht" : "teilgenommen",
+          );
+        });
+        mobileToggle.addEventListener("click", async (event) => {
+          event.stopPropagation();
+          await updateTrialStatus(
+            participant.trial_request_id,
+            participant.trial_status === "teilgenommen" ? "gebucht" : "teilgenommen",
+          );
         });
       } else if (isDropInParticipant) {
         mobileStatusRow.classList.add("participant-card-status-row-clickable");
@@ -11635,6 +11667,7 @@ function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
         email: entry.email || "",
         is_trial: true,
         trial_request_id: entry.id,
+        trial_status: entry.status,
       };
     });
 
@@ -11701,6 +11734,7 @@ function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
           email: trial.email || "",
           is_trial: true,
           trial_request_id: trial.id,
+          trial_status: trial.status,
         });
       }
     }
@@ -13074,6 +13108,9 @@ function getCourseStatusSnapshot(course) {
   const participants = getAttendanceParticipantsForCourse(course.id, session?.id);
   const records = getRecordsForSession(session?.id);
   const presentCount = participants.filter((participant) => {
+    if (participant.is_trial) {
+      return participant.trial_status === "teilgenommen";
+    }
     if (participant.is_dropin) {
       return participant.drop_in_status === "teilgenommen";
     }
@@ -13112,12 +13149,15 @@ function getTrainerTodayTaskRows() {
 
     const participants = getAttendanceParticipantsForCourse(course.id, session.id);
     const records = getRecordsForSession(session.id);
-    const presentCount = participants.filter((participant) => {
-      if (participant.is_dropin) {
-        return participant.drop_in_status === "teilgenommen";
-      }
-      return records.some((record) => record.participant_id === participant.id && record.present);
-    }).length;
+      const presentCount = participants.filter((participant) => {
+        if (participant.is_trial) {
+          return participant.trial_status === "teilgenommen";
+        }
+        if (participant.is_dropin) {
+          return participant.drop_in_status === "teilgenommen";
+        }
+        return records.some((record) => record.participant_id === participant.id && record.present);
+      }).length;
     const beatOutCount = participants.filter((participant) => getBeatOutEntryForParticipantSession(participant.id, session.id)).length;
     const openCount = Math.max(participants.length - presentCount - beatOutCount, 0);
     const trialCount = participants.filter((participant) => participant.is_trial).length;
