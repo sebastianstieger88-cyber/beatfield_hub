@@ -2384,6 +2384,23 @@ button.danger {
   gap: 6px;
 }
 
+.exercise-copy {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.exercise-copy-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 10px;
+  color: var(--text);
+}
+
+.exercise-copy-list li {
+  line-height: 1.6;
+}
+
 .exercise-detail-section {
   display: grid;
   gap: 6px;

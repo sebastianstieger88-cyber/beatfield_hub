@@ -4480,14 +4480,14 @@ function renderExerciseDetailView() {
     },
   ].map((section) => {
     const items = section.items
-      .filter(([, value]) => String(value || "").trim())
-      .map(([label, value]) => `
-        <div class="exercise-detail-item">
-          <p class="exercise-detail-label">${escapeHtml(label)}</p>
-          <p class="exercise-copy">${escapeHtml(value)}</p>
-        </div>
-      `)
-      .join("");
+        .filter(([, value]) => String(value || "").trim())
+        .map(([label, value]) => `
+          <div class="exercise-detail-item">
+            <p class="exercise-detail-label">${escapeHtml(label)}</p>
+            ${formatCampusDetailCopy(value)}
+          </div>
+        `)
+        .join("");
 
     if (!items) {
       return "";
@@ -5063,7 +5063,7 @@ function renderFinisherDetailView() {
           <h4>Beschreibung</h4>
           <div class="exercise-detail-list">
             <div class="exercise-detail-item">
-              <p class="exercise-copy">${escapeHtml(finisher.description)}</p>
+              ${formatCampusDetailCopy(finisher.description)}
             </div>
           </div>
         </section>
@@ -5073,7 +5073,7 @@ function renderFinisherDetailView() {
           <h4>Coaching</h4>
           <div class="exercise-detail-list">
             <div class="exercise-detail-item">
-              <p class="exercise-copy">${escapeHtml(finisher.coaching_cues)}</p>
+              ${formatCampusDetailCopy(finisher.coaching_cues)}
             </div>
           </div>
         </section>
@@ -5156,7 +5156,7 @@ function renderWarmupDetailView() {
           <h4>Beschreibung</h4>
           <div class="exercise-detail-list">
             <div class="exercise-detail-item">
-              <p class="exercise-copy">${escapeHtml(warmup.description)}</p>
+              ${formatCampusDetailCopy(warmup.description)}
             </div>
           </div>
         </section>
@@ -5166,7 +5166,7 @@ function renderWarmupDetailView() {
           <h4>Coaching</h4>
           <div class="exercise-detail-list">
             <div class="exercise-detail-item">
-              <p class="exercise-copy">${escapeHtml(warmup.coaching_cues)}</p>
+              ${formatCampusDetailCopy(warmup.coaching_cues)}
             </div>
           </div>
         </section>
@@ -14502,4 +14502,27 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function formatCampusDetailCopy(value) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return "";
+  }
+
+  const parts = raw
+    .replace(/\r\n/g, "\n")
+    .split(/\n+|•/g)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length <= 1) {
+    return `<p class="exercise-copy">${escapeHtml(raw)}</p>`;
+  }
+
+  return `
+    <ul class="exercise-copy-list">
+      ${parts.map((part) => `<li>${escapeHtml(part)}</li>`).join("")}
+    </ul>
+  `;
 }
