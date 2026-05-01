@@ -2684,6 +2684,20 @@ th {
     display: grid;
   }
 
+  #exercisePanel .exercise-table-wrap,
+  #finisherPanel .exercise-table-wrap,
+  #warmupPanel .exercise-table-wrap {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #exercisePanel .exercise-grid,
+  #finisherPanel .exercise-grid,
+  #warmupPanel .exercise-grid {
+    display: none;
+  }
+
   .toolbar-actions {
     width: 100%;
   }
@@ -2879,6 +2893,14 @@ th {
 
   .exercise-table-wrap {
     display: none;
+  }
+
+  #exercisePanel .exercise-table-wrap,
+  #finisherPanel .exercise-table-wrap,
+  #warmupPanel .exercise-table-wrap {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .specials-preview-frame,
