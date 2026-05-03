@@ -12211,15 +12211,25 @@ function getPackageTypeForDayCount(dayCount) {
 }
 
 function getBeatOutUsageForBooking(bookingId) {
-    const booking = state.seasonBookings.find((entry) => entry.id === bookingId) || null;
-    const used = state.beatOutEntries.filter((entry) => entry.season_booking_id === bookingId).length;
-    const limit = getBeatOutLimitForPackage(booking?.package_type);
-    return {
-      used,
-      limit,
-      remaining: Math.max(limit - used, 0),
-    };
-  }
+  const booking = state.seasonBookings.find((entry) => entry.id === bookingId) || null;
+  const relevantEntries = state.beatOutEntries.filter((entry) => {
+    if (entry.season_booking_id !== bookingId) {
+      return false;
+    }
+    if (!booking?.season_id) {
+      return true;
+    }
+    const session = state.sessions.find((sessionEntry) => sessionEntry.id === entry.session_id) || null;
+    return !session?.season_id || session.season_id === booking.season_id;
+  });
+  const used = new Set(relevantEntries.map((entry) => entry.session_id)).size;
+  const limit = getBeatOutLimitForPackage(booking?.package_type);
+  return {
+    used,
+    limit,
+    remaining: Math.max(limit - used, 0),
+  };
+}
 
 function getParticipantSeasonBooking(participant) {
   if (!participant) {
