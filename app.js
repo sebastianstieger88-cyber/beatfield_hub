@@ -3151,8 +3151,10 @@ async function handleParticipantMove(participant, currentCourse) {
   }
 
   const sessionDate = getEffectiveAttendanceDate();
-  const booking = getParticipantSeasonBooking(participant);
-  const activeSession = booking ? getSessionForCourseAndDate(currentCourse.id, sessionDate) : null;
+  const activeSession = getSessionForCourseAndDate(currentCourse.id, sessionDate);
+  const booking = getParticipantSeasonBooking(participant, {
+    seasonId: activeSession?.season_id || participant.season_id || state.attendanceSeasonId || state.selectedSeasonId || null,
+  });
   const incomingOverride = activeSession ? getSessionOverrideForTarget(participant.id, activeSession.id) : null;
 
   if (incomingOverride) {
@@ -10950,18 +10952,21 @@ async function toggleBeatOut(courseId, participantId) {
     return;
   }
 
-  const booking = getParticipantSeasonBooking(participant);
-  if (!booking) {
-    notify("BEAT-OUT ist nur für Season-Buchungen verfügbar.", true);
-    return;
-  }
-
   const sessionDate = getEffectiveAttendanceDate();
   let sessionId;
   try {
     sessionId = await ensureSession(courseId, sessionDate);
   } catch (error) {
     notify(error.message, true);
+    return;
+  }
+
+  const currentSession = state.sessions.find((entry) => entry.id === sessionId) || null;
+  const booking = getParticipantSeasonBooking(participant, {
+    seasonId: currentSession?.season_id || participant.season_id || state.attendanceSeasonId || state.selectedSeasonId || null,
+  });
+  if (!booking) {
+    notify("BEAT-OUT ist nur für Season-Buchungen verfügbar.", true);
     return;
   }
 
@@ -12501,14 +12506,16 @@ function getBeatOutUsageForBooking(bookingId) {
   };
 }
 
-function getParticipantSeasonBooking(participant) {
+function getParticipantSeasonBooking(participant, options = {}) {
   if (!participant) {
     return null;
   }
 
+  const { seasonId = null } = options;
+
   if (participant.season_booking_id) {
     const directBooking = state.seasonBookings.find((entry) => entry.id === participant.season_booking_id) || null;
-    if (directBooking) {
+    if (directBooking && (!seasonId || directBooking.season_id === seasonId)) {
       return directBooking;
     }
   }
@@ -12524,10 +12531,24 @@ function getParticipantSeasonBooking(participant) {
       return String(rightAnchor).localeCompare(String(leftAnchor));
     });
 
+  if (seasonId) {
+    const seasonMatch = matchingBookings.find((entry) => entry.season_id === seasonId) || null;
+    if (seasonMatch) {
+      return seasonMatch;
+    }
+  }
+
   if (participant.season_id) {
     const seasonMatch = matchingBookings.find((entry) => entry.season_id === participant.season_id) || null;
     if (seasonMatch) {
       return seasonMatch;
+    }
+  }
+
+  if (state.selectedSeasonId) {
+    const selectedSeasonMatch = matchingBookings.find((entry) => entry.season_id === state.selectedSeasonId) || null;
+    if (selectedSeasonMatch) {
+      return selectedSeasonMatch;
     }
   }
 
@@ -12546,6 +12567,9 @@ function getParticipantSeasonBooking(participant) {
   const participantPhone = normalizePhoneValue(participant.phone);
 
   return state.seasonBookings.find((entry) => {
+    if (seasonId && entry.season_id !== seasonId) {
+      return false;
+    }
     if (participant.season_id && entry.season_id !== participant.season_id) {
       return false;
     }
