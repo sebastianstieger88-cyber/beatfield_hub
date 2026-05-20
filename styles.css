@@ -2459,6 +2459,20 @@ button.danger {
   margin-bottom: 4px;
 }
 
+.beatout-history-cell {
+  min-width: 320px;
+}
+
+.beatout-history-events {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.beatout-history-event {
+  white-space: nowrap;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

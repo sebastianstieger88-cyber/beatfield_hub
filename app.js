@@ -157,6 +157,7 @@ const attendancePanel = document.querySelector("#attendancePanel");
 const monthlyPanel = document.querySelector("#monthlyPanel");
 const statsPanel = document.querySelector("#statsPanel");
 const businessPanel = document.querySelector("#businessPanel");
+const beatoutPanel = document.querySelector("#beatoutPanel");
 const reportsPanel = document.querySelector("#reportsPanel");
 const mainGrid = document.querySelector(".grid");
 const appNav = document.querySelector(".app-nav");
@@ -319,6 +320,8 @@ const monthlyCalendar = document.querySelector("#monthlyCalendar");
 const statsCards = document.querySelector("#statsCards");
 const businessCards = document.querySelector("#businessCards");
 const businessInsights = document.querySelector("#businessInsights");
+const beatoutCards = document.querySelector("#beatoutCards");
+const beatoutHistory = document.querySelector("#beatoutHistory");
 const reportPreview = document.querySelector("#reportPreview");
 const mobileTodayBtn = document.querySelector("#mobileTodayBtn");
 const mobileMonthBtn = document.querySelector("#mobileMonthBtn");
@@ -408,6 +411,7 @@ const contentPanels = [
   monthlyPanel,
   statsPanel,
   businessPanel,
+  beatoutPanel,
   reportsPanel,
 ].filter(Boolean);
 
@@ -3640,6 +3644,7 @@ function render() {
   renderMonthlyOverview();
   renderStats();
   renderBusinessDashboard();
+  renderBeatOutAnalysis();
   renderReportPreview();
   renderMobileSessionSummary();
   renderParticipantProfile();
@@ -10324,6 +10329,236 @@ function renderBusinessDashboard() {
   }
 }
 
+function getBeatOutAnalysisRows() {
+  const grouped = new Map();
+
+  state.beatOutEntries.forEach((entry) => {
+    const booking = state.seasonBookings.find((bookingEntry) => bookingEntry.id === entry.season_booking_id) || null;
+    const participant = state.participants.find((participantEntry) => participantEntry.id === entry.participant_id) || null;
+    const source = booking || participant || {};
+    const key = booking
+      ? getPersonKey(booking)
+      : participant
+        ? getPersonKey(participant)
+        : `entry:${entry.id}`;
+    const session = state.sessions.find((sessionEntry) => sessionEntry.id === entry.session_id) || null;
+    const season = state.seasons.find((seasonEntry) => seasonEntry.id === (session?.season_id || booking?.season_id)) || null;
+    const course = state.courses.find((courseEntry) => courseEntry.id === session?.course_id) || null;
+
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        key,
+        source,
+        fullName: source.full_name || "Unbekannt",
+        phone: source.phone || "",
+        entries: [],
+      });
+    }
+
+    grouped.get(key).entries.push({
+      id: entry.id,
+      sessionId: entry.session_id,
+      date: session?.session_date || "",
+      createdAt: entry.created_at || "",
+      courseName: course?.name || "Kurs",
+      seasonName: season?.name || booking?.season_name || "Season",
+    });
+  });
+
+  const activeSeason = getSelectedSeason() || state.seasons.find((season) => season.status === "aktiv") || null;
+
+  return Array.from(grouped.values())
+    .map((group) => {
+      const personBookings = state.seasonBookings.filter((booking) => getPersonKey(booking) === group.key);
+      const referenceBooking = (
+        (activeSeason && personBookings.find((booking) => booking.season_id === activeSeason.id))
+        || personBookings
+          .slice()
+          .sort((left, right) => {
+            const leftSeason = state.seasons.find((season) => season.id === left.season_id) || null;
+            const rightSeason = state.seasons.find((season) => season.id === right.season_id) || null;
+            const leftAnchor = leftSeason?.end_date || leftSeason?.start_date || left.created_at || "";
+            const rightAnchor = rightSeason?.end_date || rightSeason?.start_date || right.created_at || "";
+            return String(rightAnchor).localeCompare(String(leftAnchor));
+          })[0]
+        || null
+      );
+
+      const seasonUsage = referenceBooking
+        ? getBeatOutUsageForBooking(referenceBooking.id)
+        : { used: 0, limit: 0, remaining: 0 };
+      const rewardStatus = getFreeSeasonRewardStatus(referenceBooking || group.source);
+      const uniqueEntries = Array.from(
+        new Map(
+          group.entries.map((entry) => [
+            `${entry.sessionId || entry.id}`,
+            entry,
+          ]),
+        ).values(),
+      ).sort((left, right) => {
+        const leftAnchor = left.date || left.createdAt || "";
+        const rightAnchor = right.date || right.createdAt || "";
+        return String(rightAnchor).localeCompare(String(leftAnchor));
+      });
+
+      return {
+        ...group,
+        referenceBooking,
+        seasonUsage,
+        rewardStatus,
+        lifetimeTotal: getLifetimeBeatOutCount(referenceBooking || group.source),
+        entries: uniqueEntries,
+      };
+    })
+    .sort((left, right) => {
+      if (right.lifetimeTotal !== left.lifetimeTotal) {
+        return right.lifetimeTotal - left.lifetimeTotal;
+      }
+      const leftDate = left.entries[0]?.date || left.entries[0]?.createdAt || "";
+      const rightDate = right.entries[0]?.date || right.entries[0]?.createdAt || "";
+      if (leftDate !== rightDate) {
+        return String(rightDate).localeCompare(String(leftDate));
+      }
+      return String(left.fullName || "").localeCompare(String(right.fullName || ""), "de");
+    });
+}
+
+function renderBeatOutAnalysis() {
+  if (!beatoutCards || !beatoutHistory) {
+    return;
+  }
+
+  beatoutCards.innerHTML = "";
+  beatoutHistory.innerHTML = "";
+
+  const rows = getBeatOutAnalysisRows();
+  const activeSeason = getSelectedSeason() || state.seasons.find((season) => season.status === "aktiv") || null;
+
+  const activeSeasonBookings = activeSeason
+    ? state.seasonBookings.filter((booking) => booking.season_id === activeSeason.id && getBeatOutLimitForPackage(booking.package_type) > 0)
+    : [];
+  const activeSeasonUsed = activeSeasonBookings.reduce((sum, booking) => sum + getBeatOutUsageForBooking(booking.id).used, 0);
+  const activeSeasonLimit = activeSeasonBookings.reduce((sum, booking) => sum + getBeatOutUsageForBooking(booking.id).limit, 0);
+  const availableRewards = rows.reduce((sum, row) => sum + Math.max(row.rewardStatus.availableRewards || 0, 0), 0);
+  const documentedBeatOuts = rows.reduce((sum, row) => sum + row.entries.length, 0);
+
+  const items = [
+    {
+      title: "Teilnehmer mit BEAT-OUT",
+      value: rows.length,
+      meta: "Gesamt | Personen mit mindestens einem eingetragenen BEAT-OUT",
+    },
+    {
+      title: "Eingetragene BEAT-OUTs",
+      value: documentedBeatOuts,
+      meta: "Gesamt | bereinigte dokumentierte BEAT-OUT-Termine",
+    },
+    {
+      title: "Aktive Season",
+      value: activeSeason ? `${activeSeasonUsed}/${activeSeasonLimit}` : "–",
+      meta: activeSeason ? `Aktive Season | genutzte BEAT-OUTs in ${activeSeason.name}` : "Aktive Season | noch keine aktive Season gewählt",
+    },
+    {
+      title: "Gratis-Seasons offen",
+      value: availableRewards,
+      meta: "Gesamt | aktuell einlösbare Freistufen",
+    },
+  ];
+
+  items.forEach((item) => {
+    const card = document.createElement("article");
+    card.className = "stat-card";
+    card.innerHTML = `
+      <h3>${escapeHtml(item.title)}</h3>
+      <p class="hero-stat">${escapeHtml(String(item.value))}</p>
+      <p class="stat-meta">${escapeHtml(item.meta)}</p>
+    `;
+    beatoutCards.appendChild(card);
+  });
+
+  const card = document.createElement("article");
+  card.className = "stat-card dashboard-card";
+  card.innerHTML = `
+    <h3>BEAT-OUT Verlauf</h3>
+    <p class="stat-meta">Gesamt | wann welcher Teilnehmer einen BEAT-OUT genommen hat und wie der aktuelle Stand aussieht.</p>
+  `;
+
+  const tableWrap = document.createElement("div");
+  tableWrap.className = "table-wrap beatout-table-wrap";
+
+  if (!rows.length) {
+    tableWrap.innerHTML = '<p class="stat-meta">Noch keine BEAT-OUTs dokumentiert.</p>';
+    card.appendChild(tableWrap);
+    beatoutHistory.appendChild(card);
+    return;
+  }
+
+  const table = document.createElement("table");
+  table.className = "beatout-table";
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>Teilnehmer</th>
+        <th>Referenzbuchung</th>
+        <th>Diese Season</th>
+        <th>Gesamt</th>
+        <th>Verlauf</th>
+      </tr>
+    </thead>
+  `;
+
+  const tbody = document.createElement("tbody");
+  rows.forEach((row) => {
+    const tr = document.createElement("tr");
+    const referenceSeason = row.referenceBooking
+      ? state.seasons.find((season) => season.id === row.referenceBooking.season_id) || null
+      : null;
+    const rewardMeta = row.rewardStatus.availableRewards > 0
+      ? `${row.rewardStatus.availableRewards} Gratis verfügbar`
+      : row.rewardStatus.nextMilestone
+        ? `noch ${row.rewardStatus.remainingToNext} bis ${row.rewardStatus.nextMilestone}`
+        : "höchste Freistufe";
+    tr.innerHTML = `
+      <td>
+        <strong>${escapeHtml(row.fullName)}</strong>
+        <div class="stat-meta">${escapeHtml(row.phone || "kein Kontakt hinterlegt")}</div>
+      </td>
+      <td>
+        <strong>${escapeHtml(row.referenceBooking?.package_type || "-")}</strong>
+        <div class="stat-meta">${escapeHtml(referenceSeason?.name || "keine Season-Buchung")}</div>
+      </td>
+      <td>
+        <strong>${row.seasonUsage.used}/${row.seasonUsage.limit || 0}</strong>
+        <div class="stat-meta">${activeSeason ? `Aktive Season | ${escapeHtml(activeSeason.name)}` : "keine aktive Season"}</div>
+      </td>
+      <td>
+        <strong>${row.lifetimeTotal} BEAT-OUTs</strong>
+        <div class="stat-meta">${escapeHtml(rewardMeta)}</div>
+      </td>
+      <td class="beatout-history-cell"></td>
+    `;
+
+    const historyCell = tr.querySelector(".beatout-history-cell");
+    const historyList = document.createElement("div");
+    historyList.className = "beatout-history-events";
+    row.entries.forEach((entry) => {
+      const pill = document.createElement("span");
+      pill.className = "status-pill status-pill-info beatout-history-event";
+      const dateLabel = entry.date ? formatCompactDateLabel(entry.date) : "ohne Datum";
+      pill.textContent = `${dateLabel} | ${entry.courseName}`;
+      pill.title = `${entry.date ? formatDateLabel(entry.date) : "ohne Datum"} | ${entry.seasonName}`;
+      historyList.appendChild(pill);
+    });
+    historyCell.appendChild(historyList);
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(tbody);
+  tableWrap.appendChild(table);
+  card.appendChild(tableWrap);
+  beatoutHistory.appendChild(card);
+}
+
 function renderMonthlyOverview() {
   monthlyCards.innerHTML = "";
   monthlyCalendar.innerHTML = "";
@@ -13353,6 +13588,7 @@ function getAvailableSections({ connected, loggedIn, appUnlocked }) {
         "#monthlyPanel",
         "#statsPanel",
         "#businessPanel",
+        "#beatoutPanel",
         "#reportsPanel",
       );
     } else {
