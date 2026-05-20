@@ -3167,12 +3167,6 @@ async function handleParticipantMove(participant, currentCourse) {
   }
 
   if (booking) {
-    const bookingSeason = state.seasons.find((entry) => entry.id === booking.season_id);
-    if (bookingSeason && (sessionDate < bookingSeason.start_date || sessionDate > bookingSeason.end_date)) {
-      notify(`Termin-Umbuchungen sind nur innerhalb der Season ${bookingSeason.name} möglich.`, true);
-      return;
-    }
-
     let sourceSessionId = activeSession?.id || null;
     if (!sourceSessionId) {
       try {
@@ -3181,6 +3175,13 @@ async function handleParticipantMove(participant, currentCourse) {
         notify(error.message, true);
         return;
       }
+    }
+
+    const bookingSeason = state.seasons.find((entry) => entry.id === booking.season_id) || null;
+    const isSourceSessionPartOfSeason = getSeasonSessions(booking.season_id).some((session) => session.id === sourceSessionId);
+    if (bookingSeason && !isSourceSessionPartOfSeason) {
+      notify(`Termin-Umbuchungen sind nur für Termine möglich, die zur Season ${bookingSeason.name} gehören.`, true);
+      return;
     }
 
     const availableSessions = getAvailableSessionMoveTargets(participant, booking, sourceSessionId);
