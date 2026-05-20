@@ -12417,14 +12417,23 @@ function getSessionOverrideLabel(override) {
   return `Ersatz für ${sourceCourse.weekday} ${formatDateLabel(sourceSession.session_date)}`;
 }
 
+function normalizePhoneValue(phoneValue) {
+  return String(phoneValue || "").replace(/[^\d+]/g, "").trim().toLowerCase();
+}
+
+function normalizePackageType(packageType) {
+  return String(packageType || "").trim().toUpperCase().replace(/\s+/g, " ");
+}
+
 function getBeatOutLimitForPackage(packageType) {
-  if (packageType === "1x TRAIN") {
+  const normalizedPackageType = normalizePackageType(packageType);
+  if (normalizedPackageType === "1X TRAIN") {
     return 1;
   }
-  if (packageType === "2x BEAT") {
+  if (normalizedPackageType === "2X BEAT") {
     return 2;
   }
-  if (packageType === "3x REPEAT") {
+  if (normalizedPackageType === "3X REPEAT") {
     return 3;
   }
   return 0;
@@ -12443,6 +12452,34 @@ function getPackageTypeForDayCount(dayCount) {
   return null;
 }
 
+function resolveBookingPackageType(bookingOrParticipant) {
+  const directPackageType = String(bookingOrParticipant?.package_type || "").trim();
+  if (getBeatOutLimitForPackage(directPackageType) > 0) {
+    return directPackageType;
+  }
+
+  const selectedDays = Array.isArray(bookingOrParticipant?.selected_days)
+    ? bookingOrParticipant.selected_days.filter(Boolean)
+    : [];
+  const dayCountPackage = getPackageTypeForDayCount(selectedDays.length);
+  if (dayCountPackage) {
+    return dayCountPackage;
+  }
+
+  const linkedBooking = bookingOrParticipant?.id
+    ? state.seasonBookings.find((entry) => entry.id === bookingOrParticipant.id) || null
+    : getParticipantSeasonBooking(bookingOrParticipant);
+  const linkedPackageType = String(linkedBooking?.package_type || "").trim();
+  if (getBeatOutLimitForPackage(linkedPackageType) > 0) {
+    return linkedPackageType;
+  }
+
+  const linkedDays = Array.isArray(linkedBooking?.selected_days)
+    ? linkedBooking.selected_days.filter(Boolean)
+    : [];
+  return getPackageTypeForDayCount(linkedDays.length) || directPackageType || "1x TRAIN";
+}
+
 function getBeatOutUsageForBooking(bookingId) {
   const booking = state.seasonBookings.find((entry) => entry.id === bookingId) || null;
   const relevantEntries = state.beatOutEntries.filter((entry) => {
@@ -12456,7 +12493,7 @@ function getBeatOutUsageForBooking(bookingId) {
     return !session?.season_id || session.season_id === booking.season_id;
   });
   const used = new Set(relevantEntries.map((entry) => entry.session_id)).size;
-  const limit = getBeatOutLimitForPackage(booking?.package_type);
+  const limit = getBeatOutLimitForPackage(resolveBookingPackageType(booking));
   return {
     used,
     limit,
@@ -12476,8 +12513,37 @@ function getParticipantSeasonBooking(participant) {
     }
   }
 
+  const participantKey = getPersonKey(participant);
+  const matchingBookings = state.seasonBookings
+    .filter((entry) => getPersonKey(entry) === participantKey)
+    .sort((left, right) => {
+      const leftSeason = state.seasons.find((season) => season.id === left.season_id) || null;
+      const rightSeason = state.seasons.find((season) => season.id === right.season_id) || null;
+      const leftAnchor = leftSeason?.end_date || leftSeason?.start_date || left.created_at || "";
+      const rightAnchor = rightSeason?.end_date || rightSeason?.start_date || right.created_at || "";
+      return String(rightAnchor).localeCompare(String(leftAnchor));
+    });
+
+  if (participant.season_id) {
+    const seasonMatch = matchingBookings.find((entry) => entry.season_id === participant.season_id) || null;
+    if (seasonMatch) {
+      return seasonMatch;
+    }
+  }
+
+  if (state.attendanceSeasonId) {
+    const focusedSeasonMatch = matchingBookings.find((entry) => entry.season_id === state.attendanceSeasonId) || null;
+    if (focusedSeasonMatch) {
+      return focusedSeasonMatch;
+    }
+  }
+
+  if (matchingBookings.length) {
+    return matchingBookings[0];
+  }
+
   const participantName = String(participant.full_name || "").trim().toLowerCase();
-  const participantPhone = String(participant.phone || "").trim();
+  const participantPhone = normalizePhoneValue(participant.phone);
 
   return state.seasonBookings.find((entry) => {
     if (participant.season_id && entry.season_id !== participant.season_id) {
@@ -12489,14 +12555,14 @@ function getParticipantSeasonBooking(participant) {
     if (!participantPhone) {
       return true;
     }
-    return String(entry.phone || "").trim() === participantPhone;
+    return normalizePhoneValue(entry.phone) === participantPhone;
   }) || null;
 }
 
 function getPersonKey({ full_name: fullName, phone } = {}) {
-  const normalizedPhone = String(phone || "").replace(/\s+/g, "");
+  const normalizedPhone = normalizePhoneValue(phone);
   if (normalizedPhone) {
-    return `phone:${normalizedPhone.toLowerCase()}`;
+    return `phone:${normalizedPhone}`;
   }
   return `name:${String(fullName || "").trim().toLowerCase()}`;
 }
@@ -12523,13 +12589,14 @@ function getLifetimeSeasonBookingCount(bookingOrParticipant) {
 }
 
 function getBeatOutRewardThresholdForPackage(packageType) {
-  if (packageType === "1x TRAIN") {
+  const normalizedPackageType = normalizePackageType(packageType);
+  if (normalizedPackageType === "1X TRAIN") {
     return 4;
   }
-  if (packageType === "2x BEAT") {
+  if (normalizedPackageType === "2X BEAT") {
     return 8;
   }
-  if (packageType === "3x REPEAT") {
+  if (normalizedPackageType === "3X REPEAT") {
     return 12;
   }
   return 4;
@@ -12552,7 +12619,7 @@ function getLevelUpStatus(bookingOrParticipant) {
 
 function getFreeSeasonRewardStatus(bookingOrParticipant) {
   const total = getLifetimeBeatOutCount(bookingOrParticipant);
-  const packageType = bookingOrParticipant?.package_type || getParticipantSeasonBooking(bookingOrParticipant)?.package_type || "1x TRAIN";
+  const packageType = resolveBookingPackageType(bookingOrParticipant);
   const threshold = getBeatOutRewardThresholdForPackage(packageType);
   const achievedRewards = Math.floor(total / threshold);
   const redeemedRewards = getLifetimeRedeemedRewardCount(bookingOrParticipant);
