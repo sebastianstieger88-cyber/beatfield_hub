@@ -10085,7 +10085,7 @@ function renderParticipantProfile(fallbackBookingId = null) {
       <article class="stat-card">
         <h3>Gratis-Season Status</h3>
         <p class="hero-stat">${rewardStatus.availableRewards}</p>
-        <p class="stat-meta">${rewardStatus.redeemedRewards} eingelöst | ${rewardStatus.nextMilestone ? `Nächste Schwelle bei ${rewardStatus.nextMilestone} BEAT-OUTs` : "12 BEAT-OUTs erreicht"}</p>
+        <p class="stat-meta">${rewardStatus.redeemedRewards} eingelöst | Nächste Schwelle bei ${rewardStatus.nextMilestone} BEAT-OUTs (${escapeHtml(rewardStatus.packageType)})</p>
       </article>
       <article class="stat-card">
         <h3>Level-Up</h3>
@@ -10514,10 +10514,8 @@ function renderBeatOutAnalysis() {
       ? state.seasons.find((season) => season.id === row.referenceBooking.season_id) || null
       : null;
     const rewardMeta = row.rewardStatus.availableRewards > 0
-      ? `${row.rewardStatus.availableRewards} Gratis verfügbar`
-      : row.rewardStatus.nextMilestone
-        ? `noch ${row.rewardStatus.remainingToNext} bis ${row.rewardStatus.nextMilestone}`
-        : "höchste Freistufe";
+      ? `${row.rewardStatus.availableRewards} ${row.referenceBooking?.package_type || row.rewardStatus.packageType} Gratis verfügbar`
+      : `noch ${row.rewardStatus.remainingToNext} bis ${row.rewardStatus.nextMilestone}`;
     tr.innerHTML = `
       <td>
         <strong>${escapeHtml(row.fullName)}</strong>
@@ -12524,6 +12522,19 @@ function getLifetimeSeasonBookingCount(bookingOrParticipant) {
   return state.seasonBookings.filter((entry) => getPersonKey(entry) === key && entry.counts_for_level_up !== false).length;
 }
 
+function getBeatOutRewardThresholdForPackage(packageType) {
+  if (packageType === "1x TRAIN") {
+    return 4;
+  }
+  if (packageType === "2x BEAT") {
+    return 8;
+  }
+  if (packageType === "3x REPEAT") {
+    return 12;
+  }
+  return 4;
+}
+
 function getLevelUpStatus(bookingOrParticipant) {
   const totalPoints = getLifetimeSeasonBookingCount(bookingOrParticipant);
   const nextMilestone = totalPoints > 0
@@ -12541,14 +12552,17 @@ function getLevelUpStatus(bookingOrParticipant) {
 
 function getFreeSeasonRewardStatus(bookingOrParticipant) {
   const total = getLifetimeBeatOutCount(bookingOrParticipant);
-  const milestones = [4, 8, 12];
-  const achievedRewards = Math.min(Math.floor(total / 4), 3);
+  const packageType = bookingOrParticipant?.package_type || getParticipantSeasonBooking(bookingOrParticipant)?.package_type || "1x TRAIN";
+  const threshold = getBeatOutRewardThresholdForPackage(packageType);
+  const achievedRewards = Math.floor(total / threshold);
   const redeemedRewards = getLifetimeRedeemedRewardCount(bookingOrParticipant);
   const availableRewards = Math.max(achievedRewards - redeemedRewards, 0);
-  const nextMilestone = milestones.find((value) => value > total) || null;
-  const remainingToNext = nextMilestone ? Math.max(nextMilestone - total, 0) : 0;
+  const nextMilestone = threshold * (achievedRewards + 1);
+  const remainingToNext = Math.max(nextMilestone - total, 0);
   return {
     total,
+    packageType,
+    threshold,
     achievedRewards,
     redeemedRewards,
     availableRewards,
@@ -12628,10 +12642,8 @@ function buildBeatOutOverviewCard(activeSeason, options = {}) {
 
     visibleEntries.forEach((entry) => {
       const nextRewardMeta = entry.reward.availableRewards > 0
-        ? `${entry.reward.availableRewards} einlösbar`
-        : entry.reward.nextMilestone
-          ? `noch ${entry.reward.remainingToNext} bis ${entry.reward.nextMilestone}`
-          : "höchste Freistufe";
+        ? `${entry.reward.availableRewards} ${entry.booking.package_type} einlösbar`
+        : `noch ${entry.reward.remainingToNext} bis ${entry.reward.nextMilestone}`;
       const levelUpMeta = entry.levelUp.reachedMilestone
         ? `Geschenk bei ${entry.levelUp.totalPoints}`
         : `noch ${entry.levelUp.remainingToNext} bis ${entry.levelUp.nextMilestone}`;
@@ -12696,10 +12708,8 @@ function buildBeatOutOverviewCard(activeSeason, options = {}) {
   if (visibleEntries.length) {
     visibleEntries.forEach((entry) => {
       const nextRewardMeta = entry.reward.availableRewards > 0
-        ? `${entry.reward.total} BEAT-OUTs gesamt | ${entry.reward.availableRewards} Gratis-Season${entry.reward.availableRewards > 1 ? "s" : ""} einlösbar`
-        : entry.reward.nextMilestone
-          ? `${entry.reward.total} BEAT-OUTs gesamt | noch ${entry.reward.remainingToNext} bis ${entry.reward.nextMilestone}`
-          : `${entry.reward.total} BEAT-OUTs gesamt | höchste Freistufe erreicht`;
+        ? `${entry.reward.total} BEAT-OUTs gesamt | ${entry.reward.availableRewards} ${entry.booking.package_type} Gratis-Season${entry.reward.availableRewards > 1 ? "s" : ""} einlösbar`
+        : `${entry.reward.total} BEAT-OUTs gesamt | noch ${entry.reward.remainingToNext} bis ${entry.reward.nextMilestone}`;
       const levelMeta = entry.levelUp.reachedMilestone
         ? `Level-Up ${entry.levelUp.totalPoints} erreicht | Geschenk fällig`
         : `Level-Up ${entry.levelUp.totalPoints} | noch ${entry.levelUp.remainingToNext} bis ${entry.levelUp.nextMilestone}`;
