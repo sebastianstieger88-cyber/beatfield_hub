@@ -12515,7 +12515,7 @@ function getParticipantSeasonBooking(participant, options = {}) {
 
   if (participant.season_booking_id) {
     const directBooking = state.seasonBookings.find((entry) => entry.id === participant.season_booking_id) || null;
-    if (directBooking && (!seasonId || directBooking.season_id === seasonId)) {
+    if (directBooking) {
       return directBooking;
     }
   }
