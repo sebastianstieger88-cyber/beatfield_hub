@@ -283,6 +283,12 @@ label span,
   color: var(--muted);
 }
 
+.stat-meta {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: rgba(232, 235, 228, 0.62);
+}
+
 .hero-copy {
   max-width: 62ch;
   font-size: 1.02rem;
@@ -920,7 +926,8 @@ label span,
   padding: 20px;
   border-radius: 22px;
   border: 1px solid rgba(103, 193, 47, 0.08);
-  background: rgba(255, 255, 255, 0.02);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0%, rgba(255, 255, 255, 0.014) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 
 .booking-form-shell {
@@ -940,7 +947,7 @@ label span,
 }
 
 .booking-section-head .stat-meta {
-  max-width: 360px;
+  max-width: 420px;
 }
 
 .booking-list-grid {
@@ -953,6 +960,10 @@ label span,
   gap: 14px;
   align-items: end;
   margin-bottom: 16px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(103, 193, 47, 0.08);
+  background: rgba(255, 255, 255, 0.028);
 }
 
 .booking-table-toolbar-actions {
@@ -965,6 +976,10 @@ label span,
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 14px;
+}
+
+.booking-table-active-info {
+  margin-top: -4px;
 }
 
 .booking-quick-filters button.is-active {
@@ -986,7 +1001,8 @@ label span,
   overflow: auto;
   border-radius: 22px;
   border: 1px solid rgba(103, 193, 47, 0.08);
-  background: rgba(255, 255, 255, 0.02);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.022) 0%, rgba(255, 255, 255, 0.012) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 
 .booking-table {
@@ -1023,15 +1039,18 @@ label span,
   position: sticky;
   top: 0;
   z-index: 1;
-  background: rgba(14, 14, 14, 0.96);
+  background: rgba(15, 16, 15, 0.98);
+  backdrop-filter: blur(8px);
+  box-shadow: inset 0 -1px 0 rgba(103, 193, 47, 0.08);
 }
 
 .booking-table-row td {
   vertical-align: top;
+  background: rgba(255, 255, 255, 0.008);
 }
 
 .booking-table-row-highlight td {
-  background: rgba(245, 185, 66, 0.04);
+  background: rgba(245, 185, 66, 0.05);
 }
 
 .booking-table-detail-cell {
@@ -1303,6 +1322,13 @@ button.danger {
   gap: 14px;
 }
 
+#statsPanel .stats-grid,
+#businessPanel .stats-grid,
+#reportsPanel .stats-grid,
+#attendancePanel .stats-grid {
+  gap: 16px;
+}
+
 .link-line {
   overflow-wrap: anywhere;
 }
@@ -1417,27 +1443,45 @@ button.danger {
   font-size: 0.82rem;
   font-weight: 800;
   letter-spacing: 0.02em;
+  border: 1px solid transparent;
 }
 
 .status-pill-critical {
-  background: rgba(255, 107, 87, 0.16);
-  color: #ff9a8d;
+  background: rgba(255, 107, 87, 0.12);
+  border-color: rgba(255, 107, 87, 0.16);
+  color: #ffab9f;
 }
 
 .status-pill-warn {
-  background: rgba(245, 185, 66, 0.16);
-  color: #ffd37a;
+  background: rgba(245, 185, 66, 0.11);
+  border-color: rgba(245, 185, 66, 0.16);
+  color: #ffd98f;
 }
 
 .status-pill-info {
-  background: rgba(103, 193, 47, 0.14);
-  color: #b8f08f;
+  background: rgba(103, 193, 47, 0.1);
+  border-color: rgba(103, 193, 47, 0.14);
+  color: #c2ef9f;
+}
+
+.status-pill-ok {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.86);
 }
 
 .search-row,
 .report-actions {
   display: grid;
   gap: 14px;
+}
+
+.report-actions,
+.attendance-toolbar {
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(103, 193, 47, 0.08);
+  background: rgba(255, 255, 255, 0.028);
 }
 
 .trial-form {
@@ -2434,6 +2478,15 @@ button.danger {
   overflow-x: auto;
 }
 
+#attendancePanel .table-wrap,
+#reportsPanel .table-wrap,
+#statsPanel .table-wrap,
+#businessPanel .table-wrap {
+  border-radius: 20px;
+  border: 1px solid rgba(103, 193, 47, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.022) 0%, rgba(255, 255, 255, 0.012) 100%);
+}
+
 .beatout-table-wrap {
   max-height: 460px;
   overflow: auto;
@@ -2490,6 +2543,8 @@ th {
   color: var(--accent);
   font-size: 0.88rem;
   font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .attendance-state-control {
@@ -2539,6 +2594,15 @@ th {
   background: rgba(255, 122, 89, 0.05);
 }
 
+#attendancePanel .table-wrap thead th,
+.beatout-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: rgba(15, 16, 15, 0.98);
+  backdrop-filter: blur(8px);
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -2546,8 +2610,8 @@ th {
   min-width: 78px;
   padding: 8px 12px;
   border-radius: 999px;
-  background: rgba(103, 193, 47, 0.12);
-  color: var(--accent);
+  background: rgba(103, 193, 47, 0.08);
+  color: #c3ef9f;
   font-weight: 800;
   border: 1px solid rgba(103, 193, 47, 0.08);
 }
