@@ -9669,34 +9669,38 @@ function renderParticipants() {
         : left.is_dropin
           ? left.drop_in_status === "teilgenommen"
           : Boolean(leftRecord?.present);
+      const leftAbsent = !left.is_trial && !left.is_dropin && Boolean(leftRecord) && !leftRecord?.present;
       const rightPresent = right.is_trial
         ? right.trial_status === "teilgenommen"
         : right.is_dropin
           ? right.drop_in_status === "teilgenommen"
           : Boolean(rightRecord?.present);
-        const leftBeatOut = getBeatOutEntryForParticipantSession(left.id, session?.id);
-        const rightBeatOut = getBeatOutEntryForParticipantSession(right.id, session?.id);
-        const leftOverride = session?.id ? getSessionOverrideForTarget(left.id, session.id) : null;
-        const rightOverride = session?.id ? getSessionOverrideForTarget(right.id, session.id) : null;
-        const leftWeight = getTrainerChecklistWeight({
-          participant: left,
-          isPresent: leftPresent,
-          beatOutEntry: leftBeatOut,
-          targetOverride: leftOverride,
-        });
-        const rightWeight = getTrainerChecklistWeight({
-          participant: right,
-          isPresent: rightPresent,
-          beatOutEntry: rightBeatOut,
-          targetOverride: rightOverride,
-        });
-
-        if (leftWeight !== rightWeight) {
-          return leftWeight - rightWeight;
-        }
-
-        return String(left.full_name || "").localeCompare(String(right.full_name || ""));
+      const rightAbsent = !right.is_trial && !right.is_dropin && Boolean(rightRecord) && !rightRecord?.present;
+      const leftBeatOut = getBeatOutEntryForParticipantSession(left.id, session?.id);
+      const rightBeatOut = getBeatOutEntryForParticipantSession(right.id, session?.id);
+      const leftOverride = session?.id ? getSessionOverrideForTarget(left.id, session.id) : null;
+      const rightOverride = session?.id ? getSessionOverrideForTarget(right.id, session.id) : null;
+      const leftWeight = getTrainerChecklistWeight({
+        participant: left,
+        isPresent: leftPresent,
+        isAbsent: leftAbsent,
+        beatOutEntry: leftBeatOut,
+        targetOverride: leftOverride,
       });
+      const rightWeight = getTrainerChecklistWeight({
+        participant: right,
+        isPresent: rightPresent,
+        isAbsent: rightAbsent,
+        beatOutEntry: rightBeatOut,
+        targetOverride: rightOverride,
+      });
+
+      if (leftWeight !== rightWeight) {
+        return leftWeight - rightWeight;
+      }
+
+      return String(left.full_name || "").localeCompare(String(right.full_name || ""));
+    });
 
   if (!sessionParticipants.length) {
     const row = document.createElement("tr");
@@ -9710,11 +9714,13 @@ function renderParticipants() {
     const isTrialParticipant = Boolean(participant.is_trial);
     const isDropInParticipant = Boolean(participant.is_dropin);
     const record = records.find((entry) => entry.participant_id === participant.id);
-    const isPresent = isTrialParticipant
-      ? participant.trial_status === "teilgenommen"
+    const attendanceState = isTrialParticipant
+      ? participant.trial_status === "teilgenommen" ? "present" : "open"
       : isDropInParticipant
-        ? participant.drop_in_status === "teilgenommen"
-        : Boolean(record?.present);
+        ? participant.drop_in_status === "teilgenommen" ? "present" : "open"
+        : getAttendanceStateFromRecord(record);
+    const isPresent = attendanceState === "present";
+    const isAbsent = attendanceState === "absent";
     const booking = getParticipantSeasonBooking(participant);
     const beatOutEntry = getBeatOutEntryForParticipantSession(participant.id, session?.id);
     const bookingUsage = getBeatOutUsageForBooking(booking?.id);
@@ -9738,13 +9744,14 @@ function renderParticipants() {
         : "";
       const trialBadge = isTrialParticipant ? '<div class="participant-override"><span class="status-pill status-pill-info">Probetraining</span></div>' : "";
       const dropInBadge = isDropInParticipant ? '<div class="participant-override"><span class="status-pill status-pill-warn">DROP-IN</span></div>' : "";
-      const isCompletedForChecklist = !isTrialParticipant && (isPresent || Boolean(beatOutEntry));
+      const isCompletedForChecklist = !isTrialParticipant && (isPresent || isAbsent || Boolean(beatOutEntry));
 
       const row = document.createElement("tr");
       row.className = [
         targetOverride ? "participant-row-override" : "",
         isTrialParticipant ? "participant-row-trial" : "",
         isDropInParticipant ? "participant-row-dropin" : "",
+        isAbsent && !beatOutEntry ? "participant-row-absent" : "",
         !isAdmin() && isCompletedForChecklist ? "participant-row-complete" : "",
       ].filter(Boolean).join(" ");
     row.innerHTML = `
@@ -9758,7 +9765,12 @@ function renderParticipants() {
           ${overrideBadge}
         </div>
       </td>
-      <td><button type="button" class="attendance-toggle${isPresent ? " is-present" : ""}" aria-label="Anwesenheit umschalten"></button></td>
+      <td>
+        <div class="attendance-state-control">
+          <button type="button" class="attendance-state-btn${isPresent ? " is-active is-present" : ""}" data-state="present">Anw.</button>
+          <button type="button" class="attendance-state-btn${isAbsent ? " is-active is-absent" : ""}" data-state="absent">Abw.</button>
+        </div>
+      </td>
       <td>
         <div class="participant-rate-cell">
           <span class="badge">${rateBadge}</span>
@@ -9774,21 +9786,35 @@ function renderParticipants() {
       </td>
     `;
 
-    const toggleButton = row.querySelector(".attendance-toggle");
-    toggleButton.disabled = !canEditCourse(course);
+    const attendanceButtons = Array.from(row.querySelectorAll(".attendance-state-btn"));
+    attendanceButtons.forEach((button) => {
+      button.disabled = !canEditCourse(course);
+    });
     if (!isTrialParticipant && !isDropInParticipant) {
-      toggleButton.addEventListener("click", async () => {
-        await toggleAttendance(course.id, participant.id);
+      attendanceButtons.forEach((button) => {
+        button.addEventListener("click", async () => {
+          await setAttendanceState(course.id, participant.id, button.dataset.state);
+        });
       });
     } else if (isTrialParticipant) {
-      toggleButton.addEventListener("click", async () => {
+      const presentButton = attendanceButtons.find((button) => button.dataset.state === "present");
+      const absentButton = attendanceButtons.find((button) => button.dataset.state === "absent");
+      if (absentButton) {
+        absentButton.disabled = true;
+      }
+      presentButton?.addEventListener("click", async () => {
         await updateTrialStatus(
           participant.trial_request_id,
           participant.trial_status === "teilgenommen" ? "gebucht" : "teilgenommen",
         );
       });
     } else if (isDropInParticipant) {
-      toggleButton.addEventListener("click", async () => {
+      const presentButton = attendanceButtons.find((button) => button.dataset.state === "present");
+      const absentButton = attendanceButtons.find((button) => button.dataset.state === "absent");
+      if (absentButton) {
+        absentButton.disabled = true;
+      }
+      presentButton?.addEventListener("click", async () => {
         await updateDropInStatus(
           participant.drop_in_booking_id,
           participant.drop_in_status === "teilgenommen" ? "gebucht" : "teilgenommen",
@@ -9855,6 +9881,8 @@ function renderParticipants() {
           ? "Anwesend"
           : beatOutEntry
             ? "BEAT-OUT aktiv"
+          : isAbsent
+            ? "Abwesend"
             : "Noch offen";
       const card = document.createElement("article");
       card.className = `participant-card${targetOverride ? " participant-card-override" : ""}${isTrialParticipant ? " participant-card-trial" : ""}${isDropInParticipant ? " participant-card-dropin" : ""}${!isAdmin() && isCompletedForChecklist ? " participant-card-complete" : ""}`;
@@ -9877,9 +9905,12 @@ function renderParticipants() {
           <div class="participant-card-status-copy">
             <span class="participant-card-section-label">Anwesenheit</span>
             <strong>${escapeHtml(mobileStatusLabel)}</strong>
-            <span class="participant-card-status-hint">${isTrialParticipant ? "Tippen für Teilnahme" : isDropInParticipant ? "Tippen für Teilnahme" : "Tippen für schnellen Check-in"}</span>
+            <span class="participant-card-status-hint">${isTrialParticipant ? "Tippen für Teilnahme" : isDropInParticipant ? "Tippen für Teilnahme" : "Status direkt setzen"}</span>
           </div>
-          <button type="button" class="attendance-toggle${isPresent ? " is-present" : ""}" aria-label="Anwesenheit umschalten"></button>
+          <div class="attendance-state-control">
+            <button type="button" class="attendance-state-btn${isPresent ? " is-active is-present" : ""}" data-state="present">Anw.</button>
+            <button type="button" class="attendance-state-btn${isAbsent ? " is-active is-absent" : ""}" data-state="absent">Abw.</button>
+          </div>
         </div>
       <div class="participant-card-actions participant-card-actions-secondary">
         <button type="button" class="ghost participant-beatout-btn${beatOutEntry ? " is-active" : ""}">${beatOutEntry ? "BEAT-OUT aktiv" : "BEAT-OUT"}</button>
@@ -9888,19 +9919,24 @@ function renderParticipants() {
       </div>
     `;
 
-      const mobileToggle = card.querySelector(".attendance-toggle");
       const mobileStatusRow = card.querySelector(".participant-card-status-row");
-      mobileToggle.disabled = !canEditCourse(course);
+      const mobileAttendanceButtons = Array.from(card.querySelectorAll(".attendance-state-btn"));
+      mobileAttendanceButtons.forEach((button) => {
+        button.disabled = !canEditCourse(course);
+      });
       if (!isTrialParticipant && !isDropInParticipant) {
-        mobileStatusRow.classList.add("participant-card-status-row-clickable");
-        mobileStatusRow.addEventListener("click", async () => {
-          await toggleAttendance(course.id, participant.id);
-        });
-        mobileToggle.addEventListener("click", async (event) => {
-          event.stopPropagation();
-          await toggleAttendance(course.id, participant.id);
+        mobileAttendanceButtons.forEach((button) => {
+          button.addEventListener("click", async (event) => {
+            event.stopPropagation();
+            await setAttendanceState(course.id, participant.id, button.dataset.state);
+          });
         });
       } else if (isTrialParticipant) {
+        const presentButton = mobileAttendanceButtons.find((button) => button.dataset.state === "present");
+        const absentButton = mobileAttendanceButtons.find((button) => button.dataset.state === "absent");
+        if (absentButton) {
+          absentButton.disabled = true;
+        }
         mobileStatusRow.classList.add("participant-card-status-row-clickable");
         mobileStatusRow.addEventListener("click", async () => {
           await updateTrialStatus(
@@ -9908,7 +9944,7 @@ function renderParticipants() {
             participant.trial_status === "teilgenommen" ? "gebucht" : "teilgenommen",
           );
         });
-        mobileToggle.addEventListener("click", async (event) => {
+        presentButton?.addEventListener("click", async (event) => {
           event.stopPropagation();
           await updateTrialStatus(
             participant.trial_request_id,
@@ -9916,6 +9952,11 @@ function renderParticipants() {
           );
         });
       } else if (isDropInParticipant) {
+        const presentButton = mobileAttendanceButtons.find((button) => button.dataset.state === "present");
+        const absentButton = mobileAttendanceButtons.find((button) => button.dataset.state === "absent");
+        if (absentButton) {
+          absentButton.disabled = true;
+        }
         mobileStatusRow.classList.add("participant-card-status-row-clickable");
         mobileStatusRow.addEventListener("click", async () => {
           await updateDropInStatus(
@@ -9923,7 +9964,7 @@ function renderParticipants() {
             participant.drop_in_status === "teilgenommen" ? "gebucht" : "teilgenommen",
           );
         });
-        mobileToggle.addEventListener("click", async (event) => {
+        presentButton?.addEventListener("click", async (event) => {
           event.stopPropagation();
           await updateDropInStatus(
             participant.drop_in_booking_id,
@@ -10133,8 +10174,15 @@ function renderMobileSessionSummary() {
   const participants = getAttendanceParticipantsForCourse(course.id, session?.id);
   const records = getRecordsForSession(session?.id);
   const presentCount = records.filter((record) => record.present).length;
+  const absentCount = participants.filter((participant) => {
+    if (participant.is_trial || participant.is_dropin) {
+      return false;
+    }
+    const record = records.find((entry) => entry.participant_id === participant.id);
+    return Boolean(record) && !record.present && !getBeatOutEntryForParticipantSession(participant.id, session?.id);
+  }).length;
   const beatOutCount = participants.filter((participant) => getBeatOutEntryForParticipantSession(participant.id, session?.id)).length;
-  const openCount = Math.max(participants.length - presentCount - beatOutCount, 0);
+  const openCount = Math.max(participants.length - presentCount - beatOutCount - absentCount, 0);
 
   mobileSessionSummary.classList.remove("hidden");
   mobileSessionSummary.innerHTML = `
@@ -10145,6 +10193,7 @@ function renderMobileSessionSummary() {
       ${!isAdmin() ? '<p class="stat-meta">Checklistenmodus: offene Personen stehen oben.</p>' : ""}
       <div class="mobile-session-summary-grid">
         <div><strong>${presentCount}</strong><span>Anwesend</span></div>
+        <div><strong>${absentCount}</strong><span>Abwesend</span></div>
         <div><strong>${beatOutCount}</strong><span>BEAT-OUT</span></div>
         <div><strong>${openCount}</strong><span>Offen</span></div>
       </div>
@@ -10899,7 +10948,24 @@ function renderReportPreview() {
   });
 }
 
-async function toggleAttendance(courseId, participantId) {
+function getAttendanceRecordForSessionParticipant(sessionId, participantId) {
+  if (!sessionId || !participantId) {
+    return null;
+  }
+
+  return state.records.find((entry) => {
+    return entry.session_id === sessionId && entry.participant_id === participantId;
+  }) || null;
+}
+
+function getAttendanceStateFromRecord(record) {
+  if (!record) {
+    return "open";
+  }
+  return record.present ? "present" : "absent";
+}
+
+async function setAttendanceState(courseId, participantId, requestedState) {
   const course = state.courses.find((entry) => entry.id === courseId);
   if (!course || !canEditCourse(course)) {
     return;
@@ -10907,36 +10973,59 @@ async function toggleAttendance(courseId, participantId) {
 
   const sessionDate = getEffectiveAttendanceDate();
   const session = getSessionForCourseAndDate(courseId, sessionDate);
-  const currentRecord = getRecordsForSession(session?.id).find((entry) => entry.participant_id === participantId);
-  const nextPresent = !currentRecord?.present;
+  const currentRecord = getAttendanceRecordForSessionParticipant(session?.id, participantId);
+  const currentState = getAttendanceStateFromRecord(currentRecord);
+  const nextState = currentState === requestedState ? "open" : requestedState;
 
   if (state.isOffline) {
-    applyLocalAttendanceChange(courseId, participantId, sessionDate, nextPresent);
+    applyLocalAttendanceChange(
+      courseId,
+      participantId,
+      sessionDate,
+      nextState === "open" ? null : nextState === "present",
+    );
     queueOfflineAction({
       type: "set-attendance",
-      payload: { courseId, participantId, sessionDate, present: nextPresent },
+      payload: { courseId, participantId, sessionDate, nextState },
     });
     persistOfflineCache();
     render();
-    notify("Anwesenheit offline gespeichert und vorgemerkt.");
+    notify(
+      nextState === "present"
+        ? "Anwesenheit offline gespeichert und vorgemerkt."
+        : nextState === "absent"
+          ? "Abwesenheit offline gespeichert und vorgemerkt."
+          : "Anwesenheitsstatus offline zurückgesetzt und vorgemerkt.",
+    );
     return;
   }
 
-  const success = await saveAttendanceValue(courseId, participantId, sessionDate, nextPresent);
+  const success = await saveAttendanceState(courseId, participantId, sessionDate, nextState);
   if (!success) {
     return;
   }
 
-  applyLocalAttendanceChange(courseId, participantId, sessionDate, nextPresent);
+  applyLocalAttendanceChange(
+    courseId,
+    participantId,
+    sessionDate,
+    nextState === "open" ? null : nextState === "present",
+  );
   markOptimisticVisibility("records", 60000);
   state.acceptEmptyFetch.records = false;
-  if (nextPresent) {
+  if (nextState !== "open") {
     await clearBeatOutForParticipantSession(participantId, sessionDate, courseId);
   }
 
   persistOfflineCache();
   render();
-  notify(nextPresent ? "Anwesenheit bestätigt." : "Anwesenheit entfernt.");
+  notify(
+    nextState === "present"
+      ? "Anwesenheit bestätigt."
+      : nextState === "absent"
+        ? "Abwesenheit eingetragen."
+        : "Anwesenheitsstatus zurückgesetzt.",
+  );
 
   await refreshVisibleData({ context: "Attendance refresh", silent: true });
 }
@@ -10983,9 +11072,9 @@ async function toggleBeatOut(courseId, participantId) {
       return;
     }
 
-    await saveAttendanceValue(courseId, participantId, sessionDate, false);
+    await saveAttendanceState(courseId, participantId, sessionDate, "open");
     state.beatOutEntries = state.beatOutEntries.filter((entry) => entry.id !== existingEntry.id);
-    applyLocalAttendanceChange(courseId, participantId, sessionDate, false);
+    applyLocalAttendanceChange(courseId, participantId, sessionDate, null);
     markOptimisticVisibility("records", 60000);
     markOptimisticVisibility("beatOutEntries", 60000);
     state.acceptEmptyFetch.records = false;
@@ -11016,7 +11105,7 @@ async function toggleBeatOut(courseId, participantId) {
     return;
   }
 
-  await saveAttendanceValue(courseId, participantId, sessionDate, false);
+  await saveAttendanceState(courseId, participantId, sessionDate, "open");
   state.beatOutEntries = [
     {
       id: `local-beatout:${sessionId}:${participantId}`,
@@ -11027,7 +11116,7 @@ async function toggleBeatOut(courseId, participantId) {
     },
     ...state.beatOutEntries.filter((entry) => !(entry.session_id === sessionId && entry.participant_id === participantId)),
   ];
-  applyLocalAttendanceChange(courseId, participantId, sessionDate, false);
+  applyLocalAttendanceChange(courseId, participantId, sessionDate, null);
   markOptimisticVisibility("records", 60000);
   markOptimisticVisibility("beatOutEntries", 60000);
   state.acceptEmptyFetch.records = false;
@@ -12015,7 +12104,7 @@ function getFilteredParticipants(courseId, sessionId = null) {
   });
 }
 
-function getTrainerChecklistWeight({ participant, isPresent, beatOutEntry, targetOverride }) {
+function getTrainerChecklistWeight({ participant, isPresent, isAbsent, beatOutEntry, targetOverride }) {
   if (participant.is_trial) {
     return 1;
   }
@@ -12023,9 +12112,12 @@ function getTrainerChecklistWeight({ participant, isPresent, beatOutEntry, targe
     return isPresent ? 5 : 0;
   }
   if (targetOverride) {
-    return isPresent ? 4 : 1;
+    return isPresent ? 5 : isAbsent || beatOutEntry ? 4 : 1;
   }
   if (beatOutEntry) {
+    return 4;
+  }
+  if (isAbsent) {
     return 4;
   }
   if (isPresent) {
@@ -13463,16 +13555,24 @@ function getCourseStatusSnapshot(course) {
     }
     return records.some((record) => record.participant_id === participant.id && record.present);
   }).length;
+  const absentCount = participants.filter((participant) => {
+    if (participant.is_trial || participant.is_dropin) {
+      return false;
+    }
+    const record = records.find((entry) => entry.participant_id === participant.id);
+    return Boolean(record) && !record.present && !getBeatOutEntryForParticipantSession(participant.id, session?.id);
+  }).length;
   const beatOutCount = participants.filter((participant) => getBeatOutEntryForParticipantSession(participant.id, session?.id)).length;
   const trialCount = participants.filter((participant) => participant.is_trial).length;
   const dropInCount = participants.filter((participant) => participant.is_dropin).length;
   const overrideCount = participants.filter((participant) => getSessionOverrideForTarget(participant.id, session?.id)).length;
-  const openCount = Math.max(participants.length - presentCount - beatOutCount, 0);
+  const openCount = Math.max(participants.length - presentCount - beatOutCount - absentCount, 0);
 
   return {
     session,
     participants,
     presentCount,
+    absentCount,
     beatOutCount,
     trialCount,
     dropInCount,
@@ -13496,7 +13596,7 @@ function getTrainerTodayTaskRows() {
 
     const participants = getAttendanceParticipantsForCourse(course.id, session.id);
     const records = getRecordsForSession(session.id);
-      const presentCount = participants.filter((participant) => {
+    const presentCount = participants.filter((participant) => {
         if (participant.is_trial) {
           return participant.trial_status === "teilgenommen";
         }
@@ -13505,8 +13605,15 @@ function getTrainerTodayTaskRows() {
         }
         return records.some((record) => record.participant_id === participant.id && record.present);
       }).length;
+    const absentCount = participants.filter((participant) => {
+      if (participant.is_trial || participant.is_dropin) {
+        return false;
+      }
+      const record = records.find((entry) => entry.participant_id === participant.id);
+      return Boolean(record) && !record.present && !getBeatOutEntryForParticipantSession(participant.id, session.id);
+    }).length;
     const beatOutCount = participants.filter((participant) => getBeatOutEntryForParticipantSession(participant.id, session.id)).length;
-    const openCount = Math.max(participants.length - presentCount - beatOutCount, 0);
+    const openCount = Math.max(participants.length - presentCount - beatOutCount - absentCount, 0);
     const trialCount = participants.filter((participant) => participant.is_trial).length;
     const dropInCount = participants.filter((participant) => participant.is_dropin).length;
     const overrideCount = participants.filter((participant) => getSessionOverrideForTarget(participant.id, session.id)).length;
@@ -13761,13 +13868,38 @@ function ensureActiveSection(availableSections, { connected, loggedIn, appUnlock
   state.activeSection = availableSections[0] || null;
 }
 
-async function saveAttendanceValue(courseId, participantId, sessionDate, present) {
-  let sessionId;
-  try {
-    sessionId = await ensureSession(courseId, sessionDate);
-  } catch (error) {
-    notify(error.message, true);
-    return false;
+async function saveAttendanceState(courseId, participantId, sessionDate, nextState) {
+  const existingSession = getSessionForCourseAndDate(courseId, sessionDate);
+  const persistedSession = existingSession && !String(existingSession.id || "").startsWith("offline:")
+    ? existingSession
+    : null;
+  if (nextState === "open" && !persistedSession) {
+    return true;
+  }
+
+  let sessionId = persistedSession?.id || null;
+  if (!sessionId) {
+    try {
+      sessionId = await ensureSession(courseId, sessionDate);
+    } catch (error) {
+      notify(error.message, true);
+      return false;
+    }
+  }
+
+  if (nextState === "open") {
+    const { error } = await state.supabase
+      .from("attendance_records")
+      .delete()
+      .eq("session_id", sessionId)
+      .eq("participant_id", participantId);
+
+    if (error) {
+      notify(error.message, true);
+      return false;
+    }
+
+    return true;
   }
 
   const { error } = await state.supabase
@@ -13775,7 +13907,7 @@ async function saveAttendanceValue(courseId, participantId, sessionDate, present
     .upsert({
       session_id: sessionId,
       participant_id: participantId,
-      present,
+      present: nextState === "present",
     }, {
       onConflict: "session_id,participant_id",
     });
@@ -13818,6 +13950,15 @@ function applyLocalAttendanceChange(courseId, participantId, sessionDate, presen
   const existing = state.records.find((record) => {
     return record.session_id === session.id && record.participant_id === participantId;
   });
+
+  if (present === null) {
+    if (existing) {
+      state.records = state.records.filter((record) => {
+        return !(record.session_id === session.id && record.participant_id === participantId);
+      });
+    }
+    return;
+  }
 
   if (existing) {
     existing.present = present;
@@ -13875,11 +14016,11 @@ async function flushOfflineQueue() {
 
 async function executeOfflineAction(action) {
   if (action.type === "set-attendance") {
-    const success = await saveAttendanceValue(
+    const success = await saveAttendanceState(
       action.payload.courseId,
       action.payload.participantId,
       action.payload.sessionDate,
-      action.payload.present,
+      action.payload.nextState,
     );
     if (!success) {
       throw new Error("Attendance sync failed");
