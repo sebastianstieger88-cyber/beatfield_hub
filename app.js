@@ -13738,6 +13738,10 @@ function updateActiveNavLink() {
   navLinks.forEach((link) => {
     link.classList.toggle("is-active", link.getAttribute("href") === state.activeSection);
   });
+  navGroups.forEach((group) => {
+    const hasActiveLink = Array.from(group.querySelectorAll(".nav-submenu a")).some((link) => link.classList.contains("is-active"));
+    group.classList.toggle("is-current", hasActiveLink);
+  });
 }
 
 function updateNavigationVisibility(availableSections) {

@@ -130,6 +130,13 @@ a {
   color: var(--text);
 }
 
+.nav-group.is-current summary {
+  background: rgba(103, 193, 47, 0.16);
+  color: var(--text);
+  border-color: rgba(103, 193, 47, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(103, 193, 47, 0.08);
+}
+
 .nav-submenu {
   position: absolute;
   right: 0;
@@ -383,9 +390,9 @@ label span,
 }
 
 .modal-card {
-  width: min(560px, 100%);
+  width: min(680px, 100%);
   max-height: calc(100vh - 48px);
-  padding: 24px;
+  padding: 26px;
   border-radius: 24px;
   background: linear-gradient(180deg, rgba(28, 28, 28, 0.98) 0%, rgba(16, 16, 16, 0.98) 100%);
   border: 1px solid rgba(103, 193, 47, 0.14);
@@ -394,7 +401,13 @@ label span,
 }
 
 #participantProfileModal .modal-card {
-  width: min(760px, 100%);
+  width: min(860px, 100%);
+}
+
+.modal-card .panel-heading {
+  margin: -2px -2px 20px;
+  padding: 0 2px 16px;
+  border-bottom: 1px solid rgba(103, 193, 47, 0.08);
 }
 
 .season-form {
@@ -1329,6 +1342,35 @@ button.danger {
   gap: 16px;
 }
 
+#statsCards,
+#businessCards,
+#beatoutCards,
+#reportPreview {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+#statsCards .stat-card:first-child,
+#businessCards .stat-card:first-child,
+#beatoutCards .stat-card:first-child,
+#reportPreview .stat-card:first-child {
+  grid-column: span 2;
+  padding: 20px 22px;
+}
+
+#statsCards .stat-card:first-child .hero-stat,
+#businessCards .stat-card:first-child .hero-stat,
+#beatoutCards .stat-card:first-child .hero-stat,
+#reportPreview .stat-card:first-child .hero-stat {
+  font-size: 2.35rem;
+}
+
+#statsCards .stat-card:nth-child(n+2),
+#businessCards .stat-card:nth-child(n+2),
+#beatoutCards .stat-card:nth-child(n+2),
+#reportPreview .stat-card:nth-child(n+2) {
+  background: linear-gradient(180deg, rgba(24, 24, 24, 0.94) 0%, rgba(15, 15, 15, 0.92) 100%);
+}
+
 .link-line {
   overflow-wrap: anywhere;
 }
@@ -1949,6 +1991,10 @@ button.danger {
   margin-bottom: 6px;
 }
 
+.stat-card .hero-stat {
+  margin-bottom: 10px;
+}
+
 .exercise-toolbar {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -2396,21 +2442,24 @@ button.danger {
 .exercise-detail-hero {
   display: grid;
   gap: 14px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(103, 193, 47, 0.08);
 }
 
 .exercise-detail-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
+  gap: 16px;
 }
 
 .exercise-detail-card {
   display: grid;
   gap: 12px;
-  padding: 16px;
+  padding: 18px;
   border-radius: 20px;
   border: 1px solid rgba(103, 193, 47, 0.1);
   background: linear-gradient(180deg, rgba(28, 28, 28, 0.92) 0%, rgba(16, 16, 16, 0.92) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 
 .exercise-detail-card h4 {
@@ -2454,7 +2503,7 @@ button.danger {
 
 .exercise-detail-label {
   margin: 0;
-  color: var(--muted);
+  color: rgba(232, 235, 228, 0.58);
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
