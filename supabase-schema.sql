@@ -238,6 +238,15 @@ create table if not exists public.finisher_library (
   id uuid primary key default gen_random_uuid(),
   notion_page_id text not null unique,
   title text not null,
+  finisher_type text,
+  duration_minutes integer,
+  intensity text,
+  format text,
+  group_size text,
+  outdoor_suitable boolean not null default false,
+  scaling text,
+  notion_favorite boolean not null default false,
+  focus_areas text[] not null default '{}',
   category text,
   focus text,
   level text,
@@ -254,6 +263,16 @@ create table if not exists public.finisher_library (
   synced_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
+
+alter table public.finisher_library add column if not exists finisher_type text;
+alter table public.finisher_library add column if not exists duration_minutes integer;
+alter table public.finisher_library add column if not exists intensity text;
+alter table public.finisher_library add column if not exists format text;
+alter table public.finisher_library add column if not exists group_size text;
+alter table public.finisher_library add column if not exists outdoor_suitable boolean not null default false;
+alter table public.finisher_library add column if not exists scaling text;
+alter table public.finisher_library add column if not exists notion_favorite boolean not null default false;
+alter table public.finisher_library add column if not exists focus_areas text[] not null default '{}';
 
 create table if not exists public.warmup_library (
   id uuid primary key default gen_random_uuid(),

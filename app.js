@@ -988,7 +988,7 @@ async function fetchSupportData() {
 
   const finisherQuery = state.supabase
     .from("finisher_library")
-    .select("id, notion_page_id, title, category, focus, level, equipment, coaching_cues, description, video_url, source_url, tags, notion_last_edited_at, notion_archived, synced_at")
+    .select("id, notion_page_id, title, finisher_type, duration_minutes, intensity, format, group_size, outdoor_suitable, scaling, notion_favorite, focus_areas, category, focus, level, equipment, coaching_cues, description, video_url, source_url, tags, notion_last_edited_at, notion_archived, synced_at")
     .order("title");
 
   const warmupQuery = state.supabase
@@ -3964,6 +3964,38 @@ function getFinisherById(finisherId) {
   return state.finishers.find((finisher) => finisher.id === finisherId) || null;
 }
 
+function getFinisherTypeLabel(finisher) {
+  return String(finisher?.finisher_type || finisher?.category || "").trim();
+}
+
+function getFinisherIntensityLabel(finisher) {
+  return String(finisher?.intensity || finisher?.focus || "").trim();
+}
+
+function getFinisherDurationLabel(finisher) {
+  if (Number.isFinite(finisher?.duration_minutes)) {
+    return `${finisher.duration_minutes} Min.`;
+  }
+  const fallback = String(finisher?.level || "").trim();
+  return fallback ? (/\bmin\b/i.test(fallback) ? fallback : `${fallback} Min.`) : "";
+}
+
+function getFinisherFocusAreas(finisher) {
+  const explicitAreas = Array.isArray(finisher?.focus_areas)
+    ? finisher.focus_areas.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+  if (explicitAreas.length) {
+    return explicitAreas;
+  }
+  return Array.isArray(finisher?.tags)
+    ? finisher.tags.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+}
+
+function getFinisherEquipmentLabel(finisher) {
+  return String(finisher?.equipment || "").trim();
+}
+
 function closeFinisherDetailModal() {
   state.selectedFinisherId = null;
   finisherDetailModal?.classList.add("hidden");
@@ -5020,12 +5052,17 @@ function getFilteredFinishers() {
 
     const haystack = [
       finisher.title,
-      finisher.category,
-      finisher.focus,
-      finisher.level,
-      finisher.equipment,
+      getFinisherTypeLabel(finisher),
+      getFinisherIntensityLabel(finisher),
+      getFinisherDurationLabel(finisher),
+      getFinisherEquipmentLabel(finisher),
+      finisher.format,
+      finisher.group_size,
+      finisher.scaling,
+      finisher.outdoor_suitable ? "outdoor ja" : "",
       finisher.coaching_cues,
       finisher.description,
+      ...getFinisherFocusAreas(finisher),
       ...(finisher.tags || []),
     ]
       .filter(Boolean)
@@ -5053,19 +5090,41 @@ function renderFinisherDetailView() {
     finisher.source_url ? `<a class="ghost" href="${escapeHtml(finisher.source_url)}" target="_blank" rel="noreferrer">Notion öffnen</a>` : "",
   ].filter(Boolean).join("");
   const isFavorite = isFinisherFavorite(finisher.id);
+  const finisherTypeLabel = getFinisherTypeLabel(finisher);
+  const intensityLabel = getFinisherIntensityLabel(finisher);
+  const durationLabel = getFinisherDurationLabel(finisher);
+  const equipmentLabel = getFinisherEquipmentLabel(finisher);
+  const focusAreas = getFinisherFocusAreas(finisher);
 
   finisherDetailBody.innerHTML = `
     <div class="exercise-detail-hero">
       <div class="course-status-grid">
         ${isFavorite ? `<span class="course-status-pill course-status-pill-warn">Favorit</span>` : ""}
-        ${finisher.category ? `<span class="course-status-pill">${escapeHtml(finisher.category)}</span>` : ""}
-        ${finisher.focus ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(finisher.focus)}</span>` : ""}
-        ${finisher.level ? `<span class="course-status-pill course-status-pill-warn">${escapeHtml(finisher.level)}</span>` : ""}
-        ${finisher.equipment ? `<span class="course-status-pill">${escapeHtml(finisher.equipment)}</span>` : ""}
+        ${finisher.notion_favorite ? `<span class="course-status-pill course-status-pill-info">Notion-Favorit</span>` : ""}
+        ${finisher.outdoor_suitable ? `<span class="course-status-pill">Outdoor geeignet</span>` : ""}
+        ${finisherTypeLabel ? `<span class="course-status-pill">${escapeHtml(finisherTypeLabel)}</span>` : ""}
+        ${intensityLabel ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(intensityLabel)}</span>` : ""}
+        ${durationLabel ? `<span class="course-status-pill course-status-pill-warn">${escapeHtml(durationLabel)}</span>` : ""}
+        ${equipmentLabel ? `<span class="course-status-pill">${escapeHtml(equipmentLabel)}</span>` : ""}
       </div>
-      ${finisher.tags?.length ? `<div class="exercise-tag-row">${finisher.tags.map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
+      ${focusAreas.length ? `<div class="exercise-tag-row">${focusAreas.map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
     </div>
     <div class="exercise-detail-grid">
+      ${(finisherTypeLabel || intensityLabel || durationLabel || equipmentLabel || finisher.format || finisher.group_size || finisher.scaling || finisher.outdoor_suitable) ? `
+        <section class="exercise-detail-card">
+          <h4>Profil</h4>
+          <div class="exercise-meta-grid">
+            ${finisherTypeLabel ? `<p><strong>Typ</strong><span>${escapeHtml(finisherTypeLabel)}</span></p>` : ""}
+            ${intensityLabel ? `<p><strong>Intensität</strong><span>${escapeHtml(intensityLabel)}</span></p>` : ""}
+            ${durationLabel ? `<p><strong>Dauer</strong><span>${escapeHtml(durationLabel)}</span></p>` : ""}
+            ${equipmentLabel ? `<p><strong>Ausrüstung</strong><span>${escapeHtml(equipmentLabel)}</span></p>` : ""}
+            ${finisher.format ? `<p><strong>Format</strong><span>${escapeHtml(finisher.format)}</span></p>` : ""}
+            ${finisher.group_size ? `<p><strong>Gruppengröße</strong><span>${escapeHtml(finisher.group_size)}</span></p>` : ""}
+            ${finisher.scaling ? `<p><strong>Skalierung</strong><span>${escapeHtml(finisher.scaling)}</span></p>` : ""}
+            <p><strong>Outdoor</strong><span>${finisher.outdoor_suitable ? "Ja" : "Nein"}</span></p>
+          </div>
+        </section>
+      ` : ""}
       ${String(finisher.description || "").trim() ? `
         <section class="exercise-detail-card">
           <h4>Beschreibung</h4>
@@ -5850,7 +5909,7 @@ function renderWorkoutBuilder() {
   if (workoutFinisherSelect) {
     workoutFinisherSelect.innerHTML = `
       <option value="">Bitte wählen</option>
-      ${state.finishers.map((finisher) => `<option value="${escapeHtml(finisher.id)}"${finisher.id === state.workoutBuilder.finisherId ? " selected" : ""}>${escapeHtml(finisher.title || "Ohne Titel")}${finisher.level ? ` • ${escapeHtml(finisher.level)}` : ""}</option>`).join("")}
+      ${state.finishers.map((finisher) => `<option value="${escapeHtml(finisher.id)}"${finisher.id === state.workoutBuilder.finisherId ? " selected" : ""}>${escapeHtml(finisher.title || "Ohne Titel")}${getFinisherDurationLabel(finisher) ? ` • ${escapeHtml(getFinisherDurationLabel(finisher))}` : ""}</option>`).join("")}
     `;
   }
 
@@ -5985,7 +6044,7 @@ function renderWorkoutBuilder() {
         <div>
           <p class="eyebrow">Finisher</p>
           <h4>${escapeHtml(selection.finisher?.title || "Noch nicht gewählt")}</h4>
-          <p class="stat-meta">${selection.finisher ? escapeHtml([selection.finisher.category, selection.finisher.level, selection.finisher.equipment].filter(Boolean).join(" • ") || "Finisher") : "Wähle einen Finisher für den Abschluss."}</p>
+          <p class="stat-meta">${selection.finisher ? escapeHtml([getFinisherTypeLabel(selection.finisher), getFinisherIntensityLabel(selection.finisher), getFinisherDurationLabel(selection.finisher)].filter(Boolean).join(" • ") || "Finisher") : "Wähle einen Finisher für den Abschluss."}</p>
         </div>
         ${selection.finisher ? `<button type="button" class="ghost" data-workout-finisher-detail="${escapeHtml(selection.finisher.id)}">Details</button>` : ""}
       </div>
@@ -6119,7 +6178,7 @@ function buildWorkoutPrintHtml(selection) {
         <h3>Finisher</h3>
         <div class="card">
           <strong>${escapeHtml(selection.finisher.title || "Ohne Titel")}</strong>
-          <p>${escapeHtml(selection.finisher.description || [selection.finisher.category, selection.finisher.level, selection.finisher.equipment].filter(Boolean).join(" • ") || "")}</p>
+          <p>${escapeHtml(selection.finisher.description || [getFinisherTypeLabel(selection.finisher), getFinisherIntensityLabel(selection.finisher), getFinisherDurationLabel(selection.finisher), getFinisherEquipmentLabel(selection.finisher)].filter(Boolean).join(" • ") || "")}</p>
         </div>
       </div>
       <div class="section">
@@ -6198,7 +6257,7 @@ function handleWorkoutExcelExport() {
           group.items[0]?.equipment || "",
           group.items[0]?.description || "",
         ])),
-    ["Finisher", selection.finisher.title || "", selection.finisher.category || "", selection.finisher.focus || "", selection.finisher.level || "", selection.finisher.equipment || "", selection.finisher.description || ""],
+    ["Finisher", selection.finisher.title || "", getFinisherTypeLabel(selection.finisher), getFinisherIntensityLabel(selection.finisher), getFinisherDurationLabel(selection.finisher), getFinisherEquipmentLabel(selection.finisher), selection.finisher.description || ""],
     ["Coach-Notiz", selection.notes || "", "", "", "", "", ""],
   ];
 
@@ -6268,7 +6327,24 @@ function getCampusSearchResults() {
 
   const buckets = [
     ...state.exercises.map((item) => ({ type: "exercise", id: item.id, title: item.title, meta: [item.category, item.focus, item.level].filter(Boolean).join(" • "), panel: "#exercisePanel", search: [item.title, item.category, item.focus, item.level, item.description].filter(Boolean).join(" ") })),
-    ...state.finishers.map((item) => ({ type: "finisher", id: item.id, title: item.title, meta: [item.category, item.focus, item.level].filter(Boolean).join(" • "), panel: "#finisherPanel", search: [item.title, item.category, item.focus, item.level, item.description].filter(Boolean).join(" ") })),
+    ...state.finishers.map((item) => ({
+      type: "finisher",
+      id: item.id,
+      title: item.title,
+      meta: [getFinisherTypeLabel(item), getFinisherIntensityLabel(item), getFinisherDurationLabel(item)].filter(Boolean).join(" • "),
+      panel: "#finisherPanel",
+      search: [
+        item.title,
+        getFinisherTypeLabel(item),
+        getFinisherIntensityLabel(item),
+        getFinisherDurationLabel(item),
+        item.format,
+        item.group_size,
+        item.scaling,
+        ...(getFinisherFocusAreas(item) || []),
+        item.description,
+      ].filter(Boolean).join(" "),
+    })),
     ...state.warmups.map((item) => ({ type: "warmup", id: item.id, title: item.title, meta: [item.level, item.equipment].filter(Boolean).join(" • "), panel: "#warmupPanel", search: [item.title, item.level, item.equipment, item.description].filter(Boolean).join(" ") })),
     ...state.music.map((item) => ({ type: "music", id: item.id, title: item.title, meta: [item.file_name, formatFileSize(item.file_size)].filter(Boolean).join(" • "), panel: "#musicPanel", search: [item.title, item.file_name, item.description].filter(Boolean).join(" ") })),
     ...state.specials.map((item) => ({ type: "special", id: item.id, title: item.title, meta: [item.file_name, formatFileSize(item.file_size)].filter(Boolean).join(" • "), panel: "#specialsPanel", search: [item.title, item.file_name, item.description].filter(Boolean).join(" ") })),
@@ -7181,13 +7257,17 @@ function renderFinishers() {
 
   finisherTableBody.innerHTML = finishers.map((finisher) => {
     const isFavorite = isFinisherFavorite(finisher.id);
+    const finisherTypeLabel = getFinisherTypeLabel(finisher);
+    const intensityLabel = getFinisherIntensityLabel(finisher);
+    const durationLabel = getFinisherDurationLabel(finisher);
+    const equipmentLabel = getFinisherEquipmentLabel(finisher);
     return `
     <tr class="${isFavorite ? "exercise-row-favorite" : ""}">
       <td><strong>${escapeHtml(finisher.title || "Ohne Titel")}</strong></td>
-      <td>${escapeHtml(finisher.category || "-")}</td>
-      <td>${escapeHtml(finisher.level || "-")}</td>
-      <td>${finisher.focus ? `<span class="exercise-table-emphasis">${escapeHtml(finisher.focus)}</span>` : "-"}</td>
-      <td>${escapeHtml(finisher.equipment || "-")}</td>
+      <td>${escapeHtml(finisherTypeLabel || "-")}</td>
+      <td>${escapeHtml(durationLabel || "-")}</td>
+      <td>${intensityLabel ? `<span class="exercise-table-emphasis">${escapeHtml(intensityLabel)}</span>` : "-"}</td>
+      <td>${escapeHtml(equipmentLabel || "-")}</td>
       <td>
         <div class="mini-actions table-actions">
           <button type="button" class="ghost" data-finisher-detail="${escapeHtml(finisher.id)}">Details</button>
@@ -7200,7 +7280,11 @@ function renderFinishers() {
 
   finisherCards.innerHTML = finishers.map((finisher) => {
     const isFavorite = isFinisherFavorite(finisher.id);
-    const tags = (finisher.tags || []).map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("");
+    const finisherTypeLabel = getFinisherTypeLabel(finisher);
+    const intensityLabel = getFinisherIntensityLabel(finisher);
+    const durationLabel = getFinisherDurationLabel(finisher);
+    const equipmentLabel = getFinisherEquipmentLabel(finisher);
+    const tags = getFinisherFocusAreas(finisher).map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("");
     const links = [
       finisher.video_url ? `<a class="ghost" href="${escapeHtml(finisher.video_url)}" target="_blank" rel="noreferrer">Video öffnen</a>` : "",
       finisher.source_url ? `<a class="ghost" href="${escapeHtml(finisher.source_url)}" target="_blank" rel="noreferrer">Notion öffnen</a>` : "",
@@ -7215,15 +7299,17 @@ function renderFinishers() {
           </div>
           <div class="course-status-grid">
             ${isFavorite ? `<span class="course-status-pill course-status-pill-warn">Favorit</span>` : ""}
-            ${finisher.category ? `<span class="course-status-pill">${escapeHtml(finisher.category)}</span>` : ""}
-            ${finisher.focus ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(finisher.focus)}</span>` : ""}
+            ${finisher.notion_favorite ? `<span class="course-status-pill course-status-pill-info">Notion-Favorit</span>` : ""}
+            ${finisher.outdoor_suitable ? `<span class="course-status-pill">Outdoor</span>` : ""}
+            ${finisherTypeLabel ? `<span class="course-status-pill">${escapeHtml(finisherTypeLabel)}</span>` : ""}
+            ${intensityLabel ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(intensityLabel)}</span>` : ""}
           </div>
         </div>
         <div class="exercise-meta-grid">
-          ${finisher.category ? `<p><strong>Typ</strong><span>${escapeHtml(finisher.category)}</span></p>` : ""}
-          ${finisher.focus ? `<p><strong>Intensität</strong><span>${escapeHtml(finisher.focus)}</span></p>` : ""}
-          ${finisher.level ? `<p><strong>Dauer</strong><span>${escapeHtml(finisher.level)}</span></p>` : ""}
-          ${finisher.equipment ? `<p><strong>Equipment</strong><span>${escapeHtml(finisher.equipment)}</span></p>` : ""}
+          ${finisherTypeLabel ? `<p><strong>Typ</strong><span>${escapeHtml(finisherTypeLabel)}</span></p>` : ""}
+          ${intensityLabel ? `<p><strong>Intensität</strong><span>${escapeHtml(intensityLabel)}</span></p>` : ""}
+          ${durationLabel ? `<p><strong>Dauer</strong><span>${escapeHtml(durationLabel)}</span></p>` : ""}
+          ${equipmentLabel ? `<p><strong>Equipment</strong><span>${escapeHtml(equipmentLabel)}</span></p>` : ""}
         </div>
         ${String(finisher.description || finisher.coaching_cues || "").trim() ? `<p class="exercise-copy">${escapeHtml(finisher.description || finisher.coaching_cues || "")}</p>` : ""}
         ${tags ? `<div class="exercise-tag-row">${tags}</div>` : ""}
