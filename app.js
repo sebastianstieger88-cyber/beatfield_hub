@@ -12458,7 +12458,37 @@ function getSessionsForMonth(monthValue) {
 }
 
 function getSessionForCourseAndDate(courseId, sessionDate) {
-  return state.sessions.find((session) => session.course_id === courseId && session.session_date === sessionDate) || null;
+  const matchingSessions = state.sessions.filter((session) => {
+    return session.course_id === courseId && session.session_date === sessionDate;
+  });
+
+  if (!matchingSessions.length) {
+    return null;
+  }
+
+  if (matchingSessions.length === 1) {
+    return matchingSessions[0];
+  }
+
+  const preferredSeasonId = state.attendanceSeasonId || state.selectedSeasonId || null;
+  return [...matchingSessions].sort((left, right) => {
+    const leftScore = [
+      left.season_id === preferredSeasonId ? 4 : 0,
+      isSessionAlignedWithCourse(left) ? 2 : 0,
+      left.season_id ? 1 : 0,
+    ].reduce((sum, value) => sum + value, 0);
+    const rightScore = [
+      right.season_id === preferredSeasonId ? 4 : 0,
+      isSessionAlignedWithCourse(right) ? 2 : 0,
+      right.season_id ? 1 : 0,
+    ].reduce((sum, value) => sum + value, 0);
+
+    if (leftScore !== rightScore) {
+      return rightScore - leftScore;
+    }
+
+    return String(left.id || "").localeCompare(String(right.id || ""));
+  })[0];
 }
 
 function getRecordsForSession(sessionId) {
