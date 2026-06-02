@@ -13,6 +13,15 @@ export default async function handler(req, res) {
     SUPABASE_ANON_KEY,
     SUPABASE_SERVICE_ROLE_KEY,
     NOTION_FINISHER_TITLE_FIELD,
+    NOTION_FINISHER_TYPE_FIELD,
+    NOTION_FINISHER_DURATION_FIELD,
+    NOTION_FINISHER_INTENSITY_FIELD,
+    NOTION_FINISHER_FORMAT_FIELD,
+    NOTION_FINISHER_GROUP_SIZE_FIELD,
+    NOTION_FINISHER_OUTDOOR_FIELD,
+    NOTION_FINISHER_SCALING_FIELD,
+    NOTION_FINISHER_FAVORITE_FIELD,
+    NOTION_FINISHER_FOCUS_AREAS_FIELD,
     NOTION_FINISHER_CATEGORY_FIELD,
     NOTION_FINISHER_FOCUS_FIELD,
     NOTION_FINISHER_LEVEL_FIELD,
@@ -47,6 +56,15 @@ export default async function handler(req, res) {
     const pages = await fetchAllNotionPages(NOTION_TOKEN, notionDatabaseId);
     const fieldMap = {
       title: splitFieldNames(NOTION_FINISHER_TITLE_FIELD, ["Finisher", "Name", "Titel"]),
+      finisherType: splitFieldNames(NOTION_FINISHER_TYPE_FIELD, ["Finisher-Typ", "Typ", "Kategorie", "Category"]),
+      duration: splitFieldNames(NOTION_FINISHER_DURATION_FIELD, ["Dauer (Min)", "Dauer", "Minutes", "Minuten"]),
+      intensity: splitFieldNames(NOTION_FINISHER_INTENSITY_FIELD, ["Intensität", "Intensity"]),
+      format: splitFieldNames(NOTION_FINISHER_FORMAT_FIELD, ["Format"]),
+      groupSize: splitFieldNames(NOTION_FINISHER_GROUP_SIZE_FIELD, ["Gruppengröße", "Gruppengroesse", "Group Size"]),
+      outdoor: splitFieldNames(NOTION_FINISHER_OUTDOOR_FIELD, ["Outdoor geeignet", "Outdoor", "Outdoor-tauglich"]),
+      scaling: splitFieldNames(NOTION_FINISHER_SCALING_FIELD, ["Skalierung", "Scaling"]),
+      notionFavorite: splitFieldNames(NOTION_FINISHER_FAVORITE_FIELD, ["Favorit", "Favorite"]),
+      focusAreas: splitFieldNames(NOTION_FINISHER_FOCUS_AREAS_FIELD, ["Fokus", "Focus"]),
       category: splitFieldNames(NOTION_FINISHER_CATEGORY_FIELD, ["Kategorie", "Category", "Typ", "Übungstyp"]),
       focus: splitFieldNames(NOTION_FINISHER_FOCUS_FIELD, ["Fokus", "Focus", "Intensität"]),
       level: splitFieldNames(NOTION_FINISHER_LEVEL_FIELD, ["Level", "Niveau", "Stufe", "Dauer (Min)"]),
@@ -195,13 +213,26 @@ function mapNotionPageToFinisher(page, fieldMap, nowIso) {
   const properties = page.properties || {};
   const titleProperty = findProperty(properties, fieldMap.title) || findFirstPropertyByType(properties, "title");
   const title = getPropertyText(titleProperty).trim();
+  const finisherType = getPropertyText(findProperty(properties, fieldMap.finisherType)) || getPropertyText(findProperty(properties, fieldMap.category)) || null;
+  const durationMinutes = getPropertyNumber(findProperty(properties, fieldMap.duration));
+  const intensity = getPropertyText(findProperty(properties, fieldMap.intensity)) || getPropertyText(findProperty(properties, fieldMap.focus)) || null;
+  const focusAreas = getPropertyArray(findProperty(properties, fieldMap.focusAreas));
 
   return {
     notion_page_id: page.id,
     title: title || "Ohne Titel",
-    category: getPropertyText(findProperty(properties, fieldMap.category)) || null,
-    focus: getPropertyText(findProperty(properties, fieldMap.focus)) || null,
-    level: getPropertyText(findProperty(properties, fieldMap.level)) || null,
+    finisher_type: finisherType,
+    duration_minutes: durationMinutes,
+    intensity,
+    format: getPropertyText(findProperty(properties, fieldMap.format)) || null,
+    group_size: getPropertyText(findProperty(properties, fieldMap.groupSize)) || null,
+    outdoor_suitable: getPropertyBoolean(findProperty(properties, fieldMap.outdoor)),
+    scaling: getPropertyText(findProperty(properties, fieldMap.scaling)) || null,
+    notion_favorite: getPropertyBoolean(findProperty(properties, fieldMap.notionFavorite)),
+    focus_areas: focusAreas,
+    category: finisherType,
+    focus: intensity,
+    level: durationMinutes === null ? (getPropertyText(findProperty(properties, fieldMap.level)) || null) : String(durationMinutes),
     equipment: getPropertyText(findProperty(properties, fieldMap.equipment)) || null,
     coaching_cues: getPropertyText(findProperty(properties, fieldMap.coaching)) || null,
     description: getPropertyText(findProperty(properties, fieldMap.description)) || null,
@@ -290,6 +321,38 @@ function getPropertyArray(property) {
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
+}
+
+function getPropertyNumber(property) {
+  if (!property) {
+    return null;
+  }
+
+  if (property.type === "number") {
+    return Number.isFinite(property.number) ? property.number : null;
+  }
+
+  const text = getPropertyText(property).trim();
+  if (!text) {
+    return null;
+  }
+
+  const normalized = text.replace(",", ".");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getPropertyBoolean(property) {
+  if (!property) {
+    return false;
+  }
+
+  if (property.type === "checkbox") {
+    return Boolean(property.checkbox);
+  }
+
+  const text = getPropertyText(property).trim().toLowerCase();
+  return ["ja", "yes", "true", "1", "x"].includes(text);
 }
 
 function joinRichText(items) {
