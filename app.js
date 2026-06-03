@@ -983,7 +983,7 @@ async function fetchSupportData() {
 
   const exerciseQuery = state.supabase
     .from("exercise_library")
-    .select("id, notion_page_id, title, category, focus, level, equipment, coaching_cues, technique_cues, progression, regression, common_errors, correction, variants, description, video_url, source_url, tags, notion_last_edited_at, notion_archived, synced_at")
+    .select("id, notion_page_id, title, body_regions, movement_family, movement_patterns, muscle_groups, load_profile, coachability, usage_context, notion_favorite, joint_load, tested, easier_variant, harder_variant, difficulty, setup_effort, contraindications, outdoor_fit, category, focus, level, equipment, equipment_items, coaching_cues, technique_cues, progression, regression, common_errors, correction, variants, description, video_url, source_url, tags, notion_last_edited_at, notion_archived, synced_at")
     .order("title");
 
   const finisherQuery = state.supabase
@@ -3702,19 +3702,11 @@ function getExerciseFilterOptions(field) {
   const values = new Set();
 
   state.exercises.forEach((exercise) => {
-    if (field === "tag") {
-      (exercise.tags || []).forEach((tag) => {
-        if (tag) {
-          values.add(tag);
-        }
-      });
-      return;
-    }
-
-    const value = String(exercise[field] || "").trim();
-    if (value) {
-      values.add(value);
-    }
+    getExerciseFieldValues(exercise, field).forEach((value) => {
+      if (value) {
+        values.add(value);
+      }
+    });
   });
 
   return Array.from(values).sort((left, right) => left.localeCompare(right, "de"));
@@ -3894,19 +3886,19 @@ function getFilteredExercises() {
     if (state.exerciseFavoritesOnly && !favoriteIds.has(exercise.id)) {
       return false;
     }
-    if (state.exerciseFilters.category !== "all" && (exercise.category || "") !== state.exerciseFilters.category) {
+    if (state.exerciseFilters.category !== "all" && !getExerciseFieldValues(exercise, "category").includes(state.exerciseFilters.category)) {
       return false;
     }
-    if (state.exerciseFilters.focus !== "all" && (exercise.focus || "") !== state.exerciseFilters.focus) {
+    if (state.exerciseFilters.focus !== "all" && !getExerciseFieldValues(exercise, "focus").includes(state.exerciseFilters.focus)) {
       return false;
     }
-    if (state.exerciseFilters.level !== "all" && (exercise.level || "") !== state.exerciseFilters.level) {
+    if (state.exerciseFilters.level !== "all" && !getExerciseFieldValues(exercise, "level").includes(state.exerciseFilters.level)) {
       return false;
     }
-    if (state.exerciseFilters.equipment !== "all" && (exercise.equipment || "") !== state.exerciseFilters.equipment) {
+    if (state.exerciseFilters.equipment !== "all" && !getExerciseFieldValues(exercise, "equipment").includes(state.exerciseFilters.equipment)) {
       return false;
     }
-    if (state.exerciseFilters.tag !== "all" && !(exercise.tags || []).includes(state.exerciseFilters.tag)) {
+    if (state.exerciseFilters.tag !== "all" && !getExerciseFieldValues(exercise, "tag").includes(state.exerciseFilters.tag)) {
       return false;
     }
 
@@ -3920,6 +3912,19 @@ function getFilteredExercises() {
       exercise.focus,
       exercise.level,
       exercise.equipment,
+      getExerciseBodyRegionLabel(exercise),
+      getExerciseMovementPatternLabel(exercise),
+      getExerciseMuscleGroupLabel(exercise),
+      getExerciseLoadProfileLabel(exercise),
+      getExerciseUsageContextLabel(exercise),
+      getExerciseJointLoadLabel(exercise),
+      getExerciseContraindicationLabel(exercise),
+      getExerciseOutdoorFitLabel(exercise),
+      exercise.coachability,
+      exercise.difficulty,
+      exercise.setup_effort,
+      exercise.easier_variant,
+      exercise.harder_variant,
       exercise.coaching_cues,
       exercise.technique_cues,
       exercise.progression,
@@ -3944,6 +3949,77 @@ function isExerciseFavorite(exerciseId) {
 
 function getExerciseById(exerciseId) {
   return state.exercises.find((exercise) => exercise.id === exerciseId) || null;
+}
+
+function getExerciseArrayField(exercise, field) {
+  return Array.isArray(exercise?.[field])
+    ? exercise[field].map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+}
+
+function getExerciseBodyRegionLabel(exercise) {
+  const explicit = getExerciseArrayField(exercise, "body_regions");
+  return explicit.join(", ") || String(exercise?.category || "").trim();
+}
+
+function getExerciseMovementPatternLabel(exercise) {
+  const explicit = getExerciseArrayField(exercise, "movement_patterns");
+  return explicit.join(", ") || String(exercise?.movement_family || exercise?.focus || "").trim();
+}
+
+function getExerciseMuscleGroupLabel(exercise) {
+  const explicit = getExerciseArrayField(exercise, "muscle_groups");
+  return explicit.join(", ") || String(exercise?.level || "").trim();
+}
+
+function getExerciseEquipmentLabel(exercise) {
+  const explicit = getExerciseArrayField(exercise, "equipment_items");
+  return explicit.join(", ") || String(exercise?.equipment || "").trim();
+}
+
+function getExerciseLoadProfileLabel(exercise) {
+  return getExerciseArrayField(exercise, "load_profile").join(", ");
+}
+
+function getExerciseUsageContextLabel(exercise) {
+  return getExerciseArrayField(exercise, "usage_context").join(", ");
+}
+
+function getExerciseJointLoadLabel(exercise) {
+  return getExerciseArrayField(exercise, "joint_load").join(", ");
+}
+
+function getExerciseContraindicationLabel(exercise) {
+  return getExerciseArrayField(exercise, "contraindications").join(", ");
+}
+
+function getExerciseOutdoorFitLabel(exercise) {
+  return getExerciseArrayField(exercise, "outdoor_fit").join(", ");
+}
+
+function getExerciseFieldValues(exercise, field) {
+  switch (field) {
+    case "category":
+      return getExerciseArrayField(exercise, "body_regions");
+    case "focus":
+      return getExerciseArrayField(exercise, "movement_patterns").length
+        ? getExerciseArrayField(exercise, "movement_patterns")
+        : [String(exercise?.movement_family || exercise?.focus || "").trim()].filter(Boolean);
+    case "level":
+      return getExerciseArrayField(exercise, "muscle_groups").length
+        ? getExerciseArrayField(exercise, "muscle_groups")
+        : [String(exercise?.level || "").trim()].filter(Boolean);
+    case "equipment":
+      return getExerciseArrayField(exercise, "equipment_items").length
+        ? getExerciseArrayField(exercise, "equipment_items")
+        : [String(exercise?.equipment || "").trim()].filter(Boolean);
+    case "tag":
+      return Array.isArray(exercise?.tags)
+        ? exercise.tags.map((tag) => String(tag || "").trim()).filter(Boolean)
+        : [];
+    default:
+      return [String(exercise?.[field] || "").trim()].filter(Boolean);
+  }
 }
 
 function closeExerciseDetailModal() {
@@ -4486,6 +4562,10 @@ function renderExerciseDetail() {
     exercise.video_url ? `<a class="ghost" href="${escapeHtml(exercise.video_url)}" target="_blank" rel="noreferrer">Video öffnen</a>` : "",
     exercise.source_url ? `<a class="ghost" href="${escapeHtml(exercise.source_url)}" target="_blank" rel="noreferrer">Notion öffnen</a>` : "",
   ].filter(Boolean).join("");
+  const bodyRegionLabel = getExerciseBodyRegionLabel(exercise);
+  const movementPatternLabel = getExerciseMovementPatternLabel(exercise);
+  const muscleGroupLabel = getExerciseMuscleGroupLabel(exercise);
+  const equipmentLabel = getExerciseEquipmentLabel(exercise);
 
   const sections = [
     ["Beschreibung", exercise.description],
@@ -4508,10 +4588,11 @@ function renderExerciseDetail() {
 
   exerciseDetailBody.innerHTML = `
     <div class="course-status-grid">
-      ${exercise.category ? `<span class="course-status-pill">${escapeHtml(exercise.category)}</span>` : ""}
-      ${exercise.focus ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(exercise.focus)}</span>` : ""}
-      ${exercise.level ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(exercise.level)}</span>` : ""}
-      ${exercise.equipment ? `<span class="course-status-pill course-status-pill-warn">${escapeHtml(exercise.equipment)}</span>` : ""}
+      ${exercise.notion_favorite ? `<span class="course-status-pill course-status-pill-warn">Notion-Favorit</span>` : ""}
+      ${bodyRegionLabel ? `<span class="course-status-pill">${escapeHtml(bodyRegionLabel)}</span>` : ""}
+      ${movementPatternLabel ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(movementPatternLabel)}</span>` : ""}
+      ${muscleGroupLabel ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(muscleGroupLabel)}</span>` : ""}
+      ${equipmentLabel ? `<span class="course-status-pill course-status-pill-warn">${escapeHtml(equipmentLabel)}</span>` : ""}
     </div>
     ${exercise.tags?.length ? `<div class="exercise-tag-row">${exercise.tags.map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
     ${sections || `<p class="stat-meta">Für diese Übung sind noch keine erweiterten Details synchronisiert.</p>`}
@@ -4537,8 +4618,35 @@ function renderExerciseDetailView() {
     exercise.video_url ? `<a class="ghost" href="${escapeHtml(exercise.video_url)}" target="_blank" rel="noreferrer">Video öffnen</a>` : "",
     exercise.source_url ? `<a class="ghost" href="${escapeHtml(exercise.source_url)}" target="_blank" rel="noreferrer">Notion öffnen</a>` : "",
   ].filter(Boolean).join("");
+  const bodyRegionLabel = getExerciseBodyRegionLabel(exercise);
+  const movementPatternLabel = getExerciseMovementPatternLabel(exercise);
+  const muscleGroupLabel = getExerciseMuscleGroupLabel(exercise);
+  const equipmentLabel = getExerciseEquipmentLabel(exercise);
+  const loadProfileLabel = getExerciseLoadProfileLabel(exercise);
+  const usageContextLabel = getExerciseUsageContextLabel(exercise);
+  const jointLoadLabel = getExerciseJointLoadLabel(exercise);
+  const outdoorFitLabel = getExerciseOutdoorFitLabel(exercise);
+  const contraindicationLabel = getExerciseContraindicationLabel(exercise);
 
   const sections = [
+    {
+      title: "Profil",
+      items: [
+        ["Körperbereich", bodyRegionLabel],
+        ["Bewegungsmuster", movementPatternLabel],
+        ["Bewegungsfamilie", exercise.movement_family],
+        ["Muskelgruppe", muscleGroupLabel],
+        ["Ausrüstung", equipmentLabel],
+        ["Einsatzbereich", usageContextLabel],
+        ["Belastung", loadProfileLabel],
+        ["Gelenkbelastung", jointLoadLabel],
+        ["Outdoor-Fit", outdoorFitLabel],
+        ["Schwierigkeit", exercise.difficulty],
+        ["Coachbarkeit", exercise.coachability],
+        ["Setup-Aufwand", exercise.setup_effort],
+        ["Getestet", exercise.tested ? "Ja" : ""],
+      ],
+    },
     {
       title: "Ausführung",
       items: [
@@ -4552,6 +4660,7 @@ function renderExerciseDetailView() {
       items: [
         ["Häufige Fehler", exercise.common_errors],
         ["Korrektur", exercise.correction],
+        ["Nicht geeignet bei", contraindicationLabel],
       ],
     },
     {
@@ -4559,6 +4668,8 @@ function renderExerciseDetailView() {
       items: [
         ["Progression", exercise.progression],
         ["Regression", exercise.regression],
+        ["Leichtere Variante", exercise.easier_variant],
+        ["Schwerere Variante", exercise.harder_variant],
         ["Varianten", exercise.variants],
       ],
     },
@@ -4590,10 +4701,11 @@ function renderExerciseDetailView() {
   exerciseDetailBody.innerHTML = `
     <div class="exercise-detail-hero">
       <div class="course-status-grid">
-        ${exercise.category ? `<span class="course-status-pill">${escapeHtml(exercise.category)}</span>` : ""}
-        ${exercise.focus ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(exercise.focus)}</span>` : ""}
-        ${exercise.level ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(exercise.level)}</span>` : ""}
-        ${exercise.equipment ? `<span class="course-status-pill course-status-pill-warn">${escapeHtml(exercise.equipment)}</span>` : ""}
+        ${exercise.notion_favorite ? `<span class="course-status-pill course-status-pill-warn">Notion-Favorit</span>` : ""}
+        ${bodyRegionLabel ? `<span class="course-status-pill">${escapeHtml(bodyRegionLabel)}</span>` : ""}
+        ${movementPatternLabel ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(movementPatternLabel)}</span>` : ""}
+        ${muscleGroupLabel ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(muscleGroupLabel)}</span>` : ""}
+        ${equipmentLabel ? `<span class="course-status-pill course-status-pill-warn">${escapeHtml(equipmentLabel)}</span>` : ""}
       </div>
       ${exercise.tags?.length ? `<div class="exercise-tag-row">${exercise.tags.map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
     </div>
@@ -4954,15 +5066,19 @@ function renderExercises() {
 
   exerciseTableBody.innerHTML = exercises.map((exercise) => {
     const isFavorite = isExerciseFavorite(exercise.id);
+    const bodyRegionLabel = getExerciseBodyRegionLabel(exercise);
+    const movementPatternLabel = getExerciseMovementPatternLabel(exercise);
+    const muscleGroupLabel = getExerciseMuscleGroupLabel(exercise);
     return `
       <tr class="${isFavorite ? "exercise-row-favorite" : ""}">
         <td>
           <strong>${escapeHtml(exercise.title)}</strong>
           ${isFavorite ? `<span class="exercise-table-favorite">Favorit</span>` : ""}
+          ${exercise.notion_favorite ? `<span class="exercise-table-favorite">Notion</span>` : ""}
         </td>
-        <td>${escapeHtml(exercise.category || "-")}</td>
-        <td>${exercise.focus ? `<span class="exercise-table-emphasis">${escapeHtml(exercise.focus)}</span>` : "-"}</td>
-        <td>${escapeHtml(exercise.level || "-")}</td>
+        <td>${escapeHtml(bodyRegionLabel || "-")}</td>
+        <td>${movementPatternLabel ? `<span class="exercise-table-emphasis">${escapeHtml(movementPatternLabel)}</span>` : "-"}</td>
+        <td>${escapeHtml(muscleGroupLabel || "-")}</td>
         <td>
           <div class="mini-actions table-actions">
             <button type="button" class="ghost" data-exercise-detail="${escapeHtml(exercise.id)}">Details</button>
@@ -4975,7 +5091,11 @@ function renderExercises() {
 
   exerciseCards.innerHTML = exercises.map((exercise) => {
     const isFavorite = isExerciseFavorite(exercise.id);
-    const tags = (exercise.tags || []).map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("");
+    const bodyRegionLabel = getExerciseBodyRegionLabel(exercise);
+    const movementPatternLabel = getExerciseMovementPatternLabel(exercise);
+    const muscleGroupLabel = getExerciseMuscleGroupLabel(exercise);
+    const loadProfileLabel = getExerciseLoadProfileLabel(exercise);
+    const usageContextLabel = getExerciseUsageContextLabel(exercise);
     const links = [
       exercise.video_url ? `<a class="ghost" href="${escapeHtml(exercise.video_url)}" target="_blank" rel="noreferrer">Video öffnen</a>` : "",
       exercise.source_url ? `<a class="ghost" href="${escapeHtml(exercise.source_url)}" target="_blank" rel="noreferrer">Notion öffnen</a>` : "",
@@ -4990,14 +5110,18 @@ function renderExercises() {
           </div>
           <div class="course-status-grid">
             ${isFavorite ? `<span class="course-status-pill course-status-pill-warn">Favorit</span>` : ""}
-            ${exercise.category ? `<span class="course-status-pill">${escapeHtml(exercise.category)}</span>` : ""}
+            ${exercise.notion_favorite ? `<span class="course-status-pill course-status-pill-warn">Notion-Favorit</span>` : ""}
+            ${bodyRegionLabel ? `<span class="course-status-pill">${escapeHtml(bodyRegionLabel)}</span>` : ""}
           </div>
         </div>
         <div class="exercise-meta-grid">
-          ${exercise.category ? `<p><strong>Körperbereich</strong><span>${escapeHtml(exercise.category)}</span></p>` : ""}
-          ${exercise.focus ? `<p><strong>Bewegungsmuster</strong><span>${escapeHtml(exercise.focus)}</span></p>` : ""}
-          ${exercise.level ? `<p><strong>Muskelgruppe</strong><span>${escapeHtml(exercise.level)}</span></p>` : ""}
+          ${bodyRegionLabel ? `<p><strong>Körperbereich</strong><span>${escapeHtml(bodyRegionLabel)}</span></p>` : ""}
+          ${movementPatternLabel ? `<p><strong>Bewegungsmuster</strong><span>${escapeHtml(movementPatternLabel)}</span></p>` : ""}
+          ${muscleGroupLabel ? `<p><strong>Muskelgruppe</strong><span>${escapeHtml(muscleGroupLabel)}</span></p>` : ""}
+          ${loadProfileLabel ? `<p><strong>Belastung</strong><span>${escapeHtml(loadProfileLabel)}</span></p>` : ""}
+          ${usageContextLabel ? `<p><strong>Einsatzbereich</strong><span>${escapeHtml(usageContextLabel)}</span></p>` : ""}
         </div>
+        ${exercise.tags?.length ? `<div class="exercise-tag-row">${exercise.tags.map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
         <div class="stat-card-actions exercise-actions">
           <button type="button" class="ghost" data-exercise-detail="${escapeHtml(exercise.id)}">Details</button>
           <button type="button" class="${isFavorite ? "primary" : "ghost"}" data-exercise-favorite="${escapeHtml(exercise.id)}">${isFavorite ? "Favorit entfernt" : "Als Favorit"}</button>
@@ -6412,7 +6536,7 @@ function getCampusSearchResults() {
   }
 
   const buckets = [
-    ...state.exercises.map((item) => ({ type: "exercise", id: item.id, title: item.title, meta: [item.category, item.focus, item.level].filter(Boolean).join(" • "), panel: "#exercisePanel", search: [item.title, item.category, item.focus, item.level, item.description].filter(Boolean).join(" ") })),
+    ...state.exercises.map((item) => ({ type: "exercise", id: item.id, title: item.title, meta: [getExerciseBodyRegionLabel(item), getExerciseMovementPatternLabel(item), getExerciseMuscleGroupLabel(item)].filter(Boolean).join(" • "), panel: "#exercisePanel", search: [item.title, getExerciseBodyRegionLabel(item), getExerciseMovementPatternLabel(item), getExerciseMuscleGroupLabel(item), getExerciseLoadProfileLabel(item), getExerciseUsageContextLabel(item), getExerciseEquipmentLabel(item), item.description, item.coaching_cues, item.technique_cues].filter(Boolean).join(" ") })),
     ...state.finishers.map((item) => ({
       type: "finisher",
       id: item.id,

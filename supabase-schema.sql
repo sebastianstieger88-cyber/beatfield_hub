@@ -211,10 +211,27 @@ create table if not exists public.exercise_library (
   id uuid primary key default gen_random_uuid(),
   notion_page_id text not null unique,
   title text not null,
+  body_regions text[] not null default '{}',
+  movement_family text,
+  movement_patterns text[] not null default '{}',
+  muscle_groups text[] not null default '{}',
+  load_profile text[] not null default '{}',
+  coachability text,
+  usage_context text[] not null default '{}',
+  notion_favorite boolean not null default false,
+  joint_load text[] not null default '{}',
+  tested boolean not null default false,
+  easier_variant text,
+  harder_variant text,
+  difficulty text,
+  setup_effort text,
+  contraindications text[] not null default '{}',
+  outdoor_fit text[] not null default '{}',
   category text,
   focus text,
   level text,
   equipment text,
+  equipment_items text[] not null default '{}',
   coaching_cues text,
   technique_cues text,
   progression text,
@@ -424,6 +441,23 @@ alter table public.exercise_library add column if not exists regression text;
 alter table public.exercise_library add column if not exists common_errors text;
 alter table public.exercise_library add column if not exists correction text;
 alter table public.exercise_library add column if not exists variants text;
+alter table public.exercise_library add column if not exists body_regions text[] not null default '{}';
+alter table public.exercise_library add column if not exists movement_family text;
+alter table public.exercise_library add column if not exists movement_patterns text[] not null default '{}';
+alter table public.exercise_library add column if not exists muscle_groups text[] not null default '{}';
+alter table public.exercise_library add column if not exists load_profile text[] not null default '{}';
+alter table public.exercise_library add column if not exists coachability text;
+alter table public.exercise_library add column if not exists usage_context text[] not null default '{}';
+alter table public.exercise_library add column if not exists notion_favorite boolean not null default false;
+alter table public.exercise_library add column if not exists joint_load text[] not null default '{}';
+alter table public.exercise_library add column if not exists tested boolean not null default false;
+alter table public.exercise_library add column if not exists easier_variant text;
+alter table public.exercise_library add column if not exists harder_variant text;
+alter table public.exercise_library add column if not exists difficulty text;
+alter table public.exercise_library add column if not exists setup_effort text;
+alter table public.exercise_library add column if not exists contraindications text[] not null default '{}';
+alter table public.exercise_library add column if not exists outdoor_fit text[] not null default '{}';
+alter table public.exercise_library add column if not exists equipment_items text[] not null default '{}';
 
 create table if not exists public.exercise_favorites (
   user_id uuid not null references public.profiles(user_id) on delete cascade,
