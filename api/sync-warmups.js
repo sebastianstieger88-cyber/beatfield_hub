@@ -69,7 +69,7 @@ export default async function handler(req, res) {
       focus: splitFieldNames(NOTION_WARMUP_FOCUS_FIELD, ["Fokus", "Focus", "Intensitaet"]),
       level: splitFieldNames(NOTION_WARMUP_LEVEL_FIELD, ["Level", "Niveau", "Stufe", "Dauer (Min)"]),
       equipment: splitFieldNames(NOTION_WARMUP_EQUIPMENT_FIELD, ["Equipment", "Geraet", "Material", "Ausruestung"]),
-      coaching: splitFieldNames(NOTION_WARMUP_COACHING_FIELD, ["Coaching", "Coaching Cues", "Hinweise", "Cues"]),
+      coaching: splitFieldNames(NOTION_WARMUP_COACHING_FIELD, ["Coaching Notes", "Coaching", "Coaching Cues", "Hinweise", "Cues"]),
       description: splitFieldNames(NOTION_WARMUP_DESCRIPTION_FIELD, ["Beschreibung", "Description", "Details", "Notizen"]),
       video: splitFieldNames(NOTION_WARMUP_VIDEO_FIELD, ["Video", "Video URL", "Video-Link", "Video Link"]),
       source: splitFieldNames(NOTION_WARMUP_SOURCE_FIELD, ["Link", "URL", "Quelle", "Source"]),
@@ -251,7 +251,8 @@ function mapNotionPageToWarmup(page, fieldMap, nowIso) {
 function findProperty(properties, candidateNames) {
   const entries = Object.entries(properties || {});
   for (const candidate of candidateNames) {
-    const match = entries.find(([name]) => name.toLowerCase() === String(candidate).toLowerCase());
+    const normalizedCandidate = String(candidate).trim().toLowerCase();
+    const match = entries.find(([name]) => String(name).trim().toLowerCase() === normalizedCandidate);
     if (match) {
       return match[1];
     }
