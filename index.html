@@ -421,7 +421,7 @@
               </div>
               <p class="stat-meta">Scrollbare Kontakt-Tabelle mit schnellem Zugriff auf den Season-Verlauf jeder Person.</p>
             </div>
-            <div class="booking-table-toolbar">
+            <div class="booking-table-toolbar operations-toolbar">
               <label>
                 <span>Suche</span>
                 <input id="bookingSearchInput" type="search" placeholder="Name oder Telefon">
@@ -949,7 +949,7 @@
             </label>
           </div>
 
-          <div class="attendance-toolbar">
+          <div class="attendance-toolbar operations-toolbar">
             <label>
               <span>Season</span>
               <select id="attendanceSeasonSelect"></select>
@@ -1033,8 +1033,26 @@
             <h2>Gesch&#228;ftszahlen</h2>
           </div>
         </div>
-        <div id="businessCards" class="stats-grid"></div>
-        <div id="businessInsights" class="stats-grid business-insights"></div>
+        <section class="kpi-section">
+          <div class="kpi-section-head">
+            <div>
+              <p class="eyebrow">Monat</p>
+              <h3>Kernzahlen</h3>
+            </div>
+            <p class="stat-meta">Die wichtigsten Monatswerte für Betrieb, Conversion und Teilnahme.</p>
+          </div>
+          <div id="businessCards" class="stats-grid stats-grid-primary"></div>
+        </section>
+        <section class="kpi-section">
+          <div class="kpi-section-head">
+            <div>
+              <p class="eyebrow">Vertiefung</p>
+              <h3>Risiken und Chancen</h3>
+            </div>
+            <p class="stat-meta">Beste und auffällige Entwicklungen, Conversion je Season und BEAT-OUT-Dynamik.</p>
+          </div>
+          <div id="businessInsights" class="stats-grid stats-grid-secondary business-insights"></div>
+        </section>
       </section>
 
       <section class="panel wide hidden" id="beatoutPanel">
@@ -1055,12 +1073,21 @@
             <h2>Exporte und Auswertungen</h2>
           </div>
         </div>
-        <div class="report-actions">
+        <div class="report-actions operations-toolbar">
           <button id="exportMonthlyBtn" type="button" class="primary">Monatsreport exportieren</button>
           <button id="exportLeaderboardBtn" type="button" class="ghost">Anwesenheitsranking exportieren</button>
           <button id="exportTrainerReportBtn" type="button" class="ghost">Trainerreport exportieren</button>
         </div>
-        <div id="reportPreview" class="stats-grid"></div>
+        <section class="kpi-section">
+          <div class="kpi-section-head">
+            <div>
+              <p class="eyebrow">Report</p>
+              <h3>Export-Grundlage</h3>
+            </div>
+            <p class="stat-meta">Diese Kennzahlen beschreiben, worauf sich die aktuellen Exporte und Listen beziehen.</p>
+          </div>
+          <div id="reportPreview" class="stats-grid stats-grid-secondary"></div>
+        </section>
       </section>
     </main>
   </div>

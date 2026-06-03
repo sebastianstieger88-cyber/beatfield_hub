@@ -10432,49 +10432,64 @@ function renderParticipantProfile(fallbackBookingId = null) {
   const levelUpStatus = getLevelUpStatus(booking || participant || {});
   const contactMeta = getContactStatusMeta(booking?.contact_status);
   const history = participant ? getParticipantRecentHistory(participant.id, 6) : [];
+  const phoneLabel = participant?.phone ? escapeHtml(participant.phone) : booking?.phone ? escapeHtml(booking.phone) : "Keine Telefonnummer";
+  const rewardMeta = rewardStatus.redeemedRewards
+    ? `${rewardStatus.redeemedRewards} eingelöst`
+    : "Noch nichts eingelöst";
 
   participantProfileTitle.textContent = title;
   participantProfileBody.innerHTML = `
-    <div class="stats-grid">
-      <article class="stat-card">
-        <h3>Aktueller Kurs</h3>
-        <p class="hero-stat">${escapeHtml(course?.name || "Noch keinem Kurs zugeordnet")}</p>
-        <p class="stat-meta">${escapeHtml(course?.weekday || "Ohne festen Wochentag")}</p>
-      </article>
-      <article class="stat-card">
-        <h3>Season & Paket</h3>
-        <p class="hero-stat">${escapeHtml(season?.name || "Keine aktive Season")}</p>
-        <p class="stat-meta">${escapeHtml(packageType)} | ${escapeHtml(days)}</p>
-      </article>
-      <article class="stat-card">
+    <div class="participant-profile-sheet">
+      <section class="profile-sheet-card profile-sheet-card-wide">
+        <div class="profile-sheet-head">
+          <div>
+            <p class="eyebrow">Stammdaten</p>
+            <h3>${escapeHtml(title)}</h3>
+          </div>
+          <span class="course-status-pill ${contactMeta.variant === "ok" ? "" : contactMeta.variant === "warn" ? "course-status-pill-warn" : "course-status-pill-info"}">${escapeHtml(contactMeta.label)}</span>
+        </div>
+        <div class="profile-sheet-grid">
+          <p><strong>Aktueller Kurs</strong><span>${escapeHtml(course?.name || "Noch keinem Kurs zugeordnet")}</span></p>
+          <p><strong>Wochentag</strong><span>${escapeHtml(course?.weekday || "Ohne festen Wochentag")}</span></p>
+          <p><strong>Season</strong><span>${escapeHtml(season?.name || "Keine aktive Season")}</span></p>
+          <p><strong>Paket</strong><span>${escapeHtml(packageType)}</span></p>
+          <p><strong>Trainingstage</strong><span>${escapeHtml(days)}</span></p>
+          <p><strong>Kontakt</strong><span>${phoneLabel}</span></p>
+        </div>
+      </section>
+      <section class="profile-sheet-card">
+        <p class="eyebrow">Teilnahme</p>
         <h3>Anwesenheitsquote</h3>
         <p class="hero-stat">${participant ? `${rate}%` : "-"}</p>
-        <p class="stat-meta">${participant?.phone ? escapeHtml(participant.phone) : booking?.phone ? escapeHtml(booking.phone) : "Keine Telefonnummer"}</p>
-      </article>
-      <article class="stat-card">
+        <p class="stat-meta">Aktive Season | auf Basis der aktuellen Buchung</p>
+      </section>
+      <section class="profile-sheet-card">
+        <p class="eyebrow">Kulanz</p>
         <h3>BEAT-OUTS</h3>
         <p class="hero-stat">${booking ? `${beatOutUsage.used}/${beatOutUsage.limit}` : "-"}</p>
         <p class="stat-meta">${booking ? `${beatOutUsage.remaining} verbleibend in dieser Season` : "Nur bei Season-Buchung verfügbar"}</p>
-      </article>
-      <article class="stat-card">
-        <h3>Gratis-Season Status</h3>
+      </section>
+      <section class="profile-sheet-card">
+        <p class="eyebrow">Reward</p>
+        <h3>Gratis-Season</h3>
         <p class="hero-stat">${rewardStatus.availableRewards}</p>
-        <p class="stat-meta">${rewardStatus.redeemedRewards} eingelöst | Nächste Schwelle bei ${rewardStatus.nextMilestone} BEAT-OUTs (${escapeHtml(rewardStatus.packageType)})</p>
-      </article>
-      <article class="stat-card">
+        <p class="stat-meta">${rewardMeta} | Nächste Schwelle bei ${rewardStatus.nextMilestone} BEAT-OUTs (${escapeHtml(rewardStatus.packageType)})</p>
+      </section>
+      <section class="profile-sheet-card">
+        <p class="eyebrow">Loyalität</p>
         <h3>Level-Up</h3>
         <p class="hero-stat">${levelUpStatus.totalPoints}</p>
         <p class="stat-meta">${levelUpStatus.reachedMilestone ? `Geschenk bei ${levelUpStatus.totalPoints} erreicht` : `Noch ${levelUpStatus.remainingToNext} bis ${levelUpStatus.nextMilestone}`}</p>
-      </article>
-      <article class="stat-card">
-        <h3>Kontaktstatus</h3>
-        <p class="hero-stat">${escapeHtml(contactMeta.label)}</p>
-        <p class="stat-meta">Verlängerung und Follow-up im Blick behalten</p>
-      </article>
-    </div>
-    <article class="stat-card">
-      <h3>Verlauf</h3>
-      <div class="stack">
+      </section>
+      <section class="profile-sheet-card profile-history-card profile-sheet-card-wide">
+        <div class="profile-sheet-head">
+          <div>
+            <p class="eyebrow">Historie</p>
+            <h3>Letzte dokumentierte Termine</h3>
+          </div>
+          <p class="stat-meta">Die letzten 6 Einträge aus Anwesenheit, Abwesenheit und BEAT-OUTs.</p>
+        </div>
+        <div class="stack">
         ${history.length
           ? history.map((entry) => `
             <div class="list-row">
@@ -10483,8 +10498,9 @@ function renderParticipantProfile(fallbackBookingId = null) {
             </div>
           `).join("")
           : '<p class="stat-meta">Noch keine dokumentierte Historie vorhanden.</p>'}
-      </div>
-    </article>
+        </div>
+      </section>
+    </div>
   `;
 
   participantProfileModal.classList.remove("hidden");
