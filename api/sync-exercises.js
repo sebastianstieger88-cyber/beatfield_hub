@@ -13,6 +13,22 @@ export default async function handler(req, res) {
     SUPABASE_ANON_KEY,
     SUPABASE_SERVICE_ROLE_KEY,
     NOTION_EXERCISE_TITLE_FIELD,
+    NOTION_EXERCISE_BODY_REGION_FIELD,
+    NOTION_EXERCISE_MOVEMENT_FAMILY_FIELD,
+    NOTION_EXERCISE_MOVEMENT_PATTERNS_FIELD,
+    NOTION_EXERCISE_MUSCLE_GROUPS_FIELD,
+    NOTION_EXERCISE_LOAD_PROFILE_FIELD,
+    NOTION_EXERCISE_COACHABILITY_FIELD,
+    NOTION_EXERCISE_USAGE_CONTEXT_FIELD,
+    NOTION_EXERCISE_FAVORITE_FIELD,
+    NOTION_EXERCISE_JOINT_LOAD_FIELD,
+    NOTION_EXERCISE_TESTED_FIELD,
+    NOTION_EXERCISE_EASIER_VARIANT_FIELD,
+    NOTION_EXERCISE_HARDER_VARIANT_FIELD,
+    NOTION_EXERCISE_DIFFICULTY_FIELD,
+    NOTION_EXERCISE_SETUP_EFFORT_FIELD,
+    NOTION_EXERCISE_CONTRAINDICATIONS_FIELD,
+    NOTION_EXERCISE_OUTDOOR_FIELD,
     NOTION_EXERCISE_CATEGORY_FIELD,
     NOTION_EXERCISE_FOCUS_FIELD,
     NOTION_EXERCISE_LEVEL_FIELD,
@@ -29,44 +45,61 @@ export default async function handler(req, res) {
     NOTION_EXERCISE_SOURCE_FIELD,
     NOTION_EXERCISE_TAGS_FIELD,
   } = process.env;
+
   const notionDatabaseId = normalizeNotionDatabaseId(NOTION_EXERCISE_DATABASE_ID);
 
   if (!NOTION_TOKEN || !notionDatabaseId || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
     return res.status(500).json({
-      error: "Für den Übungs-Sync fehlen noch Umgebungsvariablen in Vercel.",
+      error: "Fuer den Uebungs-Sync fehlen noch Umgebungsvariablen in Vercel.",
     });
   }
 
   try {
     const accessToken = getBearerToken(req.headers.authorization);
     if (!accessToken) {
-      return res.status(401).json({ error: "Kein gültiger Login-Token übergeben." });
+      return res.status(401).json({ error: "Kein gueltiger Login-Token uebergeben." });
     }
 
     const user = await getSupabaseUser(SUPABASE_URL, SUPABASE_ANON_KEY, accessToken);
     const profile = await getSupabaseProfile(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, user.id);
     if (profile?.role !== "admin") {
-      return res.status(403).json({ error: "Nur Admins dürfen den Notion-Sync auslösen." });
+      return res.status(403).json({ error: "Nur Admins duerfen den Notion-Sync ausloesen." });
     }
 
     const pages = await fetchAllNotionPages(NOTION_TOKEN, notionDatabaseId);
     const fieldMap = {
-      title: splitFieldNames(NOTION_EXERCISE_TITLE_FIELD, ["Übung", "Uebung", "Exercise", "Name", "Titel"]),
+      title: splitFieldNames(NOTION_EXERCISE_TITLE_FIELD, ["Uebung", "Exercise", "Name", "Titel"]),
+      bodyRegion: splitFieldNames(NOTION_EXERCISE_BODY_REGION_FIELD, ["Koerperbereich", "Körperbereich", "Body Region"]),
+      movementFamily: splitFieldNames(NOTION_EXERCISE_MOVEMENT_FAMILY_FIELD, ["Bewegungsmuster", "Movement Pattern"]),
+      movementPatterns: splitFieldNames(NOTION_EXERCISE_MOVEMENT_PATTERNS_FIELD, ["Bewegungsmuster ", "Movement Patterns", "Patterns"]),
+      muscleGroups: splitFieldNames(NOTION_EXERCISE_MUSCLE_GROUPS_FIELD, ["Muskelgruppe", "Muscle Group"]),
+      loadProfile: splitFieldNames(NOTION_EXERCISE_LOAD_PROFILE_FIELD, ["Belastung", "Load Profile"]),
+      coachability: splitFieldNames(NOTION_EXERCISE_COACHABILITY_FIELD, ["Coachbarkeit", "Coachability"]),
+      usageContext: splitFieldNames(NOTION_EXERCISE_USAGE_CONTEXT_FIELD, ["Einsatzbereich", "Usage Context"]),
+      notionFavorite: splitFieldNames(NOTION_EXERCISE_FAVORITE_FIELD, ["Favorit", "Favorite"]),
+      jointLoad: splitFieldNames(NOTION_EXERCISE_JOINT_LOAD_FIELD, ["Gelenkbelastung", "Joint Load"]),
+      tested: splitFieldNames(NOTION_EXERCISE_TESTED_FIELD, ["Getestet", "Tested"]),
+      easierVariant: splitFieldNames(NOTION_EXERCISE_EASIER_VARIANT_FIELD, ["Leichtere Variante", "Easier Variant"]),
+      harderVariant: splitFieldNames(NOTION_EXERCISE_HARDER_VARIANT_FIELD, ["Schwerere Variante", "Harder Variant"]),
+      difficulty: splitFieldNames(NOTION_EXERCISE_DIFFICULTY_FIELD, ["Schwierigkeit", "Difficulty"]),
+      setupEffort: splitFieldNames(NOTION_EXERCISE_SETUP_EFFORT_FIELD, ["Setup-Aufwand", "Setup Aufwand", "Setup Effort"]),
+      contraindications: splitFieldNames(NOTION_EXERCISE_CONTRAINDICATIONS_FIELD, ["Nicht geeignet bei", "Contraindications"]),
+      outdoor: splitFieldNames(NOTION_EXERCISE_OUTDOOR_FIELD, ["Outdoor-Fit", "Outdoor Fit", "Outdoor"]),
       category: splitFieldNames(NOTION_EXERCISE_CATEGORY_FIELD, ["Kategorie", "Category", "Typ"]),
       focus: splitFieldNames(NOTION_EXERCISE_FOCUS_FIELD, ["Fokus", "Focus", "Ziel", "Muskelgruppe", "Bereich"]),
       level: splitFieldNames(NOTION_EXERCISE_LEVEL_FIELD, ["Level", "Niveau", "Stufe"]),
-      equipment: splitFieldNames(NOTION_EXERCISE_EQUIPMENT_FIELD, ["Equipment", "Gerät", "Geraet", "Material"]),
-      coaching: splitFieldNames(NOTION_EXERCISE_COACHING_FIELD, ["Coaching", "Coaching Cues", "Hinweise", "Cues"]),
+      equipment: splitFieldNames(NOTION_EXERCISE_EQUIPMENT_FIELD, ["Equipment", "Geraet", "Gerät", "Material", "Ausrüstung", "Ausruestung"]),
+      coaching: splitFieldNames(NOTION_EXERCISE_COACHING_FIELD, ["Coach-Cues", "Coaching", "Coaching Cues", "Hinweise", "Cues"]),
       technique: splitFieldNames(NOTION_EXERCISE_TECHNIQUE_FIELD, ["Technik Cues", "Technik-Cues", "Technique Cues"]),
       progression: splitFieldNames(NOTION_EXERCISE_PROGRESSION_FIELD, ["Progression"]),
       regression: splitFieldNames(NOTION_EXERCISE_REGRESSION_FIELD, ["Regression"]),
-      commonErrors: splitFieldNames(NOTION_EXERCISE_COMMON_ERRORS_FIELD, ["HÃ¤ufige Fehler", "Haeufige Fehler", "Common Errors"]),
-      correction: splitFieldNames(NOTION_EXERCISE_CORRECTION_FIELD, ["Korrektur", "Correction"]),
+      commonErrors: splitFieldNames(NOTION_EXERCISE_COMMON_ERRORS_FIELD, ["Haeufige Fehler", "Häufige Fehler", "Common Errors"]),
+      correction: splitFieldNames(NOTION_EXERCISE_CORRECTION_FIELD, ["Korrektur-Cues", "Korrektur", "Correction"]),
       variants: splitFieldNames(NOTION_EXERCISE_VARIANTS_FIELD, ["Varianten", "Variants"]),
-      description: splitFieldNames(NOTION_EXERCISE_DESCRIPTION_FIELD, ["Beschreibung", "Description", "Details", "Notizen"]),
+      description: splitFieldNames(NOTION_EXERCISE_DESCRIPTION_FIELD, ["Text", "Beschreibung", "Description", "Details", "Notizen"]),
       video: splitFieldNames(NOTION_EXERCISE_VIDEO_FIELD, ["Video", "Video URL", "Video-Link", "Video Link"]),
       source: splitFieldNames(NOTION_EXERCISE_SOURCE_FIELD, ["Link", "URL", "Quelle", "Source"]),
-      tags: splitFieldNames(NOTION_EXERCISE_TAGS_FIELD, ["Tags", "Schlagwörter", "Schlagwoerter"]),
+      tags: splitFieldNames(NOTION_EXERCISE_TAGS_FIELD, ["Tags", "Schlagwoerter", "Schlagwörter"]),
     };
 
     const nowIso = new Date().toISOString();
@@ -88,12 +121,12 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       synced: exercises.length,
-      message: `${exercises.length} Übungen wurden mit Notion synchronisiert.`,
+      message: `${exercises.length} Uebungen wurden mit Notion synchronisiert.`,
     });
   } catch (error) {
     console.error("Exercise sync failed", error);
     return res.status(500).json({
-      error: error.message || "Der Übungs-Sync ist fehlgeschlagen.",
+      error: error.message || "Der Uebungs-Sync ist fehlgeschlagen.",
     });
   }
 }
@@ -116,7 +149,7 @@ async function getSupabaseUser(supabaseUrl, anonKey, accessToken) {
 
   if (!response.ok) {
     const payload = await response.text();
-    throw new Error(`Der Supabase-Login konnte für den Übungs-Sync nicht verifiziert werden (${response.status}): ${payload || response.statusText}`);
+    throw new Error(`Der Supabase-Login konnte fuer den Uebungs-Sync nicht verifiziert werden (${response.status}): ${payload || response.statusText}`);
   }
 
   return response.json();
@@ -131,7 +164,7 @@ async function getSupabaseProfile(supabaseUrl, serviceRoleKey, userId) {
   });
 
   if (!response.ok) {
-    throw new Error("Das Profil für den Übungs-Sync konnte nicht geladen werden.");
+    throw new Error("Das Profil fuer den Uebungs-Sync konnte nicht geladen werden.");
   }
 
   const profiles = await response.json();
@@ -205,14 +238,50 @@ function mapNotionPageToExercise(page, fieldMap, nowIso) {
   const properties = page.properties || {};
   const titleProperty = findProperty(properties, fieldMap.title) || findFirstPropertyByType(properties, "title");
   const title = getPropertyText(titleProperty).trim();
+  const bodyRegions = getPropertyArray(findPropertyWithTypes(properties, fieldMap.bodyRegion, ["multi_select", "select"]));
+  const movementPatterns = getPropertyArray(
+    findPropertyWithTypes(properties, fieldMap.movementPatterns, ["multi_select"])
+      || findPropertyWithTypes(properties, fieldMap.focus, ["multi_select"])
+  );
+  const movementFamily = getPropertyText(
+    findPropertyWithTypes(properties, fieldMap.movementFamily, ["select"])
+      || findPropertyWithTypes(properties, fieldMap.focus, ["select"])
+  ).trim() || null;
+  const muscleGroups = getPropertyArray(findPropertyWithTypes(properties, fieldMap.muscleGroups, ["multi_select", "select"]));
+  const loadProfile = getPropertyArray(findPropertyWithTypes(properties, fieldMap.loadProfile, ["multi_select", "select"]));
+  const usageContext = getPropertyArray(findPropertyWithTypes(properties, fieldMap.usageContext, ["multi_select", "select"]));
+  const jointLoad = getPropertyArray(findPropertyWithTypes(properties, fieldMap.jointLoad, ["multi_select", "select"]));
+  const contraindications = getPropertyArray(findPropertyWithTypes(properties, fieldMap.contraindications, ["multi_select", "select"]));
+  const outdoorFit = getPropertyArray(findPropertyWithTypes(properties, fieldMap.outdoor, ["multi_select", "select"]));
+  const equipmentItems = getPropertyArray(findPropertyWithTypes(properties, fieldMap.equipment, ["multi_select", "select"]));
+  const category = bodyRegions.join(", ") || getPropertyText(findProperty(properties, fieldMap.category)) || null;
+  const focus = movementPatterns.join(", ") || movementFamily || getPropertyText(findProperty(properties, fieldMap.focus)) || null;
+  const level = muscleGroups.join(", ") || getPropertyText(findProperty(properties, fieldMap.level)) || null;
 
   return {
     notion_page_id: page.id,
     title: title || "Ohne Titel",
-    category: getPropertyText(findProperty(properties, fieldMap.category)) || null,
-    focus: getPropertyText(findProperty(properties, fieldMap.focus)) || null,
-    level: getPropertyText(findProperty(properties, fieldMap.level)) || null,
-    equipment: getPropertyText(findProperty(properties, fieldMap.equipment)) || null,
+    body_regions: bodyRegions,
+    movement_family: movementFamily,
+    movement_patterns: movementPatterns,
+    muscle_groups: muscleGroups,
+    load_profile: loadProfile,
+    coachability: getPropertyText(findProperty(properties, fieldMap.coachability)) || null,
+    usage_context: usageContext,
+    notion_favorite: getPropertyBoolean(findProperty(properties, fieldMap.notionFavorite)),
+    joint_load: jointLoad,
+    tested: getPropertyBoolean(findProperty(properties, fieldMap.tested)),
+    easier_variant: getPropertyText(findProperty(properties, fieldMap.easierVariant)) || null,
+    harder_variant: getPropertyText(findProperty(properties, fieldMap.harderVariant)) || null,
+    difficulty: getPropertyText(findProperty(properties, fieldMap.difficulty)) || null,
+    setup_effort: getPropertyText(findProperty(properties, fieldMap.setupEffort)) || null,
+    contraindications,
+    outdoor_fit: outdoorFit,
+    category,
+    focus,
+    level,
+    equipment: equipmentItems.join(", ") || null,
+    equipment_items: equipmentItems,
     coaching_cues: getPropertyText(findProperty(properties, fieldMap.coaching)) || null,
     technique_cues: getPropertyText(findProperty(properties, fieldMap.technique)) || null,
     progression: getPropertyText(findProperty(properties, fieldMap.progression)) || null,
@@ -223,7 +292,7 @@ function mapNotionPageToExercise(page, fieldMap, nowIso) {
     description: getPropertyText(findProperty(properties, fieldMap.description)) || null,
     video_url: getPropertyUrl(findProperty(properties, fieldMap.video)) || null,
     source_url: getPropertyUrl(findProperty(properties, fieldMap.source)) || page.url || null,
-    tags: getPropertyArray(findProperty(properties, fieldMap.tags)),
+    tags: mergeTags(getPropertyArray(findProperty(properties, fieldMap.tags)), loadProfile, usageContext, outdoorFit),
     notion_last_edited_at: page.last_edited_time || null,
     notion_archived: Boolean(page.archived || page.in_trash),
     sync_source: "notion",
@@ -234,12 +303,36 @@ function mapNotionPageToExercise(page, fieldMap, nowIso) {
 
 function findProperty(properties, candidateNames) {
   const entries = Object.entries(properties || {});
-  for (const candidate of candidateNames) {
-    const match = entries.find(([name]) => name.toLowerCase() === String(candidate).toLowerCase());
+  for (const candidate of candidateNames || []) {
+    const normalizedCandidate = String(candidate).trim().toLowerCase();
+    const match = entries.find(([name]) => String(name).trim().toLowerCase() === normalizedCandidate);
     if (match) {
       return match[1];
     }
   }
+  return null;
+}
+
+function findPropertyWithTypes(properties, candidateNames, types) {
+  const entries = Object.entries(properties || {});
+  const normalizedTypes = Array.isArray(types) ? types : [];
+
+  for (const candidate of candidateNames || []) {
+    const normalizedCandidate = String(candidate).trim().toLowerCase();
+    const match = entries.find(([name, property]) => {
+      if (String(name).trim().toLowerCase() !== normalizedCandidate) {
+        return false;
+      }
+      if (!normalizedTypes.length) {
+        return true;
+      }
+      return normalizedTypes.includes(property?.type);
+    });
+    if (match) {
+      return match[1];
+    }
+  }
+
   return null;
 }
 
@@ -301,6 +394,19 @@ function getPropertyArray(property) {
     .filter(Boolean);
 }
 
+function getPropertyBoolean(property) {
+  if (!property) {
+    return false;
+  }
+
+  if (property.type === "checkbox") {
+    return Boolean(property.checkbox);
+  }
+
+  const value = getPropertyText(property).trim().toLowerCase();
+  return ["ja", "yes", "true", "1", "x"].includes(value);
+}
+
 function getPropertyUrl(property) {
   if (!property) {
     return "";
@@ -316,6 +422,17 @@ function getPropertyUrl(property) {
   }
 
   return "";
+}
+
+function mergeTags(...tagGroups) {
+  return Array.from(
+    new Set(
+      tagGroups
+        .flat()
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    )
+  );
 }
 
 function joinRichText(items) {
@@ -335,7 +452,7 @@ async function fetchExistingExercisePageIds(supabaseUrl, serviceRoleKey) {
 
   if (!response.ok) {
     const payload = await response.text();
-    throw new Error(buildRemoteServiceError("Supabase-Übungen", response.status, payload));
+    throw new Error(buildRemoteServiceError("Supabase-Uebungen", response.status, payload));
   }
 
   const rows = await response.json();
@@ -371,7 +488,7 @@ async function archiveMissingExercises(supabaseUrl, serviceRoleKey, existingPage
 
     if (!response.ok) {
       const payload = await response.text();
-      throw new Error(buildRemoteServiceError("Übungsarchiv", response.status, payload));
+      throw new Error(buildRemoteServiceError("Uebungsarchiv", response.status, payload));
     }
   }
 }
@@ -398,24 +515,15 @@ function buildRemoteServiceError(label, status, payload, context = "") {
   const raw = String(payload || "").trim();
   const prefix = context ? `${label} (${context})` : label;
 
-  if (status >= 500 && /cloudflare|bad gateway|<!doctype html/i.test(raw)) {
-    return `${prefix} ist gerade vorübergehend nicht erreichbar (${status}). Bitte in ein paar Minuten erneut versuchen.`;
+  if (!raw) {
+    return `${prefix} Fehler ${status}`;
   }
 
-  if (/^\s*\{/.test(raw)) {
-    try {
-      const parsed = JSON.parse(raw);
-      const message = parsed?.message || parsed?.error || parsed?.code || raw;
-      return `${prefix}: ${message}`;
-    } catch (error) {
-      // Fallback below
-    }
+  try {
+    const parsed = JSON.parse(raw);
+    const message = parsed?.message || parsed?.error_description || parsed?.error || raw;
+    return `${prefix}: ${message}`;
+  } catch (error) {
+    return `${prefix}: ${raw}`;
   }
-
-  if (/<html/i.test(raw)) {
-    return `${prefix} hat einen unerwarteten HTML-Fehler zurückgegeben (${status}). Bitte später erneut versuchen.`;
-  }
-
-  const compact = raw.replace(/\s+/g, " ").slice(0, 220);
-  return `${prefix}: ${compact || `Fehler ${status}`}`;
 }
