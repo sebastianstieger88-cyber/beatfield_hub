@@ -13,6 +13,15 @@ export default async function handler(req, res) {
     SUPABASE_ANON_KEY,
     SUPABASE_SERVICE_ROLE_KEY,
     NOTION_WARMUP_TITLE_FIELD,
+    NOTION_WARMUP_TYPE_FIELD,
+    NOTION_WARMUP_DURATION_FIELD,
+    NOTION_WARMUP_INTENSITY_FIELD,
+    NOTION_WARMUP_COMPLEXITY_FIELD,
+    NOTION_WARMUP_SPACE_FIELD,
+    NOTION_WARMUP_PARTICIPANT_COUNT_FIELD,
+    NOTION_WARMUP_WEATHER_FIELD,
+    NOTION_WARMUP_GOALS_FIELD,
+    NOTION_WARMUP_FOCUS_AREAS_FIELD,
     NOTION_WARMUP_CATEGORY_FIELD,
     NOTION_WARMUP_FOCUS_FIELD,
     NOTION_WARMUP_LEVEL_FIELD,
@@ -47,6 +56,15 @@ export default async function handler(req, res) {
     const pages = await fetchAllNotionPages(NOTION_TOKEN, notionDatabaseId);
     const fieldMap = {
       title: splitFieldNames(NOTION_WARMUP_TITLE_FIELD, ["Warm-Up", "Warmup", "Name", "Titel"]),
+      warmupType: splitFieldNames(NOTION_WARMUP_TYPE_FIELD, ["Warm-up Typ", "Warmup Typ", "Typ"]),
+      duration: splitFieldNames(NOTION_WARMUP_DURATION_FIELD, ["Dauer (Min)", "Dauer"]),
+      intensity: splitFieldNames(NOTION_WARMUP_INTENSITY_FIELD, ["Intensität", "Intensitaet", "Intensity"]),
+      complexity: splitFieldNames(NOTION_WARMUP_COMPLEXITY_FIELD, ["Komplexität", "Komplexitaet", "Complexity"]),
+      space: splitFieldNames(NOTION_WARMUP_SPACE_FIELD, ["Platzbedarf", "Space"]),
+      participantCount: splitFieldNames(NOTION_WARMUP_PARTICIPANT_COUNT_FIELD, ["Teilnehmerzahl", "Participant Count"]),
+      weather: splitFieldNames(NOTION_WARMUP_WEATHER_FIELD, ["Wetter-Fit", "Wetter Fit", "Weather"]),
+      goals: splitFieldNames(NOTION_WARMUP_GOALS_FIELD, ["Ziel", "Ziele", "Goals"]),
+      focusAreas: splitFieldNames(NOTION_WARMUP_FOCUS_AREAS_FIELD, ["Fokus", "Focus"]),
       category: splitFieldNames(NOTION_WARMUP_CATEGORY_FIELD, ["Kategorie", "Category", "Typ", "Uebungstyp"]),
       focus: splitFieldNames(NOTION_WARMUP_FOCUS_FIELD, ["Fokus", "Focus", "Intensitaet"]),
       level: splitFieldNames(NOTION_WARMUP_LEVEL_FIELD, ["Level", "Niveau", "Stufe", "Dauer (Min)"]),
@@ -195,19 +213,33 @@ function mapNotionPageToWarmup(page, fieldMap, nowIso) {
   const properties = page.properties || {};
   const titleProperty = findProperty(properties, fieldMap.title) || findFirstPropertyByType(properties, "title");
   const title = getPropertyText(titleProperty).trim();
+  const warmupType = getPropertyText(findProperty(properties, fieldMap.warmupType)) || getPropertyText(findProperty(properties, fieldMap.category)) || null;
+  const durationMinutes = getPropertyNumber(findProperty(properties, fieldMap.duration));
+  const intensity = getPropertyText(findProperty(properties, fieldMap.intensity)) || getPropertyText(findProperty(properties, fieldMap.focus)) || null;
+  const focusAreas = getPropertyArray(findProperty(properties, fieldMap.focusAreas));
+  const goalTags = getPropertyArray(findProperty(properties, fieldMap.goals));
 
   return {
     notion_page_id: page.id,
     title: title || "Ohne Titel",
-    category: getPropertyText(findProperty(properties, fieldMap.category)) || null,
-    focus: getPropertyText(findProperty(properties, fieldMap.focus)) || null,
-    level: getPropertyText(findProperty(properties, fieldMap.level)) || null,
+    warmup_type: warmupType,
+    duration_minutes: durationMinutes,
+    intensity,
+    complexity: getPropertyText(findProperty(properties, fieldMap.complexity)) || null,
+    space_requirement: getPropertyText(findProperty(properties, fieldMap.space)) || null,
+    participant_count: getPropertyText(findProperty(properties, fieldMap.participantCount)) || null,
+    weather_fit: getPropertyArray(findProperty(properties, fieldMap.weather)),
+    goals: goalTags,
+    focus_areas: focusAreas,
+    category: warmupType,
+    focus: intensity,
+    level: durationMinutes === null ? (getPropertyText(findProperty(properties, fieldMap.level)) || null) : String(durationMinutes),
     equipment: getPropertyText(findProperty(properties, fieldMap.equipment)) || null,
     coaching_cues: getPropertyText(findProperty(properties, fieldMap.coaching)) || null,
     description: getPropertyText(findProperty(properties, fieldMap.description)) || null,
     video_url: getPropertyUrl(findProperty(properties, fieldMap.video)) || null,
     source_url: getPropertyUrl(findProperty(properties, fieldMap.source)) || page.url || null,
-    tags: getPropertyArray(findProperty(properties, fieldMap.tags)),
+    tags: mergeTags(getPropertyArray(findProperty(properties, fieldMap.tags)), focusAreas, goalTags),
     notion_last_edited_at: page.last_edited_time || null,
     notion_archived: Boolean(page.archived || page.in_trash),
     sync_source: "notion",
@@ -290,6 +322,34 @@ function getPropertyArray(property) {
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
+}
+
+function getPropertyNumber(property) {
+  if (!property) {
+    return null;
+  }
+
+  if (property.type === "number") {
+    return Number.isFinite(property.number) ? property.number : null;
+  }
+
+  const text = getPropertyText(property).trim();
+  if (!text) {
+    return null;
+  }
+
+  const normalized = text.replace(",", ".");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function mergeTags(...tagGroups) {
+  return Array.from(new Set(
+    tagGroups
+      .flat()
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+  ));
 }
 
 function joinRichText(items) {
