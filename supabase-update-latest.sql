@@ -312,7 +312,7 @@ create table if not exists public.finisher_library (
   notion_page_id text not null unique,
   title text not null,
   finisher_type text,
-  duration_minutes integer,
+  duration_minutes double precision,
   intensity text,
   format text,
   group_size text,
@@ -338,7 +338,7 @@ create table if not exists public.finisher_library (
 );
 
 alter table public.finisher_library add column if not exists finisher_type text;
-alter table public.finisher_library add column if not exists duration_minutes integer;
+alter table public.finisher_library add column if not exists duration_minutes double precision;
 alter table public.finisher_library add column if not exists intensity text;
 alter table public.finisher_library add column if not exists format text;
 alter table public.finisher_library add column if not exists group_size text;
@@ -352,7 +352,7 @@ create table if not exists public.warmup_library (
   notion_page_id text not null unique,
   title text not null,
   warmup_type text,
-  duration_minutes integer,
+  duration_minutes double precision,
   intensity text,
   complexity text,
   space_requirement text,
@@ -378,7 +378,7 @@ create table if not exists public.warmup_library (
 );
 
 alter table public.warmup_library add column if not exists warmup_type text;
-alter table public.warmup_library add column if not exists duration_minutes integer;
+alter table public.warmup_library add column if not exists duration_minutes double precision;
 alter table public.warmup_library add column if not exists intensity text;
 alter table public.warmup_library add column if not exists complexity text;
 alter table public.warmup_library add column if not exists space_requirement text;
