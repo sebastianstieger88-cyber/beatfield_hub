@@ -993,7 +993,7 @@ async function fetchSupportData() {
 
   const warmupQuery = state.supabase
     .from("warmup_library")
-    .select("id, notion_page_id, title, category, focus, level, equipment, coaching_cues, description, video_url, source_url, tags, notion_last_edited_at, notion_archived, synced_at")
+    .select("id, notion_page_id, title, warmup_type, duration_minutes, intensity, complexity, space_requirement, participant_count, weather_fit, goals, focus_areas, category, focus, level, equipment, coaching_cues, description, video_url, source_url, tags, notion_last_edited_at, notion_archived, synced_at")
     .order("title");
 
   const musicQuery = state.supabase
@@ -4014,6 +4014,50 @@ function getWarmupById(warmupId) {
   return state.warmups.find((warmup) => warmup.id === warmupId) || null;
 }
 
+function getWarmupTypeLabel(warmup) {
+  return String(warmup?.warmup_type || warmup?.category || "").trim();
+}
+
+function getWarmupIntensityLabel(warmup) {
+  return String(warmup?.intensity || warmup?.focus || "").trim();
+}
+
+function getWarmupDurationLabel(warmup) {
+  if (Number.isFinite(warmup?.duration_minutes)) {
+    return `${warmup.duration_minutes} Min.`;
+  }
+  const fallback = String(warmup?.level || "").trim();
+  return fallback ? (/\bmin\b/i.test(fallback) ? fallback : `${fallback} Min.`) : "";
+}
+
+function getWarmupEquipmentLabel(warmup) {
+  return String(warmup?.equipment || "").trim();
+}
+
+function getWarmupFocusAreas(warmup) {
+  const explicitAreas = Array.isArray(warmup?.focus_areas)
+    ? warmup.focus_areas.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+  if (explicitAreas.length) {
+    return explicitAreas;
+  }
+  return Array.isArray(warmup?.tags)
+    ? warmup.tags.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+}
+
+function getWarmupGoalTags(warmup) {
+  return Array.isArray(warmup?.goals)
+    ? warmup.goals.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+}
+
+function getWarmupWeatherTags(warmup) {
+  return Array.isArray(warmup?.weather_fit)
+    ? warmup.weather_fit.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+}
+
 function closeWarmupDetailModal() {
   state.selectedWarmupId = null;
   warmupDetailModal?.classList.add("hidden");
@@ -5175,9 +5219,17 @@ function getFilteredWarmups() {
     const haystack = [
       warmup.title,
       warmup.description,
-      warmup.level,
-      warmup.equipment,
+      getWarmupTypeLabel(warmup),
+      getWarmupIntensityLabel(warmup),
+      getWarmupDurationLabel(warmup),
+      getWarmupEquipmentLabel(warmup),
+      warmup.complexity,
+      warmup.space_requirement,
+      warmup.participant_count,
       warmup.coaching_cues,
+      ...getWarmupFocusAreas(warmup),
+      ...getWarmupGoalTags(warmup),
+      ...getWarmupWeatherTags(warmup),
       ...(warmup.tags || []),
     ]
       .filter(Boolean)
@@ -5205,19 +5257,41 @@ function renderWarmupDetailView() {
     warmup.source_url ? `<a class="ghost" href="${escapeHtml(warmup.source_url)}" target="_blank" rel="noreferrer">Notion öffnen</a>` : "",
   ].filter(Boolean).join("");
   const isFavorite = isWarmupFavorite(warmup.id);
+  const warmupTypeLabel = getWarmupTypeLabel(warmup);
+  const intensityLabel = getWarmupIntensityLabel(warmup);
+  const durationLabel = getWarmupDurationLabel(warmup);
+  const equipmentLabel = getWarmupEquipmentLabel(warmup);
+  const focusAreas = getWarmupFocusAreas(warmup);
+  const goalTags = getWarmupGoalTags(warmup);
+  const weatherTags = getWarmupWeatherTags(warmup);
+  const allTags = Array.from(new Set([...focusAreas, ...goalTags, ...weatherTags]));
 
   warmupDetailBody.innerHTML = `
     <div class="exercise-detail-hero">
       <div class="course-status-grid">
         ${isFavorite ? `<span class="course-status-pill course-status-pill-warn">Favorit</span>` : ""}
-        ${warmup.category ? `<span class="course-status-pill">${escapeHtml(warmup.category)}</span>` : ""}
-        ${warmup.focus ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(warmup.focus)}</span>` : ""}
-        ${warmup.level ? `<span class="course-status-pill course-status-pill-warn">${escapeHtml(warmup.level)}</span>` : ""}
-        ${warmup.equipment ? `<span class="course-status-pill">${escapeHtml(warmup.equipment)}</span>` : ""}
+        ${warmupTypeLabel ? `<span class="course-status-pill">${escapeHtml(warmupTypeLabel)}</span>` : ""}
+        ${intensityLabel ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(intensityLabel)}</span>` : ""}
+        ${durationLabel ? `<span class="course-status-pill course-status-pill-warn">${escapeHtml(durationLabel)}</span>` : ""}
+        ${equipmentLabel ? `<span class="course-status-pill">${escapeHtml(equipmentLabel)}</span>` : ""}
       </div>
-      ${warmup.tags?.length ? `<div class="exercise-tag-row">${warmup.tags.map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
+      ${allTags.length ? `<div class="exercise-tag-row">${allTags.map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
     </div>
     <div class="exercise-detail-grid">
+      ${(warmupTypeLabel || intensityLabel || durationLabel || equipmentLabel || warmup.complexity || warmup.space_requirement || warmup.participant_count) ? `
+        <section class="exercise-detail-card">
+          <h4>Profil</h4>
+          <div class="exercise-meta-grid">
+            ${warmupTypeLabel ? `<p><strong>Typ</strong><span>${escapeHtml(warmupTypeLabel)}</span></p>` : ""}
+            ${intensityLabel ? `<p><strong>Intensität</strong><span>${escapeHtml(intensityLabel)}</span></p>` : ""}
+            ${durationLabel ? `<p><strong>Dauer</strong><span>${escapeHtml(durationLabel)}</span></p>` : ""}
+            ${equipmentLabel ? `<p><strong>Equipment</strong><span>${escapeHtml(equipmentLabel)}</span></p>` : ""}
+            ${warmup.complexity ? `<p><strong>Komplexität</strong><span>${escapeHtml(warmup.complexity)}</span></p>` : ""}
+            ${warmup.space_requirement ? `<p><strong>Platzbedarf</strong><span>${escapeHtml(warmup.space_requirement)}</span></p>` : ""}
+            ${warmup.participant_count ? `<p><strong>Teilnehmerzahl</strong><span>${escapeHtml(warmup.participant_count)}</span></p>` : ""}
+          </div>
+        </section>
+      ` : ""}
       ${String(warmup.description || "").trim() ? `
         <section class="exercise-detail-card">
           <h4>Beschreibung</h4>
@@ -5226,6 +5300,18 @@ function renderWarmupDetailView() {
               ${formatCampusDetailCopy(warmup.description)}
             </div>
           </div>
+        </section>
+      ` : ""}
+      ${goalTags.length ? `
+        <section class="exercise-detail-card">
+          <h4>Ziel</h4>
+          <div class="exercise-tag-row">${goalTags.map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("")}</div>
+        </section>
+      ` : ""}
+      ${weatherTags.length ? `
+        <section class="exercise-detail-card">
+          <h4>Wetter-Fit</h4>
+          <div class="exercise-tag-row">${weatherTags.map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("")}</div>
         </section>
       ` : ""}
       ${String(warmup.coaching_cues || "").trim() ? `
@@ -5902,7 +5988,7 @@ function renderWorkoutBuilder() {
   if (workoutWarmupSelect) {
     workoutWarmupSelect.innerHTML = `
       <option value="">Bitte wählen</option>
-      ${state.warmups.map((warmup) => `<option value="${escapeHtml(warmup.id)}"${warmup.id === state.workoutBuilder.warmupId ? " selected" : ""}>${escapeHtml(warmup.title || "Ohne Titel")}${warmup.level ? ` • ${escapeHtml(warmup.level)}` : ""}</option>`).join("")}
+      ${state.warmups.map((warmup) => `<option value="${escapeHtml(warmup.id)}"${warmup.id === state.workoutBuilder.warmupId ? " selected" : ""}>${escapeHtml(warmup.title || "Ohne Titel")}${getWarmupDurationLabel(warmup) ? ` • ${escapeHtml(getWarmupDurationLabel(warmup))}` : ""}</option>`).join("")}
     `;
   }
 
@@ -6025,7 +6111,7 @@ function renderWorkoutBuilder() {
         <div>
           <p class="eyebrow">Warm-Up</p>
           <h4>${escapeHtml(selection.warmup?.title || "Noch nicht gewählt")}</h4>
-          <p class="stat-meta">${selection.warmup ? escapeHtml([selection.warmup.level, selection.warmup.equipment].filter(Boolean).join(" • ") || "Warm-Up") : "Wähle ein Warm-Up für den Einstieg."}</p>
+          <p class="stat-meta">${selection.warmup ? escapeHtml([getWarmupTypeLabel(selection.warmup), getWarmupIntensityLabel(selection.warmup), getWarmupDurationLabel(selection.warmup)].filter(Boolean).join(" • ") || "Warm-Up") : "Wähle ein Warm-Up für den Einstieg."}</p>
         </div>
         ${selection.warmup ? `<button type="button" class="ghost" data-workout-warmup-detail="${escapeHtml(selection.warmup.id)}">Details</button>` : ""}
       </div>
@@ -6160,7 +6246,7 @@ function buildWorkoutPrintHtml(selection) {
         <h3>Warm-Up</h3>
         <div class="card">
           <strong>${escapeHtml(selection.warmup.title || "Ohne Titel")}</strong>
-          <p>${escapeHtml(selection.warmup.description || [selection.warmup.level, selection.warmup.equipment].filter(Boolean).join(" • ") || "")}</p>
+          <p>${escapeHtml(selection.warmup.description || [getWarmupTypeLabel(selection.warmup), getWarmupIntensityLabel(selection.warmup), getWarmupDurationLabel(selection.warmup), getWarmupEquipmentLabel(selection.warmup)].filter(Boolean).join(" • ") || "")}</p>
         </div>
       </div>
       <div class="section">
@@ -6237,7 +6323,7 @@ function handleWorkoutExcelExport() {
 
   const rows = [
     ["Bereich", "Titel", "Kategorie", "Fokus", "Level / Dauer", "Equipment", "Beschreibung"],
-    ["Warm-Up", selection.warmup.title || "", "", "", selection.warmup.level || "", selection.warmup.equipment || "", selection.warmup.description || ""],
+    ["Warm-Up", selection.warmup.title || "", getWarmupTypeLabel(selection.warmup), getWarmupIntensityLabel(selection.warmup), getWarmupDurationLabel(selection.warmup), getWarmupEquipmentLabel(selection.warmup), selection.warmup.description || ""],
     ...(selection.template === "tabata"
       ? selection.groupedStations.map((group) => [
           `Station ${group.station}`,
@@ -6345,7 +6431,27 @@ function getCampusSearchResults() {
         item.description,
       ].filter(Boolean).join(" "),
     })),
-    ...state.warmups.map((item) => ({ type: "warmup", id: item.id, title: item.title, meta: [item.level, item.equipment].filter(Boolean).join(" • "), panel: "#warmupPanel", search: [item.title, item.level, item.equipment, item.description].filter(Boolean).join(" ") })),
+    ...state.warmups.map((item) => ({
+      type: "warmup",
+      id: item.id,
+      title: item.title,
+      meta: [getWarmupTypeLabel(item), getWarmupIntensityLabel(item), getWarmupDurationLabel(item)].filter(Boolean).join(" • "),
+      panel: "#warmupPanel",
+      search: [
+        item.title,
+        getWarmupTypeLabel(item),
+        getWarmupIntensityLabel(item),
+        getWarmupDurationLabel(item),
+        getWarmupEquipmentLabel(item),
+        item.complexity,
+        item.space_requirement,
+        item.participant_count,
+        ...getWarmupFocusAreas(item),
+        ...getWarmupGoalTags(item),
+        ...getWarmupWeatherTags(item),
+        item.description,
+      ].filter(Boolean).join(" "),
+    })),
     ...state.music.map((item) => ({ type: "music", id: item.id, title: item.title, meta: [item.file_name, formatFileSize(item.file_size)].filter(Boolean).join(" • "), panel: "#musicPanel", search: [item.title, item.file_name, item.description].filter(Boolean).join(" ") })),
     ...state.specials.map((item) => ({ type: "special", id: item.id, title: item.title, meta: [item.file_name, formatFileSize(item.file_size)].filter(Boolean).join(" • "), panel: "#specialsPanel", search: [item.title, item.file_name, item.description].filter(Boolean).join(" ") })),
   ];
@@ -7471,11 +7577,13 @@ function renderWarmups() {
 
   warmupTableBody.innerHTML = warmups.map((warmup) => {
     const isFavorite = isWarmupFavorite(warmup.id);
+    const durationLabel = getWarmupDurationLabel(warmup);
+    const equipmentLabel = getWarmupEquipmentLabel(warmup);
     return `
     <tr class="${isFavorite ? "exercise-row-favorite" : ""}">
       <td><strong>${escapeHtml(warmup.title || "Ohne Titel")}</strong></td>
-      <td>${escapeHtml(warmup.level || "-")}</td>
-      <td>${escapeHtml(warmup.equipment || "-")}</td>
+      <td>${escapeHtml(durationLabel || "-")}</td>
+      <td>${escapeHtml(equipmentLabel || "-")}</td>
       <td>
         <div class="mini-actions table-actions">
           <button type="button" class="ghost" data-warmup-detail="${escapeHtml(warmup.id)}">Details</button>
@@ -7488,7 +7596,15 @@ function renderWarmups() {
 
   warmupCards.innerHTML = warmups.map((warmup) => {
     const isFavorite = isWarmupFavorite(warmup.id);
-    const tags = (warmup.tags || []).map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("");
+    const warmupTypeLabel = getWarmupTypeLabel(warmup);
+    const intensityLabel = getWarmupIntensityLabel(warmup);
+    const durationLabel = getWarmupDurationLabel(warmup);
+    const equipmentLabel = getWarmupEquipmentLabel(warmup);
+    const tags = Array.from(new Set([
+      ...getWarmupFocusAreas(warmup),
+      ...getWarmupGoalTags(warmup),
+      ...getWarmupWeatherTags(warmup),
+    ])).map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("");
     const links = [
       warmup.video_url ? `<a class="ghost" href="${escapeHtml(warmup.video_url)}" target="_blank" rel="noreferrer">Video öffnen</a>` : "",
       warmup.source_url ? `<a class="ghost" href="${escapeHtml(warmup.source_url)}" target="_blank" rel="noreferrer">Notion öffnen</a>` : "",
@@ -7503,12 +7619,16 @@ function renderWarmups() {
           </div>
           <div class="course-status-grid">
             ${isFavorite ? `<span class="course-status-pill course-status-pill-warn">Favorit</span>` : ""}
-            ${warmup.level ? `<span class="course-status-pill course-status-pill-warn">${escapeHtml(warmup.level)}</span>` : ""}
+            ${warmupTypeLabel ? `<span class="course-status-pill">${escapeHtml(warmupTypeLabel)}</span>` : ""}
+            ${intensityLabel ? `<span class="course-status-pill course-status-pill-info">${escapeHtml(intensityLabel)}</span>` : ""}
+            ${durationLabel ? `<span class="course-status-pill course-status-pill-warn">${escapeHtml(durationLabel)}</span>` : ""}
           </div>
         </div>
         <div class="exercise-meta-grid">
-          ${warmup.level ? `<p><strong>Dauer</strong><span>${escapeHtml(warmup.level)}</span></p>` : ""}
-          ${warmup.equipment ? `<p><strong>Equipment</strong><span>${escapeHtml(warmup.equipment)}</span></p>` : ""}
+          ${durationLabel ? `<p><strong>Dauer</strong><span>${escapeHtml(durationLabel)}</span></p>` : ""}
+          ${equipmentLabel ? `<p><strong>Equipment</strong><span>${escapeHtml(equipmentLabel)}</span></p>` : ""}
+          ${warmup.complexity ? `<p><strong>Komplexität</strong><span>${escapeHtml(warmup.complexity)}</span></p>` : ""}
+          ${warmup.participant_count ? `<p><strong>Teilnehmerzahl</strong><span>${escapeHtml(warmup.participant_count)}</span></p>` : ""}
         </div>
         ${String(warmup.description || "").trim() ? `<p class="exercise-copy">${escapeHtml(warmup.description)}</p>` : ""}
         ${tags ? `<div class="exercise-tag-row">${tags}</div>` : ""}

@@ -334,6 +334,15 @@ create table if not exists public.warmup_library (
   id uuid primary key default gen_random_uuid(),
   notion_page_id text not null unique,
   title text not null,
+  warmup_type text,
+  duration_minutes integer,
+  intensity text,
+  complexity text,
+  space_requirement text,
+  participant_count text,
+  weather_fit text[] not null default '{}',
+  goals text[] not null default '{}',
+  focus_areas text[] not null default '{}',
   category text,
   focus text,
   level text,
@@ -350,6 +359,16 @@ create table if not exists public.warmup_library (
   synced_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
+
+alter table public.warmup_library add column if not exists warmup_type text;
+alter table public.warmup_library add column if not exists duration_minutes integer;
+alter table public.warmup_library add column if not exists intensity text;
+alter table public.warmup_library add column if not exists complexity text;
+alter table public.warmup_library add column if not exists space_requirement text;
+alter table public.warmup_library add column if not exists participant_count text;
+alter table public.warmup_library add column if not exists weather_fit text[] not null default '{}';
+alter table public.warmup_library add column if not exists goals text[] not null default '{}';
+alter table public.warmup_library add column if not exists focus_areas text[] not null default '{}';
 
 create table if not exists public.campus_specials (
   id uuid primary key default gen_random_uuid(),
