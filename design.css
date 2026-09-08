@@ -139,6 +139,28 @@ tbody tr:hover { background-color: #ffffff03; }
 }
 
 /* Daily workspace and check-in flow */
+.booking-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); list-style: none; padding: 0; margin: 0 0 12px; border-bottom: 1px solid var(--line); }
+.booking-steps li { display: flex; align-items: center; gap: 8px; padding: 14px 8px; color: var(--muted); font-size: .8rem; border-bottom: 2px solid transparent; }
+.booking-steps [aria-current="step"] { color: var(--accent); border-bottom-color: var(--accent); }
+.booking-step { display: grid; gap: 18px; min-width: 0; }
+.booking-step.hidden { display: none; }
+.booking-step h4 { margin: 0; font-size: 1.15rem; font-weight: 600; scroll-margin-top: 110px; }
+.booking-step h4:focus { outline: none; }
+.booking-optional summary { min-height: 44px; padding: 10px 0; color: var(--muted); cursor: pointer; font-size: .85rem; }
+.booking-field-error { color: #ffa595; font-size: .85rem; margin: 0; }
+.booking-field-error:empty { display: none; }
+#seasonBookingForm [aria-invalid="true"] { border-color: var(--danger); }
+#seasonBookingForm .booking-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.booking-review dl { display: grid; gap: 0; margin: 0; }
+.booking-review dl > div { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.booking-review dt { color: var(--muted); font-size: .85rem; }
+.booking-review dd { margin: 0; overflow-wrap: anywhere; }
+#seasonBookingForm[aria-busy="true"] { opacity: .75; }
+@media (max-width: 640px) {
+  #seasonBookingForm .booking-grid { grid-template-columns: 1fr; }
+  .booking-steps li { padding: 12px 4px; gap: 5px; font-size: .72rem; }
+  .booking-review dl > div { grid-template-columns: 90px minmax(0, 1fr); gap: 12px; }
+}
 .workspace-active .hero { display: none; }
 .workspace-active .grid { grid-template-columns: minmax(0, 1fr); }
 .workspace-active .wide { grid-column: auto; }

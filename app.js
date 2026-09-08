@@ -94,6 +94,8 @@ const state = {
   participantSearch: "",
   attendanceFilter: "all",
   attendanceFocusedSessionId: null,
+  bookingStep: 0,
+  bookingSaving: false,
   isOffline: !navigator.onLine,
   selectedFinisherId: null,
   selectedWarmupId: null,
@@ -478,6 +480,21 @@ clearSeasonDatesBtn?.addEventListener("click", () => {
 });
 addSeasonDateBtn?.addEventListener("click", handleAddSeasonDraftDate);
 seasonBookingForm?.addEventListener("submit", handleSeasonBookingCreate);
+document.querySelector("#bookingBackBtn")?.addEventListener("click", () => {
+  if (!state.bookingSaving) showBookingStep(Math.max(0, state.bookingStep - 1));
+});
+document.querySelector("#bookingContactSelect")?.addEventListener("change", (event) => {
+  if (!event.target.value) return;
+  const [name, phone] = JSON.parse(event.target.value);
+  seasonBookingForm.elements.fullName.value = name;
+  seasonBookingForm.elements.phone.value = phone;
+  document.querySelector("#bookingContactDetails").open = Boolean(phone);
+});
+seasonBookingForm?.addEventListener("input", () => clearBookingErrors());
+seasonBookingForm?.addEventListener("change", () => {
+  clearBookingErrors();
+  updateBookingDaysHint();
+});
 cancelBookingEditBtn?.addEventListener("click", resetBookingForm);
 cancelSeasonEditBtn?.addEventListener("click", resetSeasonForm);
 deleteCourseBtn?.addEventListener("click", handleCourseDelete);
@@ -1812,6 +1829,13 @@ async function handleSeasonCreate(event) {
 
 async function handleSeasonBookingCreate(event) {
   event.preventDefault();
+  if (state.bookingSaving || !isAdmin()) return;
+  if (!validateBookingStep(state.bookingStep)) return;
+  if (state.bookingStep < 2) {
+    showBookingStep(state.bookingStep + 1);
+    return;
+  }
+  state.bookingSaving = true;
 
   try {
     if (!isAdmin()) {
@@ -1856,6 +1880,7 @@ async function handleSeasonBookingCreate(event) {
       return;
     }
 
+    setBookingFormBusy(true);
     let savedBookingId = bookingId;
     let optimisticBooking = null;
 
@@ -1926,6 +1951,8 @@ async function handleSeasonBookingCreate(event) {
     });
 
     if (!participantSyncResult.ok) {
+      seasonBookingForm.elements.bookingId.value = savedBookingId;
+      state.editingBookingId = savedBookingId;
       notify(participantSyncResult.message, true);
       await refreshVisibleData({ context: "Booking participant sync refresh", silent: true });
       return;
@@ -1950,7 +1977,114 @@ async function handleSeasonBookingCreate(event) {
   } catch (error) {
     console.error("Season booking save failed", error);
     notify(`Buchung konnte nicht gespeichert werden: ${error?.message || "Unerwarteter Fehler"}`, true);
+  } finally {
+    state.bookingSaving = false;
+    setBookingFormBusy(false);
   }
+}
+
+function readBookingDraft() {
+  const fields = seasonBookingForm.elements;
+  return {
+    fullName: fields.fullName.value.trim(), phone: fields.phone.value.trim(),
+    seasonId: bookingSeasonSelect.value, packageType: bookingPackageSelect.value,
+    startDate: fields.startDate.value,
+    selectedDays: Array.from(seasonBookingForm.querySelectorAll('[name="selectedDays"]')).filter(input => input.checked).map(input => input.value),
+  };
+}
+
+function getBookingDraftError(draft, step, seasons) {
+  if (!draft.fullName) return { step: 0, field: 'fullName', message: 'Bitte gib den Vor- und Nachnamen ein.' };
+  if (step === 0) return null;
+  const season = seasons.find(entry => entry.id === draft.seasonId);
+  if (!season) return { step: 1, field: 'seasonId', message: 'Bitte wähle eine Season aus. Falls keine vorhanden ist, lege zuerst eine unter Seasons an.' };
+  const expected = getExpectedDayCount(draft.packageType);
+  if (!['1x TRAIN', '2x BEAT', '3x REPEAT'].includes(draft.packageType) || draft.selectedDays.length !== expected) {
+    return { step: 1, field: 'selectedDays', message: `Bitte wähle für ${draft.packageType} genau ${expected} Trainingstag${expected === 1 ? '' : 'e'} aus.` };
+  }
+  if (draft.startDate && season.end_date && draft.startDate > season.end_date) {
+    return { step: 1, field: 'startDate', message: 'Der Start darf nicht nach dem Ende der Season liegen.' };
+  }
+  return null;
+}
+
+function clearBookingErrors() {
+  seasonBookingForm.querySelectorAll('.booking-field-error').forEach(element => { element.textContent = ''; });
+  seasonBookingForm.querySelectorAll('[aria-invalid]').forEach(element => element.removeAttribute('aria-invalid'));
+}
+
+function validateBookingStep(step) {
+  clearBookingErrors();
+  const draft = readBookingDraft();
+  let error = getBookingDraftError(draft, step, state.seasons);
+  if (!error && step > 0) {
+    const courses = resolveRelevantCoursesForDays(draft.selectedDays);
+    if (!courses.ok) error = { step: 1, field: 'selectedDays', message: courses.message };
+  }
+  if (!error) return true;
+  showBookingStep(error.step, false);
+  const errorIds = { fullName: 'bookingNameError', seasonId: 'bookingSeasonError', selectedDays: 'bookingDaysError', startDate: 'bookingStartError' };
+  document.getElementById(errorIds[error.field]).textContent = error.message;
+  document.querySelector('#bookingStepError').textContent = 'Bitte prüfe die markierte Eingabe.';
+  const field = seasonBookingForm.querySelector(`[name="${error.field}"]`);
+  field?.setAttribute('aria-invalid', 'true');
+  if (error.field === 'selectedDays') seasonBookingForm.querySelector('.weekday-picker').focus();
+  else field?.focus();
+  return false;
+}
+
+function updateBookingDaysHint() {
+  const expected = getExpectedDayCount(bookingPackageSelect.value);
+  const count = readBookingDraft().selectedDays.length;
+  document.querySelector('#bookingDaysHint').textContent = bookingPackageSelect.value === '3x REPEAT'
+    ? 'Alle drei Trainingstage sind für REPEAT ausgewählt.'
+    : `${count} von ${expected} Trainingstag${expected === 1 ? '' : 'en'} ausgewählt.`;
+}
+
+function showBookingStep(step, focus = true) {
+  state.bookingStep = step;
+  document.querySelector('#bookingFormTitle').textContent = state.editingBookingId ? 'Buchung bearbeiten' : 'Neue Buchung';
+  seasonBookingForm.querySelectorAll('[data-booking-step]').forEach(section => section.classList.toggle('hidden', Number(section.dataset.bookingStep) !== step));
+  seasonBookingForm.querySelectorAll('.booking-steps li').forEach((item, index) => {
+    if (index === step) item.setAttribute('aria-current', 'step');
+    else item.removeAttribute('aria-current');
+  });
+  document.querySelector('#bookingBackBtn').classList.toggle('hidden', step === 0);
+  saveBookingBtn.textContent = step === 0 ? 'Weiter zu Paket & Terminen' : step === 1 ? 'Buchung prüfen' : state.editingBookingId ? 'Änderungen speichern' : 'Buchung speichern';
+  updateBookingDaysHint();
+  if (step === 2) {
+    const draft = readBookingDraft();
+    const season = state.seasons.find(entry => entry.id === draft.seasonId);
+    const rows = [['Person', draft.fullName], ['Telefon', draft.phone || 'Nicht angegeben'], ['Season', season?.name || 'Keine Season'], ['Paket', draft.packageType], ['Trainingstage', draft.selectedDays.join(', ')], ['Start', draft.startDate ? formatDateLabel(draft.startDate) : season?.start_date ? `Ab Season-Beginn (${formatDateLabel(season.start_date)})` : 'Ab Season-Beginn']];
+    document.querySelector('#bookingReview').innerHTML = `<dl>${rows.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>`;
+  }
+  if (focus) seasonBookingForm.querySelector(`[data-booking-step="${step}"] h4`)?.focus();
+}
+
+function setBookingFormBusy(busy) {
+  seasonBookingForm.setAttribute('aria-busy', String(busy));
+  seasonBookingForm.querySelectorAll('input, select, button, textarea').forEach(control => {
+    if (busy) { control.dataset.bookingWasDisabled = String(control.disabled); control.disabled = true; }
+    else if ('bookingWasDisabled' in control.dataset) { control.disabled = control.dataset.bookingWasDisabled === 'true'; delete control.dataset.bookingWasDisabled; }
+  });
+  if (busy) saveBookingBtn.textContent = 'Wird gespeichert …';
+  else { syncBookingDayInputs(); showBookingStep(state.bookingStep, false); }
+}
+
+function renderBookingContacts() {
+  const select = document.querySelector('#bookingContactSelect');
+  const previous = select.value;
+  const contacts = new Map();
+  [...state.seasonBookings, ...state.participants].forEach(person => {
+    if (!person.full_name) return;
+    const pair = [person.full_name, person.phone || ''];
+    contacts.set(JSON.stringify(pair), pair);
+  });
+  select.replaceChildren(new Option('Neue Person / manuell eingeben', ''));
+  [...contacts].sort((a, b) => a[1][0].localeCompare(b[1][0], 'de')).forEach(([value, [name, phone]]) => {
+    select.add(new Option(phone ? `${name} · ${phone}` : name, value));
+  });
+  if (contacts.has(previous)) select.value = previous;
 }
 
 async function handleCourseDelete() {
@@ -3079,11 +3213,13 @@ async function syncSeasonBookingParticipants({ bookingId, seasonId, fullName, ph
 }
 
 function openBookingEdit(booking) {
+  if (state.bookingSaving) return;
   if (!seasonBookingForm || !booking) {
     return;
   }
 
   state.editingBookingId = booking.id;
+  document.querySelector('#bookingContactSelect').value = '';
   seasonBookingForm.querySelector('input[name="bookingId"]').value = booking.id;
   bookingSeasonSelect.value = booking.season_id;
   seasonBookingForm.querySelector('input[name="fullName"]').value = booking.full_name;
@@ -3101,6 +3237,9 @@ function openBookingEdit(booking) {
   }
   cancelBookingEditBtn?.classList.remove("hidden");
   scrollToSection("#bookingPanel");
+  showBookingStep(0);
+  clearBookingErrors();
+  document.querySelector('#bookingContactDetails').open = Boolean(booking.phone);
 }
 
 function resetBookingForm() {
@@ -3119,6 +3258,9 @@ function resetBookingForm() {
   }
   cancelBookingEditBtn?.classList.add("hidden");
   syncBookingDayInputs();
+  clearBookingErrors();
+  document.querySelector('#bookingContactDetails').open = false;
+  showBookingStep(0, false);
 }
 
 async function toggleBookingLevelUpCount(booking) {
@@ -8338,6 +8480,7 @@ function renderPlanning() {
 }
 
 function renderSeasonSelects() {
+  const draftSeasonId = bookingSeasonSelect?.value;
   if (!attendanceSeasonSelect && !bookingSeasonSelect) {
     return;
   }
@@ -8368,10 +8511,14 @@ function renderSeasonSelects() {
       bookingSeasonSelect.appendChild(option);
     });
 
-      bookingSeasonSelect.value = state.selectedSeasonId || state.seasons[0]?.id || "";
+      bookingSeasonSelect.value = draftSeasonId
+        ? state.seasons.some(season => season.id === draftSeasonId) ? draftSeasonId : ""
+        : state.selectedSeasonId || state.seasons[0]?.id || "";
   }
 
   syncBookingDayInputs();
+  renderBookingContacts();
+  updateBookingDaysHint();
 }
 
 function renderSeasonDateEditor() {

@@ -361,24 +361,43 @@
             <div class="booking-section-head">
               <div>
                 <p class="eyebrow">Buchung</p>
-                <h3>Neue oder bestehende Season-Buchung</h3>
+                <h3 id="bookingFormTitle">Neue Buchung</h3>
               </div>
-              <p class="stat-meta">Lege Buchungen an, passe Starttermine an oder bearbeite bestehende Verlängerungen.</p>
+              <p class="stat-meta">In drei Schritten zum passenden Training.</p>
             </div>
-            <form id="seasonBookingForm" class="stack">
+            <form id="seasonBookingForm" class="stack" novalidate>
               <input type="hidden" name="bookingId">
-              <div class="booking-grid">
-                <label>
-                  <span>Season</span>
-                  <select id="bookingSeasonSelect" name="seasonId"></select>
+              <ol class="booking-steps" aria-label="Buchungsablauf">
+                <li aria-current="step">1 <span>Person</span></li>
+                <li>2 <span>Paket & Termine</span></li>
+                <li>3 <span>Prüfen</span></li>
+              </ol>
+              <section class="booking-step" data-booking-step="0" aria-labelledby="bookingPersonTitle">
+                <h4 id="bookingPersonTitle" tabindex="-1">Für wen ist die Buchung?</h4>
+                <label class="booking-contact-picker">
+                  <span>Vorhandenen Kontakt übernehmen</span>
+                  <select id="bookingContactSelect"><option value="">Neue Person / manuell eingeben</option></select>
                 </label>
                 <label>
                   <span>Name</span>
-                  <input name="fullName" type="text" placeholder="Vor- und Nachname" required>
+                  <input name="fullName" type="text" placeholder="Vor- und Nachname" autocomplete="off" required aria-describedby="bookingNameError">
+                  <span id="bookingNameError" class="booking-field-error"></span>
                 </label>
+                <details id="bookingContactDetails" class="booking-optional">
+                  <summary>Telefonnummer hinzufügen (optional)</summary>
                 <label>
                   <span>Telefon</span>
                   <input name="phone" type="tel" placeholder="Optional">
+                </label>
+                </details>
+              </section>
+              <section class="booking-step hidden" data-booking-step="1" aria-labelledby="bookingPackageTitle">
+                <h4 id="bookingPackageTitle" tabindex="-1">Wie möchtest du trainieren?</h4>
+                <div class="booking-grid">
+                <label>
+                  <span>Season</span>
+                  <select id="bookingSeasonSelect" name="seasonId" aria-describedby="bookingSeasonError"></select>
+                  <span id="bookingSeasonError" class="booking-field-error"></span>
                 </label>
                 <label>
                   <span>Paket</span>
@@ -390,10 +409,13 @@
                 </label>
                 <label>
                   <span>Start ab</span>
-                  <input id="bookingStartDateInput" name="startDate" type="date" inputmode="none">
+                  <input id="bookingStartDateInput" name="startDate" type="date" inputmode="none" aria-describedby="bookingStartHint bookingStartError">
+                  <span id="bookingStartHint" class="stat-meta">Leer lassen für Teilnahme ab Season-Beginn.</span>
+                  <span id="bookingStartError" class="booking-field-error"></span>
                 </label>
               </div>
-              <fieldset class="weekday-picker">
+              <p id="bookingDaysHint" class="stat-meta" aria-live="polite"></p>
+              <fieldset class="weekday-picker" tabindex="-1" aria-describedby="bookingDaysHint bookingDaysError">
                 <legend>Trainingstage</legend>
                 <label class="checkbox-line">
                   <input type="checkbox" name="selectedDays" value="Montag">
@@ -408,8 +430,17 @@
                   <span>Samstag</span>
                 </label>
               </fieldset>
+              <p id="bookingDaysError" class="booking-field-error"></p>
+              </section>
+              <section class="booking-step hidden" data-booking-step="2" aria-labelledby="bookingReviewTitle">
+                <h4 id="bookingReviewTitle" tabindex="-1">Passt alles?</h4>
+                <div id="bookingReview" class="booking-review"></div>
+                <p class="stat-meta">Die Buchung wird erst mit dem nächsten Klick gespeichert.</p>
+              </section>
+              <p id="bookingStepError" class="booking-field-error" role="alert"></p>
               <div class="form-actions">
-                <button id="saveBookingBtn" type="submit" class="primary">Buchung speichern</button>
+                <button id="bookingBackBtn" type="button" class="ghost hidden">Zurück</button>
+                <button id="saveBookingBtn" type="submit" class="primary">Weiter zu Paket & Terminen</button>
                 <button id="cancelBookingEditBtn" type="button" class="ghost hidden">Bearbeitung abbrechen</button>
               </div>
             </form>
