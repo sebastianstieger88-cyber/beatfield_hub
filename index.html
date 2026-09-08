@@ -474,14 +474,15 @@
       <section class="panel wide hidden" id="todayPanel">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">Version 4.2</p>
+            <p class="eyebrow">Dein Trainingstag</p>
             <h2>Heute im Blick</h2>
           </div>
         </div>
         <div class="today-actions">
-          <button id="jumpToTodayBtn" type="button" class="primary">Heute &#246;ffnen</button>
-          <button id="focusNextCourseBtn" type="button" class="ghost">N&#228;chsten Kurs fokussieren</button>
+          <button id="jumpToTodayBtn" type="button" class="primary">Anwesenheit erfassen</button>
+          <button id="focusNextCourseBtn" type="button" class="ghost">Kursübersicht öffnen</button>
         </div>
+        <div id="todaySchedule" class="today-schedule"></div>
         <div id="todayCards" class="stats-grid"></div>
         <div id="todayInsights" class="stats-grid business-insights"></div>
       </section>
@@ -926,6 +927,8 @@
             <button id="mobileReportsBtn" type="button" class="ghost">Reports</button>
           </div>
 
+          <details class="attendance-add-person">
+            <summary>Teilnehmer hinzufügen</summary>
           <form id="participantForm" class="stack inline-form">
             <label>
               <span>Name</span>
@@ -937,19 +940,29 @@
             </label>
             <button type="submit" class="primary">1x TRAIN anlegen</button>
           </form>
+          </details>
           <div id="participantFormNotice" class="stat-card hidden">
             <h3>Buchungen f&#252;r BEAT und REPEAT</h3>
             <p class="stat-meta">Im Kursbereich legst du schnelle 1x TRAIN-Teilnehmer an. 2x BEAT und 3x REPEAT verwaltest du im Bereich Buchungen.</p>
             <button id="openBookingPanelBtn" type="button" class="ghost">Zu Buchungen wechseln</button>
           </div>
 
+          <div id="mobileSessionSummary" class="stat-card mobile-session-summary" aria-label="Anwesenheitsübersicht"></div>
           <div class="search-row">
             <label>
               <span>Teilnehmer suchen</span>
               <input id="participantSearch" type="search" placeholder="Name oder Telefonnummer">
             </label>
+            <div class="attendance-filters" role="group" aria-label="Teilnehmer filtern">
+              <button id="attendanceFilterAll" type="button" class="ghost is-active" aria-pressed="true">Alle</button>
+              <button id="attendanceFilterOpen" type="button" class="ghost" aria-pressed="false">Nur offen</button>
+              <button id="clearParticipantSearch" type="button" class="ghost">Suche zurücksetzen</button>
+            </div>
+            <p id="attendanceFilterResult" class="stat-meta" role="status"></p>
           </div>
 
+          <details class="attendance-options">
+            <summary>Termin ändern und Sammelaktionen</summary>
           <div class="attendance-toolbar operations-toolbar">
             <label>
               <span>Season</span>
@@ -973,8 +986,8 @@
             </label>
             <p class="stat-meta">Nur diese Termine geh&#246;ren aktuell zur ausgew&#228;hlten Season und k&#246;nnen f&#252;r Einzeltermin-Umbuchungen genutzt werden.</p>
           </div>
+          </details>
 
-          <div id="mobileSessionSummary" class="stat-card mobile-session-summary"></div>
           <div id="sessionExclusionsCard" class="stat-card hidden">
             <h3>Für diesen Termin ausgesetzt</h3>
             <p class="stat-meta">Diese Teilnehmer sind nur für den aktuell ausgewählten Termin ausgeblendet und bleiben in allen anderen Season-Terminen aktiv.</p>
@@ -1219,6 +1232,10 @@
     </div>
   </template>
 
+  <div id="actionToast" class="action-toast hidden">
+    <p id="actionToastMessage" role="status" aria-live="polite" aria-atomic="true"></p>
+    <button id="dismissActionToast" type="button" class="ghost" aria-label="Meldung schließen">Schließen</button>
+  </div>
   <script src="config.js"></script>
   <script type="module" src="app.js"></script>
 </body>

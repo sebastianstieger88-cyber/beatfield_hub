@@ -137,3 +137,48 @@ tbody tr:hover { background-color: #ffffff03; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* Daily workspace and check-in flow */
+.workspace-active .hero { display: none; }
+.workspace-active .grid { grid-template-columns: minmax(0, 1fr); }
+.workspace-active .wide { grid-column: auto; }
+.today-schedule { display: grid; gap: 12px; margin: 0 0 24px; }
+.today-session { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 22px; background: var(--panel-strong); border: 1px solid var(--line); border-radius: 12px; }
+.today-session:first-child { border-left: 3px solid var(--accent); }
+.today-session h3 { font-size: 1.2rem; margin-bottom: 4px; }
+.today-session p { margin-bottom: 6px; }
+.today-session-progress { color: var(--accent); font-size: .85rem; }
+.attendance-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.attendance-add-person:has(> form.hidden) { display: none; }
+.attendance-add-person summary, .attendance-options summary { cursor: pointer; min-height: 44px; padding: 10px 0; color: var(--muted); font-size: .85rem; }
+.attendance-options { margin: 12px 0; }
+.attendance-options .operations-toolbar { position: static; }
+#attendanceFilterResult { margin: 0; }
+.mobile-session-summary:not(.hidden) { display: block; margin: 16px 0; }
+.mobile-session-summary .hero-stat { font-size: 1.4rem; }
+.mobile-session-summary > h3 { display: none; }
+.mobile-session-summary-grid > div { background: transparent; border: 0; padding: 8px 0; }
+.mobile-session-summary-grid span { font-size: .7rem; }
+.mobile-session-summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.attendance-progress { width: 100%; height: 6px; border: 0; border-radius: 8px; overflow: hidden; accent-color: var(--accent); background: var(--line); }
+.attendance-progress::-webkit-progress-bar { background: var(--line); }
+.attendance-progress::-webkit-progress-value { background: var(--accent); }
+.attendance-progress::-moz-progress-bar { background: var(--accent); }
+.attendance-correction-hint { font-size: .78rem; color: var(--muted); margin: 14px 0 0; }
+.participant-more-actions { margin-top: 14px; border-top: 1px solid var(--line); }
+.participant-more-actions summary { padding: 12px 0; min-height: 44px; font-size: .85rem; color: var(--muted); cursor: pointer; }
+.action-toast { position: fixed; z-index: 80; bottom: 24px; left: 50%; transform: translateX(-50%); width: min(560px, calc(100% - 32px)); display: flex; align-items: center; gap: 16px; background: #242c23; border: 1px solid #60814a; border-radius: 12px; padding: 14px 16px; box-shadow: 0 12px 40px #00000050; }
+.action-toast p { flex: 1; margin: 0; font-size: .9rem; overflow-wrap: anywhere; }
+.action-toast.is-error { border-color: var(--danger); }
+.action-toast.hidden { display: none; }
+@media (max-width: 860px) {
+  .today-session { flex-direction: column; align-items: stretch; gap: 12px; padding: 18px; }
+  .today-session button { width: 100%; min-height: 48px; }
+  .participant-card-status-row { flex-direction: column; align-items: stretch; }
+  .participant-card-status-copy { display: flex; gap: 8px; flex-wrap: wrap; }
+  .participant-card-status-hint { display: none; }
+  .participant-card .attendance-state-control { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .participant-card .attendance-state-btn { min-width: 0; min-height: 52px; padding: 10px 6px; }
+  .mobile-session-summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .action-toast { bottom: max(16px, env(safe-area-inset-bottom)); }
+}

@@ -1,4 +1,4 @@
-const CACHE_NAME = "beatfield-attendance-cache-v4";
+const CACHE_NAME = "beatfield-attendance-cache-v5";
 const CORE_ASSETS = [
   "./",
   "./index.html",

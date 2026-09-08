@@ -92,6 +92,8 @@ const state = {
   selectedExerciseId: null,
   attendanceStandaloneFocus: null,
   participantSearch: "",
+  attendanceFilter: "all",
+  attendanceFocusedSessionId: null,
   isOffline: !navigator.onLine,
   selectedFinisherId: null,
   selectedWarmupId: null,
@@ -753,7 +755,19 @@ exportTrainerReportBtn?.addEventListener("click", exportTrainerReportCsv);
 planNextBtn?.addEventListener("click", () => createPlannedSessions("next"));
 planMonthBtn?.addEventListener("click", () => createPlannedSessions("month"));
 jumpToTodayBtn?.addEventListener("click", handleJumpToToday);
-focusNextCourseBtn?.addEventListener("click", handleFocusNextCourse);
+focusNextCourseBtn?.addEventListener("click", () => scrollToSection("#courseListPanel"));
+document.querySelector("#attendanceFilterAll")?.addEventListener("click", () => setParticipantFilter("all"));
+document.querySelector("#attendanceFilterOpen")?.addEventListener("click", () => setParticipantFilter("open"));
+document.querySelector("#clearParticipantSearch")?.addEventListener("click", () => {
+  participantSearch.value = "";
+  state.participantSearch = "";
+  renderParticipants();
+  renderReportPreview();
+  participantSearch.focus();
+});
+document.querySelector("#dismissActionToast")?.addEventListener("click", () => {
+  document.querySelector("#actionToast")?.classList.add("hidden");
+});
 copyInviteLinkBtn?.addEventListener("click", handleCopyInviteLink);
 navToggleBtn?.addEventListener("click", toggleMobileNav);
 mobileTodayBtn?.addEventListener("click", () => setActiveSection("#attendancePanel"));
@@ -3566,6 +3580,7 @@ function render() {
   const connected = Boolean(state.supabase);
   const loggedIn = Boolean(state.session && state.profile);
   const appUnlocked = loggedIn && (state.profile.role === "admin" || state.profile.role === "trainer");
+  document.body.classList.toggle("workspace-active", appUnlocked);
   const recoveryMode = isRecoveryMode();
   const availableSections = getAvailableSections({ connected, loggedIn, appUnlocked });
   const navigationSections = getNavigationSections(availableSections, { connected, loggedIn, appUnlocked });
@@ -3582,7 +3597,7 @@ function render() {
     panel.classList.toggle("hidden", !shouldShow);
   });
 
-  const shouldShowSetupPanel = !loggedIn || state.profile?.role === "admin" || !appUnlocked;
+  const shouldShowSetupPanel = !appUnlocked || state.activeSection === "#sessionPanel";
   setupPanel?.classList.toggle("hidden", !shouldShowSetupPanel);
 
   updatePasswordForm.classList.toggle("hidden", !loggedIn || !recoveryMode || state.activeSection !== "#sessionPanel");
@@ -7837,6 +7852,7 @@ async function handleWarmupSync() {
 }
 
 function renderTodayDashboard() {
+  renderTodaySchedule();
   todayCards.innerHTML = "";
   if (todayInsights) {
     todayInsights.innerHTML = "";
@@ -9833,21 +9849,25 @@ async function convertTrialToParticipant(trial) {
 }
 
 function handleJumpToToday() {
-  const todaySession = getTodaySessionTarget();
-  if (todaySession) {
-    state.selectedCourseId = todaySession.course_id;
-    state.attendanceSeasonId = todaySession.season_id || getDefaultSeasonId();
-    state.attendanceStandaloneFocus = null;
-  } else {
-    const nextCourse = getNextCourseForToday();
-    if (nextCourse) {
-      state.selectedCourseId = nextCourse.id;
-    }
-    state.attendanceSeasonId = getDefaultSeasonId();
+  const firstSession = getTodayScheduleSessions()[0];
+  if (firstSession) {
+    openTodaySession(firstSession.id);
+    return;
   }
-  attendanceDate.value = getToday();
-  syncAttendanceDateWithSeasonSessions();
-  render();
+  scrollToSection("#courseListPanel");
+}
+
+function openTodaySession(sessionId) {
+  const selectedSession = state.sessions.find((entry) => entry.id === sessionId);
+  if (!selectedSession || !state.courses.some((course) => course.id === selectedSession.course_id)) return;
+  state.selectedCourseId = selectedSession.course_id;
+  state.attendanceFocusedSessionId = selectedSession.id;
+  state.attendanceSeasonId = selectedSession.season_id || "";
+  state.attendanceStandaloneFocus = null;
+  state.participantSearch = "";
+  state.attendanceFilter = "all";
+  participantSearch.value = "";
+  attendanceDate.value = selectedSession.session_date;
   scrollToSection("#attendancePanel");
 }
 
@@ -9989,6 +10009,14 @@ function renderParticipants() {
   renderSessionExclusions(session, course);
   const records = getRecordsForSession(session?.id);
   const rawSessionParticipants = getFilteredParticipants(course.id, session?.id);
+  const totalParticipants = getAttendanceParticipantsForCourse(course.id, session?.id).length;
+  document.querySelector("#attendanceFilterResult").textContent = `${rawSessionParticipants.length} von ${totalParticipants} Personen angezeigt`;
+  ["All", "Open"].forEach((suffix) => {
+    const button = document.querySelector(`#attendanceFilter${suffix}`);
+    const active = (state.attendanceFilter || "all") === suffix.toLowerCase();
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
   const sessionParticipants = isAdmin()
     ? rawSessionParticipants
     : [...rawSessionParticipants].sort((left, right) => {
@@ -10036,7 +10064,14 @@ function renderParticipants() {
     const row = document.createElement("tr");
       row.innerHTML = `<td colspan="5"><div class="empty-state"><p>Keine Teilnehmer für die aktuelle Suche gefunden.</p></div></td>`;
     participantTableBody.appendChild(row);
-    participantCards.appendChild(emptyStateTemplate.content.cloneNode(true));
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.innerHTML = state.participantSearch
+      ? '<h3>Keine passende Person gefunden.</h3><p>Prüfe den Namen oder setze die Suche zurück.</p>'
+      : state.attendanceFilter === "open"
+        ? '<h3>Keine offenen Check-ins.</h3><p>Unter „Alle“ kannst du die erfassten Personen ansehen und korrigieren.</p>'
+        : '<h3>Noch keine Teilnehmer für diesen Termin.</h3><p>Prüfe den ausgewählten Kurs und Termin.</p>';
+    participantCards.appendChild(empty);
     return;
   }
 
@@ -10097,8 +10132,8 @@ function renderParticipants() {
       </td>
       <td>
         <div class="attendance-state-control">
-          <button type="button" class="attendance-state-btn${isPresent ? " is-active is-present" : ""}" data-state="present">Anw.</button>
-          <button type="button" class="attendance-state-btn${isAbsent ? " is-active is-absent" : ""}" data-state="absent">Abw.</button>
+          <button type="button" class="attendance-state-btn${isPresent ? " is-active is-present" : ""}" data-state="present" aria-pressed="${isPresent}" aria-label="${escapeHtml(participant.full_name)}: anwesend">Anwesend</button>
+          <button type="button" class="attendance-state-btn${isAbsent ? " is-active is-absent" : ""}" data-state="absent" aria-pressed="${isAbsent}" aria-label="${escapeHtml(participant.full_name)}: abwesend">Abwesend</button>
         </div>
       </td>
       <td>
@@ -10238,15 +10273,18 @@ function renderParticipants() {
             <span class="participant-card-status-hint">${isTrialParticipant ? "Tippen für Teilnahme" : isDropInParticipant ? "Tippen für Teilnahme" : "Status direkt setzen"}</span>
           </div>
           <div class="attendance-state-control">
-            <button type="button" class="attendance-state-btn${isPresent ? " is-active is-present" : ""}" data-state="present">Anw.</button>
-            <button type="button" class="attendance-state-btn${isAbsent ? " is-active is-absent" : ""}" data-state="absent">Abw.</button>
+            <button type="button" class="attendance-state-btn${isPresent ? " is-active is-present" : ""}" data-state="present" aria-pressed="${isPresent}" aria-label="${escapeHtml(participant.full_name)}: anwesend">Anwesend</button>
+            <button type="button" class="attendance-state-btn${isAbsent ? " is-active is-absent" : ""}" data-state="absent" aria-pressed="${isAbsent}" aria-label="${escapeHtml(participant.full_name)}: abwesend">Abwesend</button>
           </div>
         </div>
-      <div class="participant-card-actions participant-card-actions-secondary">
+      <details class="participant-more-actions">
+        <summary>Weitere Aktionen</summary>
+        <div class="participant-card-actions participant-card-actions-secondary">
         <button type="button" class="ghost participant-beatout-btn${beatOutEntry ? " is-active" : ""}">${beatOutEntry ? "BEAT-OUT aktiv" : "BEAT-OUT"}</button>
         <button type="button" class="ghost participant-move-btn">${targetOverride ? "Terminwechsel aufheben" : booking ? "Termin umbuchen" : "Umbuchen"}</button>
         <button type="button" class="danger participant-delete-btn">${booking ? "Aus Kurstag" : "Löschen"}</button>
       </div>
+      </details>
     `;
 
       const mobileStatusRow = card.querySelector(".participant-card-status-row");
@@ -10269,6 +10307,7 @@ function renderParticipants() {
         }
         mobileStatusRow.classList.add("participant-card-status-row-clickable");
         mobileStatusRow.addEventListener("click", async () => {
+          if (!canEditCourse(course)) return;
           await updateTrialStatus(
             participant.trial_request_id,
             participant.trial_status === "teilgenommen" ? "gebucht" : "teilgenommen",
@@ -10289,6 +10328,7 @@ function renderParticipants() {
         }
         mobileStatusRow.classList.add("participant-card-status-row-clickable");
         mobileStatusRow.addEventListener("click", async () => {
+          if (!canEditCourse(course)) return;
           await updateDropInStatus(
             participant.drop_in_booking_id,
             participant.drop_in_status === "teilgenommen" ? "gebucht" : "teilgenommen",
@@ -10518,24 +10558,15 @@ function renderMobileSessionSummary() {
   const sessionDate = getEffectiveAttendanceDate();
   const session = getSessionForCourseAndDate(course.id, sessionDate);
   const participants = getAttendanceParticipantsForCourse(course.id, session?.id);
-  const records = getRecordsForSession(session?.id);
-  const presentCount = records.filter((record) => record.present).length;
-  const absentCount = participants.filter((participant) => {
-    if (participant.is_trial || participant.is_dropin) {
-      return false;
-    }
-    const record = records.find((entry) => entry.participant_id === participant.id);
-    return Boolean(record) && !record.present && !getBeatOutEntryForParticipantSession(participant.id, session?.id);
-  }).length;
-  const beatOutCount = participants.filter((participant) => getBeatOutEntryForParticipantSession(participant.id, session?.id)).length;
-  const openCount = Math.max(participants.length - presentCount - beatOutCount - absentCount, 0);
+  const { present: presentCount, absent: absentCount, beatout: beatOutCount, open: openCount } = getRosterCounts(participants, session?.id);
 
   mobileSessionSummary.classList.remove("hidden");
   mobileSessionSummary.innerHTML = `
       <h3>${escapeHtml(course.name)}</h3>
-      <p class="hero-stat">${presentCount}/${participants.length}</p>
+      <p class="hero-stat">${presentCount} von ${participants.length} anwesend</p>
       <p class="stat-meta">${escapeHtml(course.weekday)}${course.time ? ` | ${escapeHtml(course.time)} Uhr` : ""}</p>
-      <p class="stat-meta">Termin: ${escapeHtml(sessionDate)}</p>
+      <p class="stat-meta">${escapeHtml(formatDateLabel(sessionDate))} · ${state.isOffline ? "Offline · Änderungen werden zur Synchronisierung vorgemerkt" : "Änderungen werden automatisch gespeichert"}</p>
+      <progress class="attendance-progress" max="${Math.max(participants.length, 1)}" value="${participants.length - openCount}" aria-label="Erfasste Anwesenheitsstatus"></progress>
       ${!isAdmin() ? '<p class="stat-meta">Checklistenmodus: offene Personen stehen oben.</p>' : ""}
       <div class="mobile-session-summary-grid">
         <div><strong>${presentCount}</strong><span>Anwesend</span></div>
@@ -10543,6 +10574,7 @@ function renderMobileSessionSummary() {
         <div><strong>${beatOutCount}</strong><span>BEAT-OUT</span></div>
         <div><strong>${openCount}</strong><span>Offen</span></div>
       </div>
+      <p class="attendance-correction-hint">Korrektur: aktiven Status erneut antippen, um ihn auf „Offen“ zurückzusetzen.</p>
   `;
 }
 
@@ -12184,8 +12216,7 @@ function getSelectedSeason() {
   return state.seasons.find((season) => season.id === state.attendanceSeasonId) || null;
 }
 
-function getParticipantsForCourse(courseId) {
-  const selectedSeasonId = state.attendanceSeasonId;
+function getParticipantsForCourse(courseId, selectedSeasonId = state.attendanceSeasonId) {
   return state.participants.filter((participant) => {
     if (participant.course_id !== courseId) {
       return false;
@@ -12263,8 +12294,8 @@ function standaloneEntryMatchesCourseDate(entry, courseId, sessionId, activeSess
 }
 
 function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
-  const baseParticipants = getParticipantsForCourse(courseId);
   const activeSession = state.sessions.find((session) => session.id === sessionId) || null;
+  const baseParticipants = getParticipantsForCourse(courseId, activeSession ? activeSession.season_id : state.attendanceSeasonId);
   const activeSessionDate = activeSession?.session_date || attendanceDate?.value || null;
   if (!sessionId && !activeSessionDate) {
     return baseParticipants;
@@ -12440,13 +12471,60 @@ function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
 
 function getFilteredParticipants(courseId, sessionId = null) {
   const participants = getAttendanceParticipantsForCourse(courseId, sessionId);
-  if (!state.participantSearch) {
-    return participants;
-  }
-
   return participants.filter((participant) => {
-    return participant.full_name.toLowerCase().includes(state.participantSearch)
+    const matchesSearch = !state.participantSearch
+      || String(participant.full_name || "").toLowerCase().includes(state.participantSearch)
       || String(participant.phone || "").toLowerCase().includes(state.participantSearch);
+    return matchesSearch && (state.attendanceFilter !== "open" || getRosterAttendanceState(participant, sessionId) === "open");
+  });
+}
+
+function setParticipantFilter(filter) {
+  state.attendanceFilter = filter;
+  renderParticipants();
+}
+
+function getRosterAttendanceState(participant, sessionId) {
+  if (participant.is_trial) return participant.trial_status === "teilgenommen" ? "present" : "open";
+  if (participant.is_dropin) return participant.drop_in_status === "teilgenommen" ? "present" : "open";
+  if (getBeatOutEntryForParticipantSession(participant.id, sessionId)) return "beatout";
+  return getAttendanceStateFromRecord(getAttendanceRecordForSessionParticipant(sessionId, participant.id));
+}
+
+function getRosterCounts(participants, sessionId) {
+  const counts = { present: 0, absent: 0, beatout: 0, open: 0, total: participants.length };
+  participants.forEach((participant) => { counts[getRosterAttendanceState(participant, sessionId)] += 1; });
+  return counts;
+}
+
+function getTodayScheduleSessions() {
+  const now = getCurrentMinutes();
+  return state.sessions.filter((session) => session.session_date === getToday()
+    && state.courses.some((course) => course.id === session.course_id))
+    .sort((a, b) => {
+      const timeA = getTimeInMinutes(state.courses.find((course) => course.id === a.course_id)?.time);
+      const timeB = getTimeInMinutes(state.courses.find((course) => course.id === b.course_id)?.time);
+      return Number(timeA < now) - Number(timeB < now) || timeA - timeB;
+    });
+}
+
+function renderTodaySchedule() {
+  const schedule = document.querySelector("#todaySchedule");
+  if (!schedule) return;
+  const sessions = getTodayScheduleSessions();
+  jumpToTodayBtn.textContent = sessions.length ? "Anwesenheit erfassen" : "Kurse ansehen";
+  focusNextCourseBtn.classList.toggle("hidden", !sessions.length);
+  if (!sessions.length) {
+    schedule.innerHTML = '<div class="empty-state"><h3>Heute ist kein Training geplant.</h3><p>In der Kursübersicht findest du deine Kurse und weitere Termine.</p></div>';
+    return;
+  }
+  schedule.innerHTML = sessions.map((session) => {
+    const course = state.courses.find((entry) => entry.id === session.course_id);
+    const counts = getRosterCounts(getAttendanceParticipantsForCourse(course.id, session.id), session.id);
+    return `<article class="today-session"><div><p class="eyebrow">${escapeHtml(course.time ? `${course.time.slice(0, 5)} Uhr` : "Uhrzeit offen")} · ${escapeHtml(formatDateLabel(session.session_date))}</p><h3>${escapeHtml(course.name)}</h3><p class="stat-meta">${escapeHtml(course.location || "Ort noch offen")}</p><p class="today-session-progress">${counts.present} von ${counts.total} anwesend · ${counts.open} offen</p></div><button type="button" class="ghost" data-session-id="${escapeHtml(session.id)}" aria-label="Anwesenheit für ${escapeHtml(course.name)} öffnen">Anwesenheit öffnen</button></article>`;
+  }).join("");
+  schedule.querySelectorAll("[data-session-id]").forEach((button) => {
+    button.addEventListener("click", () => openTodaySession(button.dataset.sessionId));
   });
 }
 
@@ -12811,6 +12889,10 @@ function getSessionForCourseAndDate(courseId, sessionDate) {
   if (!matchingSessions.length) {
     return null;
   }
+
+  const focusedSession = matchingSessions.find((session) => session.id === state.attendanceFocusedSessionId
+    && (session.season_id || null) === (state.attendanceSeasonId || null));
+  if (focusedSession) return focusedSession;
 
   if (matchingSessions.length === 1) {
     return matchingSessions[0];
@@ -14230,7 +14312,7 @@ function ensureActiveSection(availableSections, { connected, loggedIn, appUnlock
     return;
   }
 
-  if (appUnlocked && isCompactViewport()) {
+  if (appUnlocked) {
     state.activeSection = availableSections.includes("#todayPanel") ? "#todayPanel" : availableSections[0] || null;
     return;
   }
@@ -14583,6 +14665,15 @@ function registerServiceWorker() {
 }
 
 function notify(message, isError = false) {
+  const toast = document.querySelector("#actionToast");
+  const toastMessage = document.querySelector("#actionToastMessage");
+  if (toast && toastMessage) {
+    toastMessage.textContent = message;
+    toast.classList.remove("hidden");
+    toast.classList.toggle("is-error", isError);
+    window.clearTimeout(notify.toastTimerId);
+    if (!isError) notify.toastTimerId = window.setTimeout(() => toast.classList.add("hidden"), 6000);
+  }
   statusHeadline.textContent = isError ? "Aktion fehlgeschlagen" : "Status aktualisiert";
   statusText.textContent = message;
   if (statusMeta) {
