@@ -1,5 +1,6 @@
 ﻿import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
+import { createPushReminders, preparePushWorker } from './push-reminders.js';
 const config = window.APP_CONFIG || {};
 const hasConfig = Boolean(config.supabaseUrl && config.supabaseAnonKey && config.siteUrl);
 const ENABLE_OFFLINE_MODE = false;
@@ -814,6 +815,8 @@ navGroups.forEach((group) => {
 window.addEventListener("online", handleConnectivityChange);
 window.addEventListener("offline", handleConnectivityChange);
 
+const pushReminders = createPushReminders({ getState: () => state, notify, openSession: openTodaySession });
+document.querySelector('#openPushSettingsBtn')?.addEventListener('click', () => scrollToSection('#sessionPanel'));
 initialize();
 
 async function initialize() {
@@ -822,6 +825,7 @@ async function initialize() {
   } else {
     await clearLegacyOfflineState();
   }
+  void preparePushWorker().catch(() => {});
 
   if (!hasConfig) {
     setupNotice.classList.remove("hidden");
@@ -1427,6 +1431,7 @@ async function handleLogout() {
     return;
   }
 
+  if (!await pushReminders.beforeLogout()) return;
   await state.supabase.auth.signOut();
   notify("Du wurdest ausgeloggt.");
 }
@@ -3719,6 +3724,7 @@ async function handleDropInCreate(event) {
 }
 
 function render() {
+  pushReminders.render();
   const connected = Boolean(state.supabase);
   const loggedIn = Boolean(state.session && state.profile);
   const appUnlocked = loggedIn && (state.profile.role === "admin" || state.profile.role === "trainer");
@@ -3818,6 +3824,7 @@ function render() {
 }
 
 function applyRoleLanding() {
+  if (pushReminders.openPending()) return;
   if (!state.profile) {
     return;
   }
@@ -14280,7 +14287,8 @@ function isAdmin() {
 }
 
 function canEditCourse(course) {
-  return Boolean(state.session && state.profile && (isAdmin() || course.trainer_id === state.session.user.id));
+  const trainerId = course.trainer_id || state.trainerDirectory.find(entry => entry.id === course.trainer_directory_id)?.linked_user_id;
+  return Boolean(state.session && state.profile && (isAdmin() || trainerId === state.session.user.id));
 }
 
 function resetProtectedState() {
@@ -14764,10 +14772,7 @@ async function clearLegacyOfflineState() {
     localStorage.removeItem("beatfield-offline-cache-v2");
     localStorage.removeItem("beatfield-offline-queue-v2");
 
-    if ("serviceWorker" in navigator) {
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(registrations.map((registration) => registration.unregister()));
-    }
+    // Keep the registration: it owns push subscriptions even in live-data mode.
 
     if ("caches" in window) {
       const cacheKeys = await caches.keys();

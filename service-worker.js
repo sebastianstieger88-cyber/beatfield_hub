@@ -1,17 +1,19 @@
-const CACHE_NAME = "beatfield-attendance-cache-v6";
+const CACHE_NAME = "beatfield-attendance-cache-v7";
+const ENABLE_ASSET_CACHE = false;
 const CORE_ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./design.css",
   "./app.js",
+  "./push-reminders.js",
   "./config.js",
   "./manifest.webmanifest",
   "./beatfield-logo.png",
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
+  if (ENABLE_ASSET_CACHE) event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS)),
   );
   self.skipWaiting();
@@ -22,7 +24,7 @@ self.addEventListener("activate", (event) => {
     const keys = await caches.keys();
     await Promise.all(
       keys
-        .filter((key) => key !== CACHE_NAME)
+        .filter((key) => key.startsWith('beatfield-attendance-cache-') && (!ENABLE_ASSET_CACHE || key !== CACHE_NAME))
         .map((key) => caches.delete(key)),
     );
     await self.clients.claim();
@@ -30,6 +32,7 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  if (!ENABLE_ASSET_CACHE || new URL(event.request.url).pathname.includes('/api/')) return;
   if (event.request.method !== "GET") {
     return;
   }
@@ -50,6 +53,43 @@ self.addEventListener("fetch", (event) => {
   }
 
   event.respondWith(cacheFirst(event.request));
+});
+
+self.addEventListener('push', event => {
+  let payload = {};
+  try { payload = event.data?.json() || {}; } catch { /* Visible fallback. */ }
+  const base = new URL('./', self.registration.scope);
+  let target = base.href;
+  try {
+    const url = new URL(payload.url, base);
+    if (url.origin === base.origin && url.pathname === base.pathname) target = url.href;
+  } catch { /* Do not open arbitrary URLs. */ }
+  event.waitUntil(self.registration.showNotification(
+    typeof payload.title === 'string' ? payload.title.slice(0, 100) : 'BEATFIELD · Erinnerung', {
+      body: typeof payload.body === 'string' ? payload.body.slice(0, 250) : 'Bitte prüfe deine Anwesenheiten in der App.',
+      icon: new URL('beatfield-logo.png', base).href,
+      tag: typeof payload.tag === 'string' ? payload.tag.slice(0, 100) : 'beatfield-reminder',
+      data: { url: target },
+    },
+  ));
+});
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const base = new URL('./', self.registration.scope);
+  let target = base.href;
+  try {
+    const url = new URL(event.notification.data?.url || base.href, base);
+    if (url.origin === base.origin && url.pathname === base.pathname) target = url.href;
+  } catch { /* Fall back to the app. */ }
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const existing = windows.find(client => new URL(client.url).origin === base.origin && new URL(client.url).pathname.startsWith(base.pathname));
+    if (existing && 'navigate' in existing) {
+      const navigated = await existing.navigate(target);
+      if (navigated) { await navigated.focus(); return; }
+    }
+    await self.clients.openWindow(target);
+  })());
 });
 
 async function networkFirst(request) {

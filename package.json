@@ -1,0 +1,11 @@
+{
+  "name": "beatfield-attendance",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/daily-workflow.test.cjs && node tests/booking-workflow.test.cjs && node --test tests/push.test.mjs tests/push-client.test.mjs && node tests/push-database.test.mjs",
+    "push:keys": "node scripts/create-push-keys.mjs"
+  },
+  "dependencies": { "web-push": "3.6.7" },
+  "devDependencies": { "@electric-sql/pglite": "0.5.8" }
+}

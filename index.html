@@ -183,6 +183,18 @@
             <p class="stat-meta" id="sessionMode">-</p>
           </article>
         </div>
+        <section id="pushSettings" class="stat-card hidden" aria-labelledby="pushTitle">
+          <h3 id="pushTitle">An Training erinnern</h3>
+          <p class="stat-meta">Eine Erinnerung pro Termin, wenn 15 Minuten nach Beginn noch Anwesenheiten offen sind. Gilt für deine zugewiesenen Kurse und dieses Gerät.</p>
+          <p id="pushStatus" role="status" aria-live="polite">Bitte zuerst anmelden.</p>
+          <div class="form-actions">
+            <button id="enablePushBtn" type="button" class="primary" disabled>Erinnerungen aktivieren</button>
+            <button id="testPushBtn" type="button" class="ghost" disabled>Testerinnerung senden</button>
+            <button id="disablePushBtn" type="button" class="ghost" disabled>Deaktivieren</button>
+            <button id="refreshPushBtn" type="button" class="ghost">Status prüfen</button>
+          </div>
+          <p class="stat-meta">Auf dem iPhone muss BEATFIELD zum Home-Bildschirm hinzugefügt sein. Beim Abmelden werden Erinnerungen auf diesem Gerät deaktiviert.</p>
+        </section>
         <form id="updatePasswordForm" class="stack reset-form hidden">
           <label>
             <span>Neues Passwort f&#252;r Recovery-Flow</span>
@@ -512,6 +524,7 @@
         <div class="today-actions">
           <button id="jumpToTodayBtn" type="button" class="primary">Anwesenheit erfassen</button>
           <button id="focusNextCourseBtn" type="button" class="ghost">Kursübersicht öffnen</button>
+          <button id="openPushSettingsBtn" type="button" class="ghost">Erinnerungen einstellen</button>
         </div>
         <div id="todaySchedule" class="today-schedule"></div>
         <div id="todayCards" class="stats-grid"></div>

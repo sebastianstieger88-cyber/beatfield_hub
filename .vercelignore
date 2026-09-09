@@ -1,0 +1,7 @@
+.push-secrets
+.pnpm-store
+.env*
+tests
+scripts
+*.sql
+*.md

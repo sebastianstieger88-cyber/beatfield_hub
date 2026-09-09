@@ -139,6 +139,10 @@ tbody tr:hover { background-color: #ffffff03; }
 }
 
 /* Daily workspace and check-in flow */
+#pushSettings { margin-top: 20px; }
+#pushSettings .stat-meta { max-width: 65ch; }
+#pushStatus { font-size: .9rem; line-height: 1.6; overflow-wrap: anywhere; }
+#pushSettings .form-actions { margin: 16px 0; }
 .booking-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); list-style: none; padding: 0; margin: 0 0 12px; border-bottom: 1px solid var(--line); }
 .booking-steps li { display: flex; align-items: center; gap: 8px; padding: 14px 8px; color: var(--muted); font-size: .8rem; border-bottom: 2px solid transparent; }
 .booking-steps [aria-current="step"] { color: var(--accent); border-bottom-color: var(--accent); }
