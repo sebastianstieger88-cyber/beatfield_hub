@@ -33,6 +33,7 @@
           <div class="nav-submenu">
             <a href="#seasonPanel">Seasons</a>
             <a href="#bookingPanel">Buchungen</a>
+            <a href="#wixPanel">Wix-Verbindung</a>
             <a href="#todayPanel">Heute</a>
             <a href="#trialsPanel">Probe / Einzelbuchungen</a>
             <a href="#coursePanel">Kurse</a>
@@ -512,6 +513,34 @@
             <div id="bookingList" class="stats-grid booking-list-grid"></div>
           </section>
         </div>
+      </section>
+
+      <section class="panel wide hidden" id="wixPanel">
+        <div class="panel-heading"><div><p class="eyebrow">Buchungswebseite</p><h2>Wix-Verbindung</h2></div><button type="button" class="ghost" data-wix-refresh>Aktualisieren</button></div>
+        <p data-wix-status role="status" aria-live="polite">Verbindung noch nicht geprüft.</p>
+        <p class="stat-meta">Ordne neue Wix-Angebote einmal zu. Preispläne gelten für eine Season, Einzelbuchungen für Datum und Uhrzeit des Trainings.</p>
+        <form id="wixMappingForm" class="stack">
+          <h3>Angebot zuordnen</h3>
+          <div class="booking-grid">
+            <label><span>Wix-Angebot</span><select name="kind"><option value="plan">Preisplan / Season-Paket</option><option value="booking">Bookings-Service / Einzeltermine</option></select></label>
+            <label><span>Bezeichnung</span><input name="label" required maxlength="200" placeholder="z. B. Herbst · BEAT MO+MI"></label>
+            <label><span>Wix-Preisplan-ID / Service-ID</span><input name="offerId" required pattern="[a-fA-F0-9\-]{36}" placeholder="ID aus Wix"></label>
+            <label data-wix-season><span>Season</span><select name="seasonId" required></select></label>
+            <label data-wix-package><span>Paket und Trainingstage</span><select name="packagePreset"></select></label>
+            <label data-wix-type class="hidden"><span>Buchungsart</span><select name="bookingType"><option value="dropin">DROP-IN</option><option value="trial">Probetraining</option><option value="egym">eGYM</option><option value="hansefit">Hansefit</option><option value="covered">Bereits durch Season abgedeckt</option></select></label>
+          </div>
+          <fieldset><legend>Zugehörige Kurse in BEATFIELD</legend><div data-wix-courses class="stack"></div></fieldset>
+          <div class="form-actions"><button class="primary" type="submit">Zuordnung speichern</button></div>
+        </form>
+        <h3>Gespeicherte Zuordnungen</h3><div data-wix-mappings class="stats-grid"></div>
+        <details class="booking-optional"><summary>Einzelne Wix-Buchung prüfen / nachholen</summary>
+          <form id="wixManualImport" class="stack inline-form">
+            <label><span>Typ</span><select name="kind"><option value="plan">Preisplan-Bestellung</option><option value="booking">Terminbuchung</option></select></label>
+            <label><span>Wix-Bestell-ID / Buchungs-ID</span><input name="externalId" required pattern="[a-fA-F0-9\-]{36}"></label>
+            <button type="submit" class="primary">Aus Wix übernehmen</button>
+          </form>
+        </details>
+        <h3>Letzte Importe</h3><div data-wix-imports class="stats-grid"></div>
       </section>
 
       <section class="panel wide hidden" id="todayPanel">

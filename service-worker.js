@@ -1,4 +1,4 @@
-const CACHE_NAME = "beatfield-attendance-cache-v8";
+const CACHE_NAME = "beatfield-attendance-cache-v9";
 const ENABLE_ASSET_CACHE = false;
 const CORE_ASSETS = [
   "./",
@@ -7,6 +7,7 @@ const CORE_ASSETS = [
   "./design.css",
   "./app.js",
   "./push-reminders.js",
+  "./wix-integration.js",
   "./config.js",
   "./manifest.webmanifest",
   "./beatfield-logo.png",

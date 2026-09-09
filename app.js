@@ -1,6 +1,7 @@
 ﻿import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
 import { createPushReminders, preparePushWorker } from './push-reminders.js';
+import { createWixIntegration } from './wix-integration.js';
 const config = window.APP_CONFIG || {};
 const hasConfig = Boolean(config.supabaseUrl && config.supabaseAnonKey && config.siteUrl);
 const ENABLE_OFFLINE_MODE = false;
@@ -397,6 +398,7 @@ const workoutPreviewTitle = document.querySelector("#workoutPreviewTitle");
 const workoutPreviewBody = document.querySelector("#workoutPreviewBody");
 const workoutSavedList = document.querySelector("#workoutSavedList");
 const contentPanels = [
+  document.querySelector('#wixPanel'),
   authPanel,
   sessionPanel,
   adminPanel,
@@ -420,6 +422,10 @@ const contentPanels = [
   beatoutPanel,
   reportsPanel,
 ].filter(Boolean);
+
+const wixIntegration = createWixIntegration({ getState: () => state, notify,
+  refreshApp: async () => { await refreshVisibleData({ context: 'Wix import', silent: true }); render(); },
+});
 
 if (attendanceDate) {
   attendanceDate.value = getToday();
@@ -3780,6 +3786,7 @@ function openSingleBookingForm(entry = null, sessionId = null) {
 }
 
 function render() {
+  wixIntegration.render();
   pushReminders.render();
   const connected = Boolean(state.supabase);
   const loggedIn = Boolean(state.session && state.profile);
@@ -14463,7 +14470,7 @@ function getAvailableSections({ connected, loggedIn, appUnlocked }) {
   }
 
   if (loggedIn && isAdmin()) {
-    sections.push("#adminPanel", "#coursePanel", "#seasonPanel", "#bookingPanel");
+    sections.push("#adminPanel", "#coursePanel", "#seasonPanel", "#bookingPanel", "#wixPanel");
   }
 
   if (appUnlocked) {
