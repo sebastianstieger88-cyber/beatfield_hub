@@ -34,7 +34,7 @@
             <a href="#seasonPanel">Seasons</a>
             <a href="#bookingPanel">Buchungen</a>
             <a href="#todayPanel">Heute</a>
-            <a href="#trialsPanel">Probetraining / Drop-In</a>
+            <a href="#trialsPanel">Probe / Einzelbuchungen</a>
             <a href="#coursePanel">Kurse</a>
             <a href="#courseListPanel">Kursliste</a>
             <a href="#attendancePanel">Anwesenheit</a>
@@ -534,8 +534,8 @@
       <section class="panel wide hidden" id="trialsPanel">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">Version 3</p>
-            <h2>Probetraining, Drop-In & Conversion</h2>
+            <p class="eyebrow">Teilnahmen</p>
+            <h2>Probetraining & Einzelbuchungen</h2>
           </div>
         </div>
         <section class="trial-section trial-section-probe">
@@ -567,15 +567,23 @@
           </form>
           <div id="trialCards" class="stats-grid"></div>
         </section>
-        <section class="trial-section trial-section-dropin">
+        <section class="trial-section trial-section-dropin" id="singleBookingSection">
           <div class="trial-section-head">
             <div>
-              <p class="eyebrow">DROP-IN</p>
-              <h3>Einzeltermine ohne Season</h3>
+              <p class="eyebrow">DROP-IN · eGYM · Hansefit</p>
+              <h3>Teilnehmer in ein Training einbuchen</h3>
             </div>
-            <p class="stat-meta">Für einmalige Teilnahmen mit eigener Buchung, eigener Historie und optionalem Archiv.</p>
+            <p class="stat-meta">Anbieter, Name und Training auswählen. Die Person erscheint nur in diesem Termin.</p>
           </div>
           <form id="dropInForm" class="stack inline-form trial-form">
+            <label>
+              <span>Buchungsart / Anbieter</span>
+              <select name="bookingProvider" required>
+                <option value="dropin">DROP-IN</option>
+                <option value="egym">eGYM</option>
+                <option value="hansefit">Hansefit</option>
+              </select>
+            </label>
             <label>
               <span>Name</span>
               <input name="fullName" type="text" placeholder="Vor- und Nachname" required>
@@ -589,12 +597,21 @@
               <input name="phone" type="tel" placeholder="Optional">
             </label>
             <label>
-              <span>Season-Termin</span>
-              <select name="sessionId" id="dropInSessionSelect"></select>
+              <span>Trainingstermin</span>
+              <select name="sessionId" id="dropInSessionSelect" required></select>
             </label>
-            <button type="submit" class="primary">DROP-IN anlegen</button>
+            <button type="submit" class="primary">Teilnehmer einbuchen</button>
           </form>
           <div class="form-actions">
+            <label>
+              <span>Buchungen filtern</span>
+              <select id="dropInProviderFilter">
+                <option value="all">Alle Anbieter</option>
+                <option value="dropin">DROP-IN</option>
+                <option value="egym">eGYM</option>
+                <option value="hansefit">Hansefit</option>
+              </select>
+            </label>
             <button id="toggleArchivedDropInsBtn" type="button" class="ghost">Archiv anzeigen</button>
           </div>
           <div id="dropInCards" class="stats-grid"></div>
@@ -965,6 +982,9 @@
         </div>
 
         <div id="courseActions" class="hidden">
+          <div class="form-actions">
+            <button id="addSingleBookingBtn" type="button" class="ghost">eGYM / Hansefit / DROP-IN einbuchen</button>
+          </div>
           <div class="mobile-quickbar">
             <button id="mobileTodayBtn" type="button" class="ghost">Heute</button>
             <button id="mobileMonthBtn" type="button" class="ghost">Monat</button>

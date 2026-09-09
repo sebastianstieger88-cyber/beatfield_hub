@@ -28,6 +28,7 @@ const state = {
   participants: [],
   trialRequests: [],
   dropInBookings: [],
+  dropInSaving: false,
   exercises: [],
   finishers: [],
   warmups: [],
@@ -510,6 +511,14 @@ openBookingPanelBtn?.addEventListener("click", () => {
 });
 trialForm?.addEventListener("submit", handleTrialCreate);
 dropInForm?.addEventListener("submit", handleDropInCreate);
+document.querySelector("#dropInProviderFilter")?.addEventListener("change", renderDropIns);
+document.querySelector("#addSingleBookingBtn")?.addEventListener("click", () => {
+  const course = getSelectedCourse();
+  const session = course && (getAttendanceStandaloneFocusSession(course.id)
+    || getSessionForCourseAndDate(course.id, getEffectiveAttendanceDate()));
+  if (!session) return notify("Bitte zuerst einen geplanten Trainingstermin auswählen.", true);
+  openSingleBookingForm(null, session.id);
+});
 exerciseSearch?.addEventListener("input", () => {
   state.exerciseFilters.search = exerciseSearch.value || "";
   renderExercises();
@@ -1011,7 +1020,7 @@ async function fetchSupportData() {
     const dropInQuery = courseIds.length
       ? state.supabase
         .from("drop_in_bookings")
-        .select("id, course_id, attendance_session_id, full_name, email, phone, status, notes, archived_at, created_at")
+        .select("*")
         .in("course_id", courseIds)
         .order("created_at", { ascending: false })
     : Promise.resolve({ data: [], error: null });
@@ -3505,7 +3514,9 @@ async function handleMoveParticipantSubmit(event) {
       .eq("id", dropIn.id);
 
     if (updateResult.error) {
-      notify(getFriendlySupabaseMessage(updateResult.error, "DROP-IN konnte nicht umgebucht werden."), true);
+      notify(updateResult.error.code === "23505"
+        ? "Diese Person ist über diesen Anbieter bereits im Zieltermin eingebucht."
+        : getFriendlySupabaseMessage(updateResult.error, "Einzelbuchung konnte nicht umgebucht werden."), true);
       return;
     }
 
@@ -3688,39 +3699,84 @@ async function handleTrialCreate(event) {
 
 async function handleDropInCreate(event) {
   event.preventDefault();
-
-  if (!state.supabase) {
-    return;
-  }
-
+  if (!state.supabase || state.dropInSaving) return;
+  if (state.isOffline) return notify("Einzelbuchungen sind nur online möglich.", true);
   const formData = new FormData(dropInForm);
-  const sessionId = normalizeOptionalId(formData.get("sessionId"));
-  const selectedSession = sessionId ? state.sessions.find((entry) => entry.id === sessionId) : null;
-  if (!selectedSession) {
-    notify("Bitte zuerst einen gültigen Season-Termin für den DROP-IN auswählen.", true);
-    return;
+  const draft = {
+    booking_provider: String(formData.get("bookingProvider") || "dropin"),
+    attendance_session_id: String(formData.get("sessionId") || ""),
+    full_name: String(formData.get("fullName") || "").trim(),
+    email: String(formData.get("email") || "").trim(),
+    phone: String(formData.get("phone") || "").trim(),
+  };
+  const errorMessage = getSingleBookingError(draft);
+  if (errorMessage) return notify(errorMessage, true);
+  const selectedSession = state.sessions.find((entry) => entry.id === draft.attendance_session_id);
+  state.dropInSaving = true;
+  const submit = dropInForm.querySelector('[type="submit"]');
+  submit.disabled = true;
+  submit.textContent = "Wird eingebucht …";
+  try {
+    const payload = { ...draft, course_id: selectedSession.course_id, status: "gebucht" };
+    // Keep ordinary drop-ins working before the optional database update is installed.
+    if (draft.booking_provider === "dropin") delete payload.booking_provider;
+    const { error } = await state.supabase.from("drop_in_bookings").insert(payload);
+    if (error) {
+      const message = error.code === "23505"
+        ? "Diese Person ist über diesen Anbieter bereits in diesem Training eingebucht."
+        : ["PGRST204", "42703"].includes(error.code)
+          ? "Bitte zuerst supabase-aggregators.sql in Supabase ausführen. Deine Eingaben bleiben erhalten."
+          : getFriendlySupabaseMessage(error, "Die Einzelbuchung konnte nicht gespeichert werden.");
+      notify(message, true);
+      return;
+    }
+    dropInForm.reset();
+    dropInForm.elements.bookingProvider.value = draft.booking_provider;
+    document.querySelector("#dropInProviderFilter").value = "all";
+    await fetchSupportData();
+    render();
+    renderDropInSessionSelect(selectedSession.id);
+    notify(`${draft.full_name} wurde über ${getSingleBookingLabel(draft)} eingebucht.`);
+  } catch {
+    notify("Die Verbindung wurde unterbrochen. Bitte die Buchungsliste vor einem erneuten Versuch prüfen.", true);
+  } finally {
+    state.dropInSaving = false;
+    submit.disabled = false;
+    submit.textContent = "Teilnehmer einbuchen";
   }
+}
 
-  const { error } = await state.supabase
-    .from("drop_in_bookings")
-    .insert({
-      course_id: selectedSession.course_id,
-      attendance_session_id: selectedSession.id,
-      full_name: String(formData.get("fullName")).trim(),
-      email: String(formData.get("email")).trim(),
-      phone: String(formData.get("phone")).trim(),
-      status: "gebucht",
-    });
+function getSingleBookingLabel(entry) {
+  return ({ egym: "eGYM", hansefit: "Hansefit" })[entry?.booking_provider] || "DROP-IN";
+}
 
-  if (error) {
-    notify(error.message, true);
-    return;
-  }
+function getSingleBookingError(draft) {
+  if (!["dropin", "egym", "hansefit"].includes(draft.booking_provider)) return "Bitte einen gültigen Anbieter auswählen.";
+  if (!draft.full_name.trim()) return "Bitte Vor- und Nachnamen eingeben.";
+  const session = state.sessions.find((entry) => entry.id === draft.attendance_session_id);
+  const course = session && state.courses.find((entry) => entry.id === session.course_id);
+  if (!session || !course) return "Bitte einen gültigen Trainingstermin auswählen.";
+  if (!canEditCourse(course)) return "Du kannst nur in deine eigenen Kurse einbuchen.";
+  const duplicate = state.dropInBookings.some((entry) => entry.status !== "abgesagt"
+    && entry.attendance_session_id === session.id
+    && (entry.booking_provider || "dropin") === draft.booking_provider
+    && entry.full_name.trim().toLocaleLowerCase("de") === draft.full_name.trim().toLocaleLowerCase("de"));
+  return duplicate ? "Diese Person ist über diesen Anbieter bereits in diesem Training eingebucht." : null;
+}
 
+function openSingleBookingForm(entry = null, sessionId = null) {
+  if (state.dropInSaving) return;
   dropInForm.reset();
-  await fetchSupportData();
-  render();
-  notify("DROP-IN angelegt.");
+  if (entry) {
+    dropInForm.elements.bookingProvider.value = entry.booking_provider || "dropin";
+    dropInForm.elements.fullName.value = entry.full_name;
+    dropInForm.elements.email.value = entry.email || "";
+    dropInForm.elements.phone.value = entry.phone || "";
+  }
+  setActiveSection("#trialsPanel");
+  renderDropInSessionSelect(sessionId || "");
+  document.querySelector("#singleBookingSection").scrollIntoView({ behavior: "smooth", block: "start" });
+  (entry ? dropInSessionSelect : dropInForm.elements.fullName).focus({ preventScroll: true });
 }
 
 function render() {
@@ -8108,7 +8164,7 @@ function renderTodayDashboard() {
     taskCard.className = "stat-card dashboard-card dashboard-card-neutral";
     taskCard.innerHTML = `
       <h3>Heute nur meine Aufgaben</h3>
-      <p class="stat-meta">Offene Check-ins, Probetrainings, DROP-Ins und Umbuchungen für heute.</p>
+      <p class="stat-meta">Offene Check-ins, Probetrainings, Einzelbuchungen und Umbuchungen für heute.</p>
     `;
     const taskList = document.createElement("div");
     taskList.className = "stack";
@@ -9424,17 +9480,23 @@ function renderTrialCourseSelect() {
   renderSingleSessionSelect(trialCourseSelect);
 }
 
-function renderDropInSessionSelect() {
-  renderSingleSessionSelect(dropInSessionSelect);
+function renderDropInSessionSelect(preferredSessionId = dropInSessionSelect?.value) {
+  const options = state.sessions.filter((session) => {
+    const course = state.courses.find((entry) => entry.id === session.course_id);
+    return course && canEditCourse(course) && isSessionAlignedWithCourse(session)
+      && (session.session_date >= getToday() || session.id === preferredSessionId);
+  }).sort((a, b) => a.session_date.localeCompare(b.session_date)
+    || String(state.courses.find((c) => c.id === a.course_id)?.time || "").localeCompare(String(state.courses.find((c) => c.id === b.course_id)?.time || "")));
+  renderSingleSessionSelect(dropInSessionSelect, options);
+  if (options.some((session) => session.id === preferredSessionId)) dropInSessionSelect.value = preferredSessionId;
 }
 
-function renderSingleSessionSelect(selectElement) {
+function renderSingleSessionSelect(selectElement, sessionOptions = getTrialSessionOptions(getPreferredTrialSeasonId())) {
   if (!selectElement) {
     return;
   }
   selectElement.innerHTML = "";
   const preferredSeasonId = getPreferredTrialSeasonId();
-  const sessionOptions = getTrialSessionOptions(preferredSeasonId);
 
   if (!sessionOptions.length) {
     const option = document.createElement("option");
@@ -9551,9 +9613,11 @@ function renderDropIns() {
     toggleArchivedDropInsBtn.textContent = state.showArchivedDropIns ? "Archiv ausblenden" : "Archiv anzeigen";
   }
 
-  const visibleDropIns = state.showArchivedDropIns
+  const provider = document.querySelector("#dropInProviderFilter")?.value || "all";
+  const unfilteredDropIns = state.showArchivedDropIns
     ? state.dropInBookings
     : state.dropInBookings.filter((entry) => !entry.archived_at);
+  const visibleDropIns = unfilteredDropIns.filter((entry) => provider === "all" || (entry.booking_provider || "dropin") === provider);
 
   if (!visibleDropIns.length) {
     dropInCards.appendChild(emptyStateTemplate.content.cloneNode(true));
@@ -9571,6 +9635,7 @@ function renderDropIns() {
     card.className = "stat-card";
     card.innerHTML = `
       <h3>${escapeHtml(dropIn.full_name)}</h3>
+      <span class="status-pill status-pill-info">${escapeHtml(getSingleBookingLabel(dropIn))}</span>
       <p class="stat-meta">${escapeHtml(formatDropInSessionLabel(dropIn))}</p>
       <p class="stat-meta">${dropIn.email ? escapeHtml(dropIn.email) : "Keine E-Mail"}</p>
       <p class="stat-meta">${dropIn.phone ? escapeHtml(dropIn.phone) : "Keine Telefonnummer"}</p>
@@ -9580,6 +9645,7 @@ function renderDropIns() {
         <span class="stat-meta">${escapeHtml(isArchived ? "Archiviert" : pipelineMeta.meta)}</span>
       </div>
       <div class="trial-actions">
+        <button type="button" class="ghost" data-dropin-action="repeat">Erneut einbuchen</button>
         <button type="button" class="ghost" data-dropin-action="attended">Teilgenommen</button>
         <button type="button" class="ghost" data-dropin-action="open">Zum Kurs</button>
         <button type="button" class="ghost" data-dropin-action="move">Umbuchen</button>
@@ -9588,6 +9654,7 @@ function renderDropIns() {
       </div>
     `;
 
+    card.querySelector('[data-dropin-action="repeat"]').addEventListener("click", () => openSingleBookingForm(dropIn));
     card.querySelector('[data-dropin-action="attended"]').addEventListener("click", async () => {
       await updateDropInStatus(dropIn.id, "teilgenommen");
     });
@@ -9687,7 +9754,7 @@ async function updateDropInStatus(dropInId, status) {
 
   await fetchSupportData();
   render();
-  notify(`DROP-IN auf "${status}" gesetzt.`);
+  notify(`${getSingleBookingLabel(state.dropInBookings.find((entry) => entry.id === dropInId))} auf "${status}" gesetzt.`);
 }
 
 async function openTrialMoveModal(trial) {
@@ -9758,7 +9825,7 @@ async function openDropInMoveModal(dropIn) {
     ? state.sessions.find((entry) => entry.id === dropIn.attendance_session_id) || null
     : null;
   if (!currentSession) {
-    notify("Für diesen DROP-IN ist noch kein gültiger Termin hinterlegt.", true);
+    notify("Für diese Einzelbuchung ist noch kein gültiger Termin hinterlegt.", true);
     return;
   }
 
@@ -9776,13 +9843,13 @@ async function openDropInMoveModal(dropIn) {
   };
 
   if (moveParticipantTitle) {
-    moveParticipantTitle.textContent = "DROP-IN umbuchen";
+    moveParticipantTitle.textContent = `${getSingleBookingLabel(dropIn)} umbuchen`;
   }
   if (moveParticipantTargetLabel) {
     moveParticipantTargetLabel.textContent = "Zieltermin";
   }
   if (moveParticipantSubmitBtn) {
-    moveParticipantSubmitBtn.textContent = "DROP-IN umbuchen";
+    moveParticipantSubmitBtn.textContent = `${getSingleBookingLabel(dropIn)} umbuchen`;
   }
   moveParticipantText.textContent = `${dropIn.full_name} wird vom Termin am ${formatDateLabel(currentSession.session_date)} auf einen anderen konkreten Termin verschoben.`;
   moveParticipantTargetCourse.innerHTML = "";
@@ -9807,7 +9874,7 @@ async function handleDropInArchive(dropIn, shouldArchive = true) {
     .eq("id", dropIn.id);
 
   if (updateResult.error) {
-    notify(getFriendlySupabaseMessage(updateResult.error, "DROP-IN konnte nicht archiviert werden."), true);
+    notify(getFriendlySupabaseMessage(updateResult.error, "Einzelbuchung konnte nicht archiviert werden."), true);
     return;
   }
 
@@ -9817,7 +9884,7 @@ async function handleDropInArchive(dropIn, shouldArchive = true) {
       : entry;
   });
   renderDropIns();
-  notify(shouldArchive ? "DROP-IN wurde archiviert." : "DROP-IN wurde wiederhergestellt.");
+  notify(shouldArchive ? "Einzelbuchung wurde archiviert." : "Einzelbuchung wurde wiederhergestellt.");
 }
 
 function getAvailableRenewalSeasons(sourceSeason) {
@@ -9879,7 +9946,7 @@ async function handleDropInDelete(dropIn) {
   if (!dropIn) {
     return;
   }
-  const shouldDelete = window.confirm(`DROP-IN von ${dropIn.full_name} wirklich stornieren?`);
+  const shouldDelete = window.confirm(`${getSingleBookingLabel(dropIn)}-Buchung von ${dropIn.full_name} wirklich stornieren?`);
   if (!shouldDelete) {
     return;
   }
@@ -9896,7 +9963,7 @@ async function handleDropInDelete(dropIn) {
 
   await fetchSupportData();
   render();
-  notify("DROP-IN wurde entfernt.");
+  notify("Einzelbuchung wurde entfernt.");
 }
 
 async function convertTrialToParticipant(trial) {
@@ -10073,7 +10140,7 @@ function renderCourseList() {
             <span class="course-status-pill">${snapshot.presentCount} anwesend</span>
             <span class="course-status-pill">${snapshot.openCount} offen</span>
             ${snapshot.trialCount ? `<span class="course-status-pill course-status-pill-info">${snapshot.trialCount} Probe</span>` : ""}
-            ${snapshot.dropInCount ? `<span class="course-status-pill course-status-pill-info">${snapshot.dropInCount} DROP-IN</span>` : ""}
+            ${snapshot.dropInCount ? `<span class="course-status-pill course-status-pill-info">${snapshot.dropInCount} Einzelbuchungen</span>` : ""}
             ${snapshot.overrideCount ? `<span class="course-status-pill course-status-pill-warn">${snapshot.overrideCount} Umb.</span>` : ""}
           </div>
         </div>
@@ -10251,7 +10318,7 @@ function renderParticipants() {
     const rateBadge = isTrialParticipant
       ? "Probe"
       : isDropInParticipant
-        ? "Drop-In"
+        ? getSingleBookingLabel(participant)
         : `${attendanceSummary.present} von ${attendanceSummary.total}`;
     const rateMeta = !isTrialParticipant && !isDropInParticipant
       ? `${attendanceSummary.rate}%`
@@ -10262,7 +10329,7 @@ function renderParticipants() {
         ? `<div class="participant-override"><span class="status-pill status-pill-info">Ersatztermin</span><span class="participant-override-text">${escapeHtml(overrideMeta)}</span></div>`
         : "";
       const trialBadge = isTrialParticipant ? '<div class="participant-override"><span class="status-pill status-pill-info">Probetraining</span></div>' : "";
-      const dropInBadge = isDropInParticipant ? '<div class="participant-override"><span class="status-pill status-pill-warn">DROP-IN</span></div>' : "";
+      const dropInBadge = isDropInParticipant ? `<div class="participant-override"><span class="status-pill status-pill-warn">${escapeHtml(getSingleBookingLabel(participant))}</span></div>` : "";
       const isCompletedForChecklist = !isTrialParticipant && (isPresent || isAbsent || Boolean(beatOutEntry));
 
       const row = document.createElement("tr");
@@ -10384,7 +10451,7 @@ function renderParticipants() {
     }
 
     if (isDropInParticipant) {
-      moveButton.textContent = "DROP-IN umbuchen";
+      moveButton.textContent = `${getSingleBookingLabel(participant)} umbuchen`;
       deleteButton.textContent = "Stornieren";
     } else if (isTrialParticipant) {
       moveButton.textContent = "Probetraining umbuchen";
@@ -10393,7 +10460,7 @@ function renderParticipants() {
     participantTableBody.appendChild(row);
 
     const mobileStatusLabel = isDropInParticipant
-      ? isPresent ? "DROP-IN teilgenommen" : "DROP-IN gebucht"
+      ? `${getSingleBookingLabel(participant)} ${isPresent ? "teilgenommen" : "gebucht"}`
       : isTrialParticipant
         ? isPresent ? "Probetraining teilgenommen" : "Probetraining gebucht"
         : isPresent
@@ -10540,7 +10607,7 @@ function renderParticipants() {
     }
 
     if (isDropInParticipant) {
-      mobileMoveButton.textContent = "DROP-IN umbuchen";
+      mobileMoveButton.textContent = `${getSingleBookingLabel(participant)} umbuchen`;
       mobileDeleteButton.textContent = "Stornieren";
     } else if (isTrialParticipant) {
       mobileMoveButton.textContent = "Probetraining umbuchen";
@@ -11405,7 +11472,7 @@ function getMonthlyCalendarEvents(monthValue) {
       }
       appendEvent(session.session_date, {
         type: "dropin",
-        label: `Drop-In: ${dropIn.full_name}`,
+        label: `${getSingleBookingLabel(dropIn)}: ${dropIn.full_name}`,
         meta: formatDropInSessionLabel(dropIn),
         courseId: session.course_id,
         seasonId: session.season_id || null,
@@ -12551,7 +12618,8 @@ function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
         course_id: linkedSession?.course_id || entry.course_id,
         season_id: linkedSession?.season_id || null,
         season_booking_id: null,
-        full_name: `${entry.full_name} (DROP-IN)`,
+        full_name: `${entry.full_name} (${getSingleBookingLabel(entry)})`,
+        booking_provider: entry.booking_provider || "dropin",
         phone: entry.phone || "",
         email: entry.email || "",
         is_dropin: true,
@@ -12609,7 +12677,8 @@ function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
           course_id: linkedSession?.course_id || dropIn.course_id,
           season_id: linkedSession?.season_id || null,
           season_booking_id: null,
-          full_name: `${dropIn.full_name} (DROP-IN)`,
+          full_name: `${dropIn.full_name} (${getSingleBookingLabel(dropIn)})`,
+          booking_provider: dropIn.booking_provider || "dropin",
           phone: dropIn.phone || "",
           email: dropIn.email || "",
           is_dropin: true,
@@ -12769,7 +12838,7 @@ function getDropInPipelineMeta(dropIn) {
   if (status === "teilgenommen") {
     return {
       label: "Teilgenommen",
-      meta: "DROP-IN wurde wahrgenommen",
+      meta: "Einzeltermin wurde wahrgenommen",
       tone: "status-pill-info",
     };
   }
@@ -14238,7 +14307,7 @@ function getTrainerTodayTaskRows() {
       detail: [
         openCount ? `${openCount} offen` : null,
         trialCount ? `${trialCount} Probetraining` : null,
-        dropInCount ? `${dropInCount} DROP-IN` : null,
+        dropInCount ? `${dropInCount} Einzelbuchungen` : null,
         overrideCount ? `${overrideCount} Umbuchung` : null,
       ].filter(Boolean).join(" | ") || "Alles im Blick",
       tone: openCount > 0 ? "warn" : "ok",
