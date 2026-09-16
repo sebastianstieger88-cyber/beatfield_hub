@@ -15714,3 +15714,71 @@ function formatCampusDetailCopy(value) {
     </ul>
   `;
 }
+
+// Dynamic revenue analysis for Seasons and single bookings.
+(() => {
+  const businessPanel = document.querySelector('#businessPanel');
+  const revenueNav = document.querySelector('a[href="#businessPanel"]');
+  if (!businessPanel) return;
+  if (revenueNav) revenueNav.textContent = 'Umsatz';
+
+  const section = document.createElement('section');
+  section.className = 'kpi-section';
+  section.innerHTML =     '<div class="kpi-section-head"><div><p class="eyebrow">Season</p><h3>Einnahmen im Überblick</h3></div><label><span class="stat-meta">Season auswählen</span><select id="revenueSeasonSelect" aria-label="Season für Umsatzauswertung auswählen"></select></label></div>' +
+    '<p class="stat-meta">Season-Pakete zählen ab Buchung. DROP-INs zählen ab Buchung; eGYM und Hansefit erst nach einem als teilgenommen markierten Check-in.</p>' +
+    '<div id="revenueCards" class="stats-grid stats-grid-primary"></div><div id="revenueBreakdown" class="table-wrap"></div>';
+  businessPanel.insertBefore(section, businessPanel.querySelector('.kpi-section'));
+
+  const select = section.querySelector('#revenueSeasonSelect');
+  const cards = section.querySelector('#revenueCards');
+  const breakdown = section.querySelector('#revenueBreakdown');
+  let revenueSeasonId = null;
+  const euro = value => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 }).format(Number(value || 0));
+  const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
+
+  function selectedSeason() {
+    const seasons = state.seasons.slice().sort((a, b) => String(b.start_date || '').localeCompare(String(a.start_date || '')));
+    return seasons.find(season => season.id === revenueSeasonId)
+      || seasons.find(season => season.status === 'aktiv')
+      || seasons[0] || null;
+  }
+
+  function renderRevenueOverview() {
+    const season = selectedSeason();
+    const seasons = state.seasons.slice().sort((a, b) => String(b.start_date || '').localeCompare(String(a.start_date || '')));
+    select.innerHTML = seasons.map(item => '<option value="' + escape(item.id) + '">' + escape(item.name) + ' · ' + escape(item.start_date) + ' bis ' + escape(item.end_date) + '</option>').join('');
+    if (!season) { cards.innerHTML = '<p class="stat-meta">Lege zuerst eine Season an.</p>'; breakdown.innerHTML = ''; return; }
+    revenueSeasonId = season.id;
+    select.value = season.id;
+
+    const packages = [['1x TRAIN',49], ['2x BEAT',79], ['3x REPEAT',99]].map(([label, unitPrice]) => {
+      const count = state.seasonBookings.filter(entry => entry.season_id === season.id && entry.package_type === label).length;
+      return { label, count, unitPrice, revenue: count * unitPrice, description: 'Season-Paket' };
+    });
+    const sessionIds = new Set(state.sessions.filter(entry => entry.season_id === season.id).map(entry => entry.id));
+    const singles = [
+      ['dropin','DROP-IN',15,'pro Buchung', entry => entry.status !== 'abgesagt'],
+      ['egym','eGYM Wellpass',11.5,'pro teilgenommenem Check-in', entry => entry.status === 'teilgenommen'],
+      ['hansefit','Hansefit',11.5,'pro teilgenommenem Check-in', entry => entry.status === 'teilgenommen'],
+    ].map(([provider,label,unitPrice,description,qualifies]) => {
+      const count = state.dropInBookings.filter(entry => (entry.booking_provider || 'dropin') === provider && sessionIds.has(entry.attendance_session_id) && qualifies(entry)).length;
+      return { label, count, unitPrice, revenue: count * unitPrice, description, provider };
+    });
+    const packageRevenue = packages.reduce((sum, row) => sum + row.revenue, 0);
+    const singleRevenue = singles.reduce((sum, row) => sum + row.revenue, 0);
+    const checkInRevenue = singles.filter(row => row.provider !== 'dropin').reduce((sum, row) => sum + row.revenue, 0);
+    const total = packageRevenue + singleRevenue;
+    const summary = [
+      ['Season-Umsatz', euro(total), season.name + ' · alle erfassten Einnahmen'],
+      ['Season-Pakete', euro(packageRevenue), packages.reduce((sum, row) => sum + row.count, 0) + ' gebuchte Pakete'],
+      ['Einzelbuchungen', euro(singleRevenue), singles[0].count + ' DROP-IN-Buchungen'],
+      ['eGYM & Hansefit', euro(checkInRevenue), (singles[1].count + singles[2].count) + ' abgerechnete Check-ins'],
+    ];
+    cards.innerHTML = summary.map(([title,value,meta]) => '<article class="stat-card"><h3>' + escape(title) + '</h3><p class="hero-stat">' + escape(value) + '</p><p class="stat-meta">' + escape(meta) + '</p></article>').join('');
+    breakdown.innerHTML = '<table><thead><tr><th>Einnahmequelle</th><th>Anzahl</th><th>Preis</th><th>Umsatz</th></tr></thead><tbody>' + [...packages, ...singles].map(row => '<tr><td><strong>' + escape(row.label) + '</strong><div class="stat-meta">' + escape(row.description) + '</div></td><td>' + row.count + '</td><td>' + euro(row.unitPrice) + '</td><td><strong>' + euro(row.revenue) + '</strong></td></tr>').join('') + '</tbody><tfoot><tr><td colspan="3"><strong>Gesamt</strong></td><td><strong>' + euro(total) + '</strong></td></tr></tfoot></table>';
+  }
+
+  select.addEventListener('change', () => { revenueSeasonId = select.value || null; renderRevenueOverview(); });
+  const renderBusinessDashboardBase = renderBusinessDashboard;
+  renderBusinessDashboard = function () { renderBusinessDashboardBase(); renderRevenueOverview(); };
+})();
