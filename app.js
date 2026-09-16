@@ -978,7 +978,7 @@ async function fetchSupportData() {
 
   const seasonBookingsQuery = state.supabase
     .from("season_bookings")
-    .select("id, season_id, full_name, phone, package_type, contact_status, free_seasons_redeemed, counts_for_level_up, selected_days, start_date, created_at")
+    .select("id, season_id, full_name, phone, package_type, contact_status, free_seasons_redeemed, counts_for_level_up, selected_days, start_date, created_at, paid_amount")
     .order("created_at", { ascending: false });
 
   const trainerQuery = state.supabase
