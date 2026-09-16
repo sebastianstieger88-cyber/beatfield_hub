@@ -15782,3 +15782,44 @@ function formatCampusDetailCopy(value) {
   const renderBusinessDashboardBase = renderBusinessDashboard;
   renderBusinessDashboard = function () { renderBusinessDashboardBase(); renderRevenueOverview(); };
 })();
+
+// Use Wix's actual paid amount for Season packages when a voucher was applied.
+(() => {
+  const renderBusinessDashboardBeforeActualRevenue = renderBusinessDashboard;
+  const euro = value => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 }).format(Number(value || 0));
+  const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
+  function renderActualRevenue() {
+    const select = document.querySelector('#revenueSeasonSelect');
+    const cards = document.querySelector('#revenueCards');
+    const breakdown = document.querySelector('#revenueBreakdown');
+    if (!select || !cards || !breakdown) return;
+    const season = state.seasons.find(item => item.id === select.value) || state.seasons.find(item => item.status === 'aktiv');
+    if (!season) return;
+    const packages = [['1x TRAIN',49], ['2x BEAT',79], ['3x REPEAT',99]].map(([label, unitPrice]) => {
+      const bookings = state.seasonBookings.filter(entry => entry.season_id === season.id && entry.package_type === label);
+      const discounted = bookings.filter(entry => Number.isFinite(Number(entry.paid_amount)) && Number(entry.paid_amount) < unitPrice).length;
+      const revenue = bookings.reduce((sum, entry) => { const paid = Number(entry.paid_amount); return sum + (Number.isFinite(paid) && paid >= 0 ? paid : unitPrice); }, 0);
+      return { label, count: bookings.length, unitPrice, revenue, description: discounted ? 'Season-Paket · ' + discounted + ' rabattiert' : 'Season-Paket' };
+    });
+    const sessionIds = new Set(state.sessions.filter(entry => entry.season_id === season.id).map(entry => entry.id));
+    const singles = [
+      ['dropin','DROP-IN',15,'pro Buchung', entry => entry.status !== 'abgesagt'],
+      ['egym','eGYM Wellpass',11.5,'pro teilgenommenem Check-in', entry => entry.status === 'teilgenommen'],
+      ['hansefit','Hansefit',11.5,'pro teilgenommenem Check-in', entry => entry.status === 'teilgenommen'],
+    ].map(([provider,label,unitPrice,description,qualifies]) => { const count = state.dropInBookings.filter(entry => (entry.booking_provider || 'dropin') === provider && sessionIds.has(entry.attendance_session_id) && qualifies(entry)).length; return {label,count,unitPrice,revenue:count*unitPrice,description,provider}; });
+    const packageRevenue = packages.reduce((sum,row) => sum + row.revenue, 0);
+    const singleRevenue = singles.reduce((sum,row) => sum + row.revenue, 0);
+    const checkInRevenue = singles.filter(row => row.provider !== 'dropin').reduce((sum,row) => sum + row.revenue, 0);
+    const total = packageRevenue + singleRevenue;
+    const summary = [
+      ['Season-Umsatz', euro(total), season.name + ' · tatsächliche Einnahmen'],
+      ['Season-Pakete', euro(packageRevenue), packages.reduce((sum,row) => sum + row.count, 0) + ' gebuchte Pakete'],
+      ['Einzelbuchungen', euro(singleRevenue), singles[0].count + ' DROP-IN-Buchungen'],
+      ['eGYM & Hansefit', euro(checkInRevenue), (singles[1].count + singles[2].count) + ' abgerechnete Check-ins'],
+    ];
+    cards.innerHTML = summary.map(([title,value,meta]) => '<article class="stat-card"><h3>' + escape(title) + '</h3><p class="hero-stat">' + escape(value) + '</p><p class="stat-meta">' + escape(meta) + '</p></article>').join('');
+    breakdown.innerHTML = '<table><thead><tr><th>Einnahmequelle</th><th>Anzahl</th><th>Preis</th><th>Umsatz</th></tr></thead><tbody>' + [...packages,...singles].map(row => '<tr><td><strong>' + escape(row.label) + '</strong><div class="stat-meta">' + escape(row.description) + '</div></td><td>' + row.count + '</td><td>' + euro(row.unitPrice) + '</td><td><strong>' + euro(row.revenue) + '</strong></td></tr>').join('') + '</tbody><tfoot><tr><td colspan="3"><strong>Gesamt</strong></td><td><strong>' + euro(total) + '</strong></td></tr></tfoot></table>';
+  }
+  document.querySelector('#revenueSeasonSelect')?.addEventListener('change', () => window.setTimeout(renderActualRevenue));
+  renderBusinessDashboard = function () { renderBusinessDashboardBeforeActualRevenue(); renderActualRevenue(); };
+})();
