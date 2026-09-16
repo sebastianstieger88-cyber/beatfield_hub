@@ -15823,3 +15823,82 @@ function formatCampusDetailCopy(value) {
   document.querySelector('#revenueSeasonSelect')?.addEventListener('change', () => window.setTimeout(renderActualRevenue));
   renderBusinessDashboard = function () { renderBusinessDashboardBeforeActualRevenue(); renderActualRevenue(); };
 })();
+
+// Download the selected Season's revenue as a CSV file.
+(() => {
+  const unitPrices = { '1x TRAIN': 49, '2x BEAT': 79, '3x REPEAT': 99 };
+  const csvCell = value => '"' + String(value ?? '').replace(/"/g, '""') + '"';
+  const money = value => Number(value || 0).toFixed(2).replace('.', ',');
+
+  function downloadRevenueCsv() {
+    const select = document.querySelector('#revenueSeasonSelect');
+    const season = state.seasons.find(item => item.id === select?.value) || state.seasons.find(item => item.status === 'aktiv');
+    if (!season) return;
+    const bookings = state.seasonBookings.filter(entry => entry.season_id === season.id);
+    const sessionIds = new Set(state.sessions.filter(entry => entry.season_id === season.id).map(entry => entry.id));
+    const rows = [
+      ['BEATFIELD Umsatzexport'],
+      ['Season', season.name, 'Zeitraum', season.start_date || '', season.end_date || ''],
+      [],
+      ['Season-Pakete'],
+      ['Teilnehmer', 'Paket', 'Trainingstage', 'Listenpreis EUR', 'Tatsächlich gezahlt EUR', 'Rabatt EUR']
+    ];
+    let total = 0;
+    bookings.sort((a, b) => String(a.full_name || '').localeCompare(String(b.full_name || ''), 'de')).forEach(booking => {
+      const listPrice = unitPrices[booking.package_type] || 0;
+      const paid = Number(booking.paid_amount);
+      const actual = Number.isFinite(paid) && paid >= 0 ? paid : listPrice;
+      total += actual;
+      rows.push([booking.full_name || '', booking.package_type || '', (booking.selected_days || []).join(', '), money(listPrice), money(actual), money(Math.max(listPrice - actual, 0))]);
+    });
+    rows.push([]);
+    rows.push(['Weitere Einnahmen']);
+    rows.push(['Quelle', 'Abgerechnete Anzahl', 'Preis je Einheit EUR', 'Umsatz EUR', 'Grundlage']);
+    const sources = [
+      ['DROP-IN', 'dropin', 15, 'Buchungen ohne Absage', entry => entry.status !== 'abgesagt'],
+      ['eGYM Wellpass', 'egym', 11.5, 'Check-ins mit Status teilgenommen', entry => entry.status === 'teilgenommen'],
+      ['Hansefit', 'hansefit', 11.5, 'Check-ins mit Status teilgenommen', entry => entry.status === 'teilgenommen']
+    ];
+    sources.forEach(([label, provider, price, basis, qualifies]) => {
+      const count = state.dropInBookings.filter(entry => (entry.booking_provider || 'dropin') === provider && sessionIds.has(entry.attendance_session_id) && qualifies(entry)).length;
+      const revenue = count * price;
+      total += revenue;
+      rows.push([label, count, money(price), money(revenue), basis]);
+    });
+    rows.push([]);
+    rows.push(['GESAMTUMSATZ', '', '', money(total)]);
+    const csv = String.fromCharCode(0xFEFF) + rows.map(row => row.map(csvCell).join(';')).join(String.fromCharCode(13, 10));
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'BEATFIELD-Umsatz-' + String(season.name || 'Season').replace(/[^a-z0-9]+/gi, '-') + '.csv';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function renderRevenueDownload() {
+    const select = document.querySelector('#revenueSeasonSelect');
+    const header = select?.closest('.kpi-section-head');
+    if (!header) return;
+    let button = document.querySelector('#revenueDownload');
+    if (!button) {
+      button = document.createElement('button');
+      button.id = 'revenueDownload';
+      button.type = 'button';
+      button.className = 'btn secondary';
+      button.textContent = 'Umsatz herunterladen (CSV)';
+      header.appendChild(button);
+    }
+    button.onclick = downloadRevenueCsv;
+  }
+
+  const renderBusinessDashboardBeforeRevenueDownload = renderBusinessDashboard;
+  renderBusinessDashboard = function () {
+    renderBusinessDashboardBeforeRevenueDownload();
+    renderRevenueDownload();
+  };
+  renderRevenueDownload();
+})();
