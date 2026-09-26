@@ -514,3 +514,14 @@ tbody tr:hover { background: rgba(120,204,90,.055); }
   .workspace-active .nav-submenu a[href="#todayPanel"] { font-weight: 800; color: var(--accent); }
   .workspace-active .nav-submenu a[href="#todayPanel"]::before { content: "• "; }
 }
+
+
+/* Persistent dashboard entry for the Coach Hub. */
+.nav-dashboard-link { display: inline-flex; align-items: center; min-height: 44px; padding: 10px 12px; border-radius: 10px; font-weight: 780; text-decoration: none; }
+@media (min-width: 861px) {
+  .workspace-active .nav-dashboard-link { width: 100%; box-sizing: border-box; margin: 4px 0 12px; padding: 12px; color: #102016; background: var(--accent); box-shadow: 0 8px 18px rgba(120,204,90,.18); }
+  .workspace-active .nav-dashboard-link:hover { color: #102016; background: #91d978; }
+}
+@media (max-width: 860px) {
+  .nav-dashboard-link { margin: 4px 0; color: var(--accent); background: var(--accent-soft); }
+}
