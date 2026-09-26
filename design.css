@@ -552,3 +552,82 @@ tbody tr:hover { background: rgba(120,204,90,.055); }
     border-color: var(--accent-dark);
   }
 }
+
+
+/* Revenue dashboard: readable Finance-style KPIs and breakdown table. */
+.workspace-active #businessPanel .revenue-explainer { color: #526357; }
+.workspace-active #revenueCards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin: 18px 0 24px;
+}
+.workspace-active #revenueCards .stat-card {
+  min-height: 156px;
+  padding: 22px;
+  background: #ffffff !important;
+  color: #153329 !important;
+  border: 1px solid rgba(21,51,41,.14) !important;
+  box-shadow: 0 8px 24px rgba(17,42,29,.08) !important;
+}
+.workspace-active #revenueCards .stat-card:first-child {
+  background: linear-gradient(135deg, #153329, #1f4b3b) !important;
+  border-color: #153329 !important;
+}
+.workspace-active #revenueCards .stat-card h3 {
+  margin: 0 0 12px;
+  color: #526357 !important;
+  font-size: .75rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.workspace-active #revenueCards .stat-card .hero-stat {
+  margin: 0 0 12px;
+  color: #153329 !important;
+  font-size: clamp(1.9rem, 3.2vw, 2.65rem);
+  font-weight: 820;
+  line-height: 1;
+  letter-spacing: -.06em;
+}
+.workspace-active #revenueCards .stat-card .stat-meta { color: #627066 !important; font-size: .86rem; }
+.workspace-active #revenueCards .stat-card:first-child h3,
+.workspace-active #revenueCards .stat-card:first-child .stat-meta { color: rgba(255,255,255,.72) !important; }
+.workspace-active #revenueCards .stat-card:first-child .hero-stat { color: #b8eea5 !important; }
+.workspace-active #revenueBreakdown { margin-top: 8px; }
+.workspace-active #revenueBreakdown .table-wrap {
+  overflow: hidden;
+  border: 1px solid rgba(21,51,41,.14);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(17,42,29,.06);
+}
+.workspace-active #revenueBreakdown table { width: 100%; border-collapse: collapse; }
+.workspace-active #revenueBreakdown th {
+  padding: 14px 16px;
+  background: #edf3eb !important;
+  color: #526357 !important;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+.workspace-active #revenueBreakdown td { padding: 16px; color: #26372b; border-bottom-color: rgba(21,51,41,.10); }
+.workspace-active #revenueBreakdown td:last-child,
+.workspace-active #revenueBreakdown tfoot td:last-child { color: #153329; font-size: 1.05rem; }
+.workspace-active #revenueBreakdown tbody tr { position: relative; }
+.workspace-active #revenueBreakdown tbody tr:hover { background: #f1f8ee; }
+.workspace-active #revenueBreakdown tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.workspace-active #revenueBreakdown tfoot td { padding: 18px 16px; background: #153329; color: #fff !important; border-bottom: 0; }
+.workspace-active #revenueBreakdown tfoot td:last-child { color: #b8eea5 !important; }
+@media (max-width: 1100px) { .workspace-active #revenueCards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) {
+  #revenueCards, .workspace-active #revenueCards { grid-template-columns: 1fr; gap: 12px; }
+  .workspace-active #revenueCards .stat-card { min-height: auto; padding: 18px; }
+  .workspace-active #revenueBreakdown .table-wrap { overflow-x: auto; }
+  .workspace-active #revenueBreakdown table { min-width: 620px; }
+}
+
+.workspace-active #revenueBreakdown .revenue-value { min-width: 150px; }
+.workspace-active #revenueBreakdown .revenue-bar { display: block; width: 100%; height: 5px; margin-top: 8px; overflow: hidden; border-radius: 999px; background: #e3ebe1; }
+.workspace-active #revenueBreakdown .revenue-bar::after { content: ""; display: block; width: var(--revenue-share, 0%); height: 100%; border-radius: inherit; background: linear-gradient(90deg, #78cc5a, #3f9374); }
