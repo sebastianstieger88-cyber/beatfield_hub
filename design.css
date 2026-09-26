@@ -534,3 +534,21 @@ tbody tr:hover { background: rgba(120,204,90,.055); }
   .workspace-active .nav-dashboard-link + .nav-group + .nav-group + .nav-group summary::before { content: "Workout Campus"; }
   .workspace-active .nav-dashboard-link + .nav-group + .nav-group + .nav-group + .nav-group summary::before { content: "Auswertung"; }
 }
+
+
+/* Dashboard secondary actions must remain visible on the light Coach Hub surface. */
+@media (min-width: 861px) {
+  .workspace-active #todayPanel button.ghost,
+  .workspace-active #todayPanel .today-session button:not(.primary):not(.danger) {
+    color: #153329;
+    background: #ffffff;
+    border-color: #2f6d56;
+    box-shadow: 0 2px 7px rgba(21,51,41,.10);
+  }
+  .workspace-active #todayPanel button.ghost:hover,
+  .workspace-active #todayPanel .today-session button:not(.primary):not(.danger):hover {
+    color: #10271e;
+    background: #eaf5e6;
+    border-color: var(--accent-dark);
+  }
+}
