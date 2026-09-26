@@ -525,3 +525,12 @@ tbody tr:hover { background: rgba(120,204,90,.055); }
 @media (max-width: 860px) {
   .nav-dashboard-link { margin: 4px 0; color: var(--accent); background: var(--accent-soft); }
 }
+
+
+/* Correct Coach Hub group labels after the dashboard link. */
+@media (min-width: 861px) {
+  .workspace-active .nav-dashboard-link + .nav-group summary::before { content: "Verwaltung"; }
+  .workspace-active .nav-dashboard-link + .nav-group + .nav-group summary::before { content: "Training"; }
+  .workspace-active .nav-dashboard-link + .nav-group + .nav-group + .nav-group summary::before { content: "Workout Campus"; }
+  .workspace-active .nav-dashboard-link + .nav-group + .nav-group + .nav-group + .nav-group summary::before { content: "Auswertung"; }
+}
