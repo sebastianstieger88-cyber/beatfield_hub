@@ -5,6 +5,7 @@
   "functions": {
     "api/push-reminders.js": { "maxDuration": 60 },
     "api/wix-webhook.js": { "maxDuration": 60 },
-    "api/wix-import.js": { "maxDuration": 60 }
+    "api/wix-import.js": { "maxDuration": 60 },
+    "api/wix-beatout.js": { "maxDuration": 60 }
   }
 }
