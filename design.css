@@ -631,3 +631,57 @@ tbody tr:hover { background: rgba(120,204,90,.055); }
 .workspace-active #revenueBreakdown .revenue-value { min-width: 150px; }
 .workspace-active #revenueBreakdown .revenue-bar { display: block; width: 100%; height: 5px; margin-top: 8px; overflow: hidden; border-radius: 999px; background: #e3ebe1; }
 .workspace-active #revenueBreakdown .revenue-bar::after { content: ""; display: block; width: var(--revenue-share, 0%); height: 100%; border-radius: inherit; background: linear-gradient(90deg, #78cc5a, #3f9374); }
+
+
+/* Coach Hub readability audit: light surfaces use explicit dark text, not inherited dark-theme tokens. */
+.workspace-active {
+  --coach-ink: #162019;
+  --coach-copy: #314238;
+  --coach-muted: #5d6d62;
+  --coach-line: rgba(21,51,41,.16);
+}
+.workspace-active :is(.panel, .stat-card, .dashboard-card, .course-card, .exercise-card, .exercise-detail-card, .profile-sheet-card, .trial-section, .booking-form-shell, .booking-table-shell, .workout-preview-card, .workout-station-card, .modal-card, .empty-state) {
+  color: var(--coach-ink);
+  border-color: var(--coach-line);
+}
+.workspace-active :is(.panel, .stat-card, .dashboard-card, .course-card, .exercise-card, .exercise-detail-card, .profile-sheet-card, .trial-section, .booking-form-shell, .booking-table-shell, .workout-preview-card, .workout-station-card, .modal-card, .empty-state) :is(h1,h2,h3,h4,h5,p,li,dt,dd,label,legend,summary) {
+  color: inherit;
+}
+.workspace-active :is(.stat-meta, .hero-hint, .participant-card-section-label, .attendance-correction-hint, .booking-review dt, .exercise-copy, .empty-state p, .dashboard-detail-line) {
+  color: var(--coach-muted) !important;
+}
+.workspace-active .eyebrow { color: #397754 !important; }
+.workspace-active :is(input, select, textarea) {
+  color: var(--coach-ink) !important;
+  background: #fff !important;
+  border-color: var(--coach-line) !important;
+}
+.workspace-active :is(input, select, textarea)::placeholder { color: #758178 !important; opacity: 1; }
+.workspace-active button.ghost {
+  color: #153329;
+  background: #fff;
+  border-color: #45775f;
+}
+.workspace-active button.ghost:hover { color: #10271e; background: #edf7e9; border-color: #2f6d56; }
+.workspace-active :is(.badge, .status-pill, .course-status-pill, .exercise-tag) {
+  color: #214735;
+  border-color: rgba(42,105,75,.22);
+  background: #edf7e9;
+}
+.workspace-active :is(.table-wrap, .exercise-table-wrap, .beatout-table-wrap) { background: #fff; border-color: var(--coach-line); }
+.workspace-active :is(th, td) { color: var(--coach-copy); border-bottom-color: rgba(21,51,41,.10); }
+.workspace-active :is(th, td) :is(strong, b) { color: var(--coach-ink); }
+.workspace-active tbody tr:hover { background: #f1f8ee; }
+.workspace-active .modal-card { background: #fff; }
+.workspace-active .action-toast { color: #fff; }
+.workspace-active .action-toast p { color: #fff; }
+.workspace-active .today-session,
+.workspace-active .today-session :is(h1,h2,h3,h4,h5,p,span,strong,.stat-meta,.hero-stat,.today-session-progress) {
+  color: #fff !important;
+}
+.workspace-active .today-session .today-session-progress { color: #b8eea5 !important; }
+.workspace-active :is(.attendance-state-btn.is-active.is-present, button.primary) { color: #102016; }
+.workspace-active :is(.attendance-state-btn.is-active.is-absent, button.danger) { color: #35100d; }
+@media (max-width: 860px) {
+  .workspace-active :is(.panel, .stat-card, .dashboard-card, .course-card, .exercise-card, .exercise-detail-card, .profile-sheet-card, .trial-section, .booking-form-shell, .booking-table-shell, .workout-preview-card, .workout-station-card, .modal-card, .empty-state) { color: var(--coach-ink); }
+}
