@@ -685,3 +685,36 @@ tbody tr:hover { background: rgba(120,204,90,.055); }
 @media (max-width: 860px) {
   .workspace-active :is(.panel, .stat-card, .dashboard-card, .course-card, .exercise-card, .exercise-detail-card, .profile-sheet-card, .trial-section, .booking-form-shell, .booking-table-shell, .workout-preview-card, .workout-station-card, .modal-card, .empty-state) { color: var(--coach-ink); }
 }
+
+
+/* Keep attendance actions readable on hover and keyboard focus. */
+#attendancePanel .attendance-state-btn {
+  background: #252a26;
+  border-color: #4c564c;
+  color: #f4f7f1;
+}
+
+#attendancePanel .attendance-state-btn:not(:disabled):not(.is-active):hover {
+  background: #353d35;
+  border-color: #7c8a78;
+  color: #ffffff;
+}
+
+#attendancePanel .attendance-state-btn.is-present,
+#attendancePanel .attendance-state-btn.is-present:hover {
+  background: #8bd453;
+  border-color: #9bdf68;
+  color: #13200d;
+}
+
+#attendancePanel .attendance-state-btn.is-absent,
+#attendancePanel .attendance-state-btn.is-absent:hover {
+  background: #ff927b;
+  border-color: #ffad99;
+  color: #27110b;
+}
+
+#attendancePanel .attendance-state-btn:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
