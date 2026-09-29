@@ -1,1 +1,1 @@
-export { handler as default } from '../lib/beatout-a.js';
+export { handler as default } from '../lib/beatout-a.js/beatout-a.js';
