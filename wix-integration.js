@@ -113,3 +113,5 @@ export function createWixIntegration({getState,notify,refreshApp}) {
     if(!loaded && !busy){loaded=true;void load();}
   }};
 }
+
+import('./wix-mapping-directory.js');
