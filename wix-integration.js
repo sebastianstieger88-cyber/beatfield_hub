@@ -94,7 +94,7 @@ export function createWixIntegration({getState,notify,refreshApp}) {
       form.elements.offerId.value='';form.elements.label.value='';notify('Zuordnung gespeichert. Wartende Importe können jetzt erneut geprüft werden.');
     });
   });
-  panel.querySelector('[data-wix-refresh]').addEventListener('click',()=>void load());
+  panel.querySelector('[data-wix-refresh]').addEventListener('click',()=>void perform(async()=>{ const result=await api({kind:'sync'}); notify(result.message); await refreshApp(); }));
   panel.querySelector('#wixManualImport').addEventListener('submit',event=>{
     event.preventDefault();const data=new FormData(event.currentTarget);
     void perform(async()=>{const result=await api({kind:data.get('kind'),id:String(data.get('externalId')).trim()});notify(result.message);await refreshApp();});
