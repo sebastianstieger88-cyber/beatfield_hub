@@ -718,3 +718,10 @@ tbody tr:hover { background: rgba(120,204,90,.055); }
   outline: 2px solid #ffffff;
   outline-offset: 2px;
 }
+/* Course check-in participant contrast. */
+#attendancePanel .participant-card { background: #396944; border-color: #609a69; color: #ffffff; }
+#attendancePanel .participant-card:hover, #attendancePanel .participant-card:focus-within { background: #24522f; border-color: #78cc5a; }
+#attendancePanel .participant-card h3, #attendancePanel .participant-card .link-button, #attendancePanel #participantTableBody td:first-child, #attendancePanel #participantTableBody td:first-child .link-button { color: #ffffff !important; }
+#attendancePanel #participantTableBody > tr > td { background: #396944; color: #ffffff; border-bottom-color: #609a69; }
+#attendancePanel #participantTableBody > tr:hover > td, #attendancePanel #participantTableBody > tr:focus-within > td { background: #24522f; color: #ffffff; }
+#attendancePanel .participant-card .stat-meta, #attendancePanel #participantTableBody .stat-meta, #attendancePanel #participantTableBody .muted { color: #e2f0df; }
