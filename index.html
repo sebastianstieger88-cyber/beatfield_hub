@@ -784,11 +784,12 @@
         <div class="panel-heading">
           <div>
             <p class="eyebrow">CAMPUS</p>
-            <h2>&#220;bungsbibliothek aus Notion</h2>
+            <h2>&#220;bungsbibliothek</h2>
           </div>
           <button id="exerciseSyncBtn" type="button" class="primary">Jetzt mit Notion synchronisieren</button>
         </div>
-        <div class="exercise-toolbar">
+        <p class="exercise-library-intro">Finde passende Übungen, sichere Favoriten und stelle dein Workout direkt zusammen.</p>
+        <div class="exercise-toolbar exercise-toolbar-primary">
           <label>
             <span>Suche</span>
             <input id="exerciseSearch" type="search" placeholder="Name, Fokus, Coaching-Cues oder Tag">
@@ -799,6 +800,11 @@
               <option value="all">Alle Kategorien</option>
             </select>
           </label>
+          <button id="exerciseFavoriteFilterBtn" type="button" class="ghost">Nur Favoriten</button>
+          <button id="exercisePinFavoritesBtn" type="button" class="ghost">Favoriten zuerst</button>
+          <details class="exercise-more-filters">
+            <summary>Weitere Filter</summary>
+            <div class="exercise-toolbar exercise-toolbar-secondary">
           <label>
             <span>Fokus</span>
             <select id="exerciseFocusFilter">
@@ -823,13 +829,20 @@
               <option value="all">Alle Tags</option>
             </select>
           </label>
-          <button id="exerciseFavoriteFilterBtn" type="button" class="ghost">Nur Favoriten</button>
-          <button id="exercisePinFavoritesBtn" type="button" class="ghost">Favoriten zuerst</button>
+            </div>
+          </details>
           <button id="exerciseResetFiltersBtn" type="button" class="ghost">Filter zur&#252;cksetzen</button>
         </div>
         <div id="exerciseActiveFilters" class="exercise-active-filters"></div>
         <div id="exerciseSyncMeta" class="stat-card exercise-sync-meta"></div>
-        <div class="table-wrap exercise-table-wrap">
+        <section id="exerciseFavoriteShelf" class="exercise-favorite-shelf hidden" aria-labelledby="exerciseFavoritesTitle">
+          <div class="exercise-shelf-heading"><div><p class="eyebrow">Schnellzugriff</p><h3 id="exerciseFavoritesTitle">Deine Favoriten</h3></div></div>
+          <div id="exerciseFavoriteGrid" class="exercise-favorite-grid"></div>
+        </section>
+        <div id="exerciseCards" class="exercise-grid"></div>
+        <details class="exercise-table-details">
+          <summary>Tabellenansicht und Sortierung öffnen</summary>
+          <div class="table-wrap exercise-table-wrap">
           <table class="exercise-table">
             <thead>
               <tr>
@@ -842,8 +855,8 @@
             </thead>
             <tbody id="exerciseTableBody"></tbody>
           </table>
-        </div>
-        <div id="exerciseCards" class="exercise-grid"></div>
+          </div>
+        </details>
       </section>
       <section class="panel wide hidden" id="finisherPanel">
         <div class="panel-heading">

@@ -1038,3 +1038,73 @@ tbody tr:hover { background: rgba(120,204,90,.055); }
   .workspace-active .workout-builder-actions button { min-height: 50px; font-size: .8rem; }
   .workspace-active .workout-builder-preview { padding: 16px; border-radius: 16px; }
 }
+
+/* Exercise library: card-first browsing with focused controls. */
+.workspace-active #exercisePanel { background: #f7faf5; }
+.workspace-active #exercisePanel .panel-heading h2 { color: #153329; font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -.055em; }
+.workspace-active .exercise-library-intro { margin: -4px 0 20px; color: #5d6d62; }
+.workspace-active #exercisePanel .exercise-toolbar-primary { display: grid; grid-template-columns: minmax(260px, 1.6fr) minmax(175px, .85fr) auto auto auto auto; align-items: end; gap: 10px; margin: 0 0 14px; }
+.workspace-active #exercisePanel .exercise-toolbar-primary label { margin: 0; }
+.workspace-active #exercisePanel .exercise-toolbar-primary label > span { display: block; margin: 0 0 6px; color: #397754; font-size: .72rem; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+.workspace-active #exercisePanel .exercise-toolbar-primary :is(input, select) { min-height: 46px; border: 1px solid rgba(21,51,41,.18); border-radius: 12px; background: #fff; color: #153329; }
+.workspace-active #exercisePanel .exercise-toolbar-primary > button { min-height: 46px; padding-inline: 13px; white-space: nowrap; }
+.workspace-active .exercise-more-filters { position: relative; }
+.workspace-active .exercise-more-filters > summary { display: flex; align-items: center; min-height: 46px; padding: 0 13px; border: 1px solid #45775f; border-radius: 12px; color: #153329; background: #fff; font-size: .86rem; font-weight: 760; cursor: pointer; list-style: none; white-space: nowrap; }
+.workspace-active .exercise-more-filters > summary::-webkit-details-marker { display: none; }
+.workspace-active .exercise-more-filters > summary::after { content: "+"; margin-left: 8px; color: #397754; font-size: 1.05rem; }
+.workspace-active .exercise-more-filters[open] > summary { border-color: #78cc5a; background: #edf7e9; }
+.workspace-active .exercise-more-filters[open] > summary::after { content: "–"; }
+.workspace-active .exercise-toolbar-secondary { position: absolute; z-index: 8; top: calc(100% + 8px); right: 0; display: grid; grid-template-columns: repeat(2, minmax(190px, 1fr)); gap: 11px; width: min(455px, 86vw); padding: 14px; border: 1px solid rgba(21,51,41,.16); border-radius: 16px; background: #fff; box-shadow: 0 15px 34px rgba(17,42,29,.16); }
+.workspace-active .exercise-toolbar-secondary label > span { display: block; margin-bottom: 6px; color: #397754; font-size: .7rem; font-weight: 820; letter-spacing: .07em; text-transform: uppercase; }
+.workspace-active .exercise-toolbar-secondary select { width: 100%; min-height: 43px; }
+.workspace-active #exercisePanel .exercise-sync-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; margin: 0 0 20px; padding: 13px 15px; border: 1px solid rgba(21,51,41,.13); border-radius: 14px; background: #fff; box-shadow: 0 4px 12px rgba(17,42,29,.04); }
+.workspace-active #exercisePanel .exercise-sync-meta h3 { margin: 0 4px 0 0; color: #153329; font-size: .92rem; }
+.workspace-active #exercisePanel .exercise-sync-meta .stat-meta { margin: 0; color: #5d6d62 !important; font-size: .81rem; }
+.workspace-active .exercise-favorite-shelf { margin: 0 0 23px; padding: 17px; border: 1px solid #e4cb88; border-radius: 18px; background: #fffaf0; }
+.workspace-active .exercise-shelf-heading { margin-bottom: 12px; }
+.workspace-active .exercise-shelf-heading .eyebrow { margin: 0 0 4px; color: #9a6e18 !important; }
+.workspace-active .exercise-shelf-heading h3 { margin: 0; color: #5c4211; font-size: 1.15rem; }
+.workspace-active .exercise-favorite-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.workspace-active .exercise-favorite-shortcut { display: grid; gap: 5px; min-height: 78px; padding: 13px; border: 1px solid #ead399; border-radius: 13px; background: rgba(255,255,255,.82); color: #4c3710; text-align: left; }
+.workspace-active .exercise-favorite-shortcut:hover,
+.workspace-active .exercise-favorite-shortcut:focus-visible { border-color: #c99f3d; background: #fff; outline: 3px solid rgba(230,187,79,.25); outline-offset: 2px; }
+.workspace-active .exercise-favorite-shortcut strong { color: #4c3710; line-height: 1.2; }
+.workspace-active .exercise-favorite-shortcut span { color: #7b6230; font-size: .78rem; }
+.workspace-active #exercisePanel .exercise-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13px; }
+.workspace-active #exercisePanel .exercise-library-card { min-height: 290px; padding: 18px; border: 1px solid rgba(21,51,41,.14); border-radius: 18px; background: #fff; box-shadow: 0 6px 17px rgba(17,42,29,.06); transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
+.workspace-active #exercisePanel .exercise-library-card:hover { transform: translateY(-2px); border-color: #8acb74; box-shadow: 0 13px 25px rgba(17,42,29,.11); }
+.workspace-active #exercisePanel .exercise-card-favorite { border-color: #dfb750; box-shadow: inset 0 3px 0 #f2ca68, 0 7px 18px rgba(165,120,26,.09); }
+.workspace-active #exercisePanel .exercise-card-head { align-items: start; }
+.workspace-active #exercisePanel .exercise-card-head .eyebrow { margin: 0 0 6px; color: #397754 !important; }
+.workspace-active #exercisePanel .exercise-card-head h3 { margin: 0; color: #153329; font-size: 1.12rem; line-height: 1.22; }
+.workspace-active #exercisePanel .exercise-meta-grid { grid-template-columns: 1fr; gap: 6px; }
+.workspace-active #exercisePanel .exercise-meta-grid p { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 7px 9px; border-radius: 9px; background: #f2f7f0; }
+.workspace-active #exercisePanel .exercise-meta-grid strong { color: #397754; font-size: .68rem; font-weight: 850; letter-spacing: .06em; }
+.workspace-active #exercisePanel .exercise-meta-grid span { color: #314238; font-size: .8rem; text-align: right; }
+.workspace-active #exercisePanel .exercise-tag { padding: 5px 8px; border-color: #cde6c5; background: #edf7e9; color: #24513b; font-size: .72rem; }
+.workspace-active .exercise-add-control { display: grid; gap: 6px; margin-top: auto; padding-top: 3px; }
+.workspace-active .exercise-add-control > span { color: #397754; font-size: .69rem; font-weight: 850; letter-spacing: .07em; text-transform: uppercase; }
+.workspace-active .exercise-add-control select { min-height: 42px; border: 1px solid #8acb74; border-radius: 10px; background: #f8fff5; color: #153329; }
+.workspace-active #exercisePanel .exercise-actions { display: grid; grid-template-columns: 1fr 1.25fr; gap: 8px; margin-top: 0; }
+.workspace-active #exercisePanel .exercise-actions > :is(button, a) { display: grid; place-items: center; min-height: 42px; margin: 0; text-align: center; }
+.workspace-active #exercisePanel .exercise-actions a:nth-child(n+3) { grid-column: span 1; }
+.workspace-active .exercise-table-details { margin-top: 20px; }
+.workspace-active .exercise-table-details > summary { padding: 12px 15px; border: 1px solid rgba(21,51,41,.15); border-radius: 13px; background: #fff; color: #153329; font-weight: 760; cursor: pointer; }
+.workspace-active .exercise-table-details[open] > summary { margin-bottom: 10px; border-color: #8acb74; background: #edf7e9; }
+.workspace-active #exercisePanel .exercise-table-wrap { max-height: 64vh; border-color: rgba(21,51,41,.15); background: #fff; }
+.workspace-active #exercisePanel .exercise-table thead th { background: #edf5ea; color: #314238; }
+@media (max-width: 1180px) {
+  .workspace-active #exercisePanel .exercise-toolbar-primary { grid-template-columns: minmax(250px, 1fr) minmax(180px, .8fr) repeat(3, auto); }
+  .workspace-active #exercisePanel .exercise-toolbar-primary > .exercise-more-filters { grid-column: 1; }
+  .workspace-active #exercisePanel .exercise-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 680px) {
+  .workspace-active #exercisePanel .exercise-toolbar-primary { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .workspace-active #exercisePanel .exercise-toolbar-primary label:first-child { grid-column: 1 / -1; }
+  .workspace-active #exercisePanel .exercise-toolbar-primary :is(button, .exercise-more-filters) { min-width: 0; }
+  .workspace-active #exercisePanel .exercise-toolbar-primary > button { padding-inline: 9px; font-size: .77rem; }
+  .workspace-active .exercise-toolbar-secondary { right: auto; left: 0; grid-template-columns: 1fr; width: min(330px, 90vw); }
+  .workspace-active .exercise-favorite-grid { grid-template-columns: 1fr; }
+  .workspace-active #exercisePanel .exercise-grid { grid-template-columns: 1fr; gap: 10px; }
+  .workspace-active #exercisePanel .exercise-library-card { min-height: 0; padding: 16px; }
+}

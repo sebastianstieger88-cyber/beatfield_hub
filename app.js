@@ -250,6 +250,8 @@ const courseList = document.querySelector("#courseList");
 const trialCards = document.querySelector("#trialCards");
 const dropInCards = document.querySelector("#dropInCards");
 const exerciseCards = document.querySelector("#exerciseCards");
+const exerciseFavoriteShelf = document.querySelector("#exerciseFavoriteShelf");
+const exerciseFavoriteGrid = document.querySelector("#exerciseFavoriteGrid");
 const finisherCards = document.querySelector("#finisherCards");
 const warmupCards = document.querySelector("#warmupCards");
 const musicCards = document.querySelector("#musicCards");
@@ -5273,6 +5275,21 @@ function renderExercises() {
   `;
 
   const exercises = getSortedExercises(getFilteredExercises());
+  const favoriteExercises = state.exercises
+    .filter((exercise) => isExerciseFavorite(exercise.id))
+    .slice(0, 6);
+  if (exerciseFavoriteShelf && exerciseFavoriteGrid) {
+    exerciseFavoriteShelf.classList.toggle("hidden", !favoriteExercises.length);
+    exerciseFavoriteGrid.innerHTML = favoriteExercises.map((exercise) => `
+      <button type="button" class="exercise-favorite-shortcut" data-exercise-detail="${escapeHtml(exercise.id)}">
+        <strong>${escapeHtml(exercise.title || "Übung")}</strong>
+        <span>${escapeHtml([getExerciseBodyRegionLabel(exercise), getExerciseMovementPatternLabel(exercise)].filter(Boolean).join(" · ") || "Details öffnen")}</span>
+      </button>
+    `).join("");
+    exerciseFavoriteGrid.querySelectorAll("[data-exercise-detail]").forEach((button) => {
+      button.addEventListener("click", () => openExerciseDetailModal(button.dataset.exerciseDetail));
+    });
+  }
   if (!exercises.length) {
     exerciseTableBody.innerHTML = `
       <tr>
@@ -5316,39 +5333,42 @@ function renderExercises() {
     `;
   }).join("");
 
+  const workoutConfig = getWorkoutBuilderTemplateConfig();
+  const workoutSlotOptions = Array.from({ length: workoutConfig.slots }, (_, index) => {
+    const occupied = state.workoutBuilder.exerciseIds[index];
+    return `<option value="${index}">Station ${index + 1}${occupied ? " · belegt" : ""}</option>`;
+  }).join("");
+
   exerciseCards.innerHTML = exercises.map((exercise) => {
     const isFavorite = isExerciseFavorite(exercise.id);
     const bodyRegionLabel = getExerciseBodyRegionLabel(exercise);
     const movementPatternLabel = getExerciseMovementPatternLabel(exercise);
     const muscleGroupLabel = getExerciseMuscleGroupLabel(exercise);
-    const loadProfileLabel = getExerciseLoadProfileLabel(exercise);
-    const usageContextLabel = getExerciseUsageContextLabel(exercise);
+    const visibleTags = (exercise.tags || []).slice(0, 3);
     const links = [
       exercise.video_url ? `<a class="ghost" href="${escapeHtml(exercise.video_url)}" target="_blank" rel="noreferrer">Video öffnen</a>` : "",
       exercise.source_url ? `<a class="ghost" href="${escapeHtml(exercise.source_url)}" target="_blank" rel="noreferrer">Notion öffnen</a>` : "",
     ].filter(Boolean).join("");
 
     return `
-      <article class="exercise-card ${isFavorite ? "exercise-card-favorite" : ""}">
+      <article class="exercise-card exercise-library-card ${isFavorite ? "exercise-card-favorite" : ""}">
         <div class="exercise-card-head">
           <div>
-            <p class="eyebrow">Übung</p>
+            <p class="eyebrow">${escapeHtml(bodyRegionLabel || "Übung")}</p>
             <h3>${escapeHtml(exercise.title)}</h3>
           </div>
           <div class="course-status-grid">
             ${isFavorite ? `<span class="course-status-pill course-status-pill-warn">Favorit</span>` : ""}
-            ${exercise.notion_favorite ? `<span class="course-status-pill course-status-pill-warn">Notion-Favorit</span>` : ""}
-            ${bodyRegionLabel ? `<span class="course-status-pill">${escapeHtml(bodyRegionLabel)}</span>` : ""}
+            ${exercise.notion_favorite ? `<span class="course-status-pill course-status-pill-info">Notion</span>` : ""}
           </div>
         </div>
         <div class="exercise-meta-grid">
-          ${bodyRegionLabel ? `<p><strong>Körperbereich</strong><span>${escapeHtml(bodyRegionLabel)}</span></p>` : ""}
-          ${movementPatternLabel ? `<p><strong>Bewegungsmuster</strong><span>${escapeHtml(movementPatternLabel)}</span></p>` : ""}
+          ${movementPatternLabel ? `<p><strong>Bewegung</strong><span>${escapeHtml(movementPatternLabel)}</span></p>` : ""}
           ${muscleGroupLabel ? `<p><strong>Muskelgruppe</strong><span>${escapeHtml(muscleGroupLabel)}</span></p>` : ""}
-          ${loadProfileLabel ? `<p><strong>Belastung</strong><span>${escapeHtml(loadProfileLabel)}</span></p>` : ""}
-          ${usageContextLabel ? `<p><strong>Einsatzbereich</strong><span>${escapeHtml(usageContextLabel)}</span></p>` : ""}
+          ${getExerciseEquipmentLabel(exercise) ? `<p><strong>Equipment</strong><span>${escapeHtml(getExerciseEquipmentLabel(exercise))}</span></p>` : ""}
         </div>
-        ${exercise.tags?.length ? `<div class="exercise-tag-row">${exercise.tags.map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
+        ${visibleTags.length ? `<div class="exercise-tag-row">${visibleTags.map((tag) => `<span class="exercise-tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
+        <label class="exercise-add-control"><span>Zum Workout hinzufügen</span><select data-exercise-add-target="${escapeHtml(exercise.id)}"><option value="">Station auswählen</option>${workoutSlotOptions}</select></label>
         <div class="stat-card-actions exercise-actions">
           <button type="button" class="ghost" data-exercise-detail="${escapeHtml(exercise.id)}">Details</button>
           <button type="button" class="${isFavorite ? "primary" : "ghost"}" data-exercise-favorite="${escapeHtml(exercise.id)}">${isFavorite ? "Favorit entfernt" : "Als Favorit"}</button>
@@ -5372,6 +5392,18 @@ function renderExercises() {
   exerciseCards.querySelectorAll("[data-exercise-favorite]").forEach((button) => {
     button.addEventListener("click", () => {
       toggleExerciseFavorite(button.dataset.exerciseFavorite);
+    });
+  });
+  exerciseCards.querySelectorAll("[data-exercise-add-target]").forEach((select) => {
+    select.addEventListener("change", () => {
+      if (select.value === "") return;
+      const slotIndex = Number(select.value);
+      const exerciseId = select.dataset.exerciseAddTarget;
+      if (!Number.isInteger(slotIndex) || !exerciseId) return;
+      state.workoutBuilder.exerciseIds[slotIndex] = exerciseId;
+      renderWorkoutBuilder();
+      renderExercises();
+      notify(`${getExerciseById(exerciseId)?.title || "Übung"} wurde Station ${slotIndex + 1} hinzugefügt.`);
     });
   });
 }
