@@ -15778,3 +15778,127 @@ function formatCampusDetailCopy(value) {
   };
   renderRevenueDownload();
 })();
+
+/* Dashboard data composition. Kept separate so all existing workflows remain untouched. */
+(() => {
+  const dashboardWeek = document.querySelector("#dashboardWeek");
+  const dashboardRevenue = document.querySelector("#dashboardRevenue");
+  const dashboardRevenueSection = document.querySelector("#dashboardRevenueSection");
+  const money = (value) => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", minimumFractionDigits: 2 }).format(Number(value || 0));
+  const dashboardSeason = () => state.seasons.find((season) => season.status === "aktiv") || state.seasons.slice().sort((left, right) => String(right.start_date || "").localeCompare(String(left.start_date || "")))[0] || null;
+
+  function renderWeek() {
+    if (!dashboardWeek) return;
+    const today = getToday();
+    const endDate = new Date(`${today}T12:00:00`);
+    endDate.setDate(endDate.getDate() + 6);
+    const lastDate = endDate.toISOString().slice(0, 10);
+    const rows = state.sessions.filter((session) => session.session_date >= today && session.session_date <= lastDate)
+      .map((session) => ({ session, course: state.courses.find((course) => course.id === session.course_id) }))
+      .filter((entry) => entry.course)
+      .sort((left, right) => `${left.session.session_date}-${left.course.time || ""}`.localeCompare(`${right.session.session_date}-${right.course.time || ""}`));
+    if (!rows.length) {
+      dashboardWeek.innerHTML = '<div class="dashboard-empty"><strong>Keine Termine in den nächsten sieben Tagen geplant.</strong><span>Plane Sessions über Training, damit sie hier erscheinen.</span></div>';
+      return;
+    }
+    dashboardWeek.innerHTML = "";
+    rows.slice(0, 9).forEach(({ session, course }) => {
+      const snapshot = getCourseStatusSnapshot(course);
+      const card = document.createElement("article");
+      card.className = "dashboard-week-card";
+      card.innerHTML = `<div class="dashboard-week-date"><strong>${escapeHtml(getWeekdayLabelFromDate(session.session_date))}</strong><span>${escapeHtml(formatCompactDateLabel(session.session_date))}</span></div><div class="dashboard-week-course"><strong>${escapeHtml(course.name)}</strong><span>${escapeHtml(course.time ? `${course.time.slice(0, 5)} Uhr` : "Uhrzeit offen")}</span></div><div class="dashboard-week-count"><strong>${snapshot.participants.length}</strong><span>Teilnehmende</span></div><button type="button" class="ghost">Öffnen</button>`;
+      card.querySelector("button").addEventListener("click", () => openTodaySession(session.id));
+      dashboardWeek.appendChild(card);
+    });
+  }
+
+  function renderSeason() {
+    if (!todayInsights) return;
+    todayInsights.innerHTML = "";
+    const season = dashboardSeason();
+    if (!season) {
+      todayInsights.innerHTML = '<div class="dashboard-empty"><strong>Keine Season angelegt.</strong><span>Lege unter Verwaltung eine Season an, um Teilnehmer und Kennzahlen zu sehen.</span></div>';
+      return;
+    }
+    const bookings = state.seasonBookings.filter((booking) => booking.season_id === season.id);
+    const packageCounts = ["1x TRAIN", "2x BEAT", "3x REPEAT"].map((label) => ({ label, count: bookings.filter((booking) => booking.package_type === label).length }));
+    const sessionIds = new Set(state.sessions.filter((session) => session.season_id === season.id).map((session) => session.id));
+    const beatOuts = state.beatOutEntries.filter((entry) => sessionIds.has(entry.session_id)).length;
+    [
+      { title: "Season", value: season.name, meta: `${formatCompactDateLabel(season.start_date)} bis ${formatCompactDateLabel(season.end_date)}`, tone: "season" },
+      { title: "Teilnehmer", value: bookings.length, meta: "aktive Season-Buchungen", tone: "default" },
+      { title: "Paketmix", value: packageCounts.map((entry) => `${entry.count}× ${entry.label.replace(/^[0-9]x\s/, "")}`).join(" · "), meta: "gebuchte Pakete", tone: "default" },
+      { title: "BEAT-OUTs", value: beatOuts, meta: beatOuts ? "in dieser Season eingetragen" : "keine Einträge in dieser Season", tone: beatOuts ? "warning" : "default" },
+    ].forEach((item) => {
+      const card = document.createElement("article");
+      card.className = `dashboard-summary-card dashboard-summary-card-${item.tone}`;
+      card.innerHTML = `<h4>${escapeHtml(item.title)}</h4><p>${escapeHtml(item.value)}</p><span>${escapeHtml(item.meta)}</span>`;
+      todayInsights.appendChild(card);
+    });
+  }
+
+  function renderRevenue() {
+    if (!dashboardRevenue || !dashboardRevenueSection) return;
+    dashboardRevenueSection.classList.toggle("hidden", !isAdmin());
+    if (!isAdmin()) return;
+    const season = dashboardSeason();
+    if (!season) {
+      dashboardRevenue.innerHTML = '<div class="dashboard-empty"><strong>Umsatz noch nicht verfügbar.</strong><span>Lege zuerst eine Season an.</span></div>';
+      return;
+    }
+    const prices = { "1x TRAIN": 49, "2x BEAT": 79, "3x REPEAT": 99 };
+    const packages = Object.entries(prices).map(([label, listPrice]) => {
+      const bookings = state.seasonBookings.filter((booking) => booking.season_id === season.id && booking.package_type === label);
+      return { label, count: bookings.length, revenue: bookings.reduce((sum, booking) => { const paid = Number(booking.paid_amount); return sum + (Number.isFinite(paid) && paid >= 0 ? paid : listPrice); }, 0) };
+    });
+    const sessionIds = new Set(state.sessions.filter((session) => session.season_id === season.id).map((session) => session.id));
+    const singles = [
+      { label: "DROP-IN", provider: "dropin", price: 15, qualifies: (entry) => entry.status !== "abgesagt" },
+      { label: "eGYM", provider: "egym", price: 11.5, qualifies: (entry) => entry.status === "teilgenommen" },
+      { label: "Hansefit", provider: "hansefit", price: 11.5, qualifies: (entry) => entry.status === "teilgenommen" },
+    ].map((item) => { const count = state.dropInBookings.filter((entry) => (entry.booking_provider || "dropin") === item.provider && sessionIds.has(entry.attendance_session_id) && item.qualifies(entry)).length; return { ...item, count, revenue: count * item.price }; });
+    const packageRevenue = packages.reduce((sum, item) => sum + item.revenue, 0);
+    const singleRevenue = singles.reduce((sum, item) => sum + item.revenue, 0);
+    const total = packageRevenue + singleRevenue;
+    const rows = [...packages, ...singles];
+    const maxRevenue = Math.max(...rows.map((item) => item.revenue), 1);
+    dashboardRevenue.innerHTML = `<article class="dashboard-revenue-total"><span>Season-Umsatz</span><strong>${escapeHtml(money(total))}</strong><p>${escapeHtml(season.name)} · tatsächliche Einnahmen</p></article><article class="dashboard-revenue-mix"><div class="dashboard-revenue-kpis"><span><strong>${escapeHtml(money(packageRevenue))}</strong>Season-Pakete</span><span><strong>${escapeHtml(money(singleRevenue))}</strong>Einzelbuchungen</span></div><div class="dashboard-revenue-bars">${rows.map((item) => `<div class="dashboard-revenue-row"><span>${escapeHtml(item.label)} <b>${item.count}</b></span><div><i style="--revenue-width:${Math.round((item.revenue / maxRevenue) * 100)}%"></i></div><strong>${escapeHtml(money(item.revenue))}</strong></div>`).join("")}</div></article>`;
+  }
+
+  renderTodayDashboard = function () {
+    renderTodaySchedule();
+    todayCards.innerHTML = "";
+    if (!state.courses.length) {
+      todayCards.appendChild(emptyStateTemplate.content.cloneNode(true));
+      if (todayInsights) todayInsights.innerHTML = "";
+      if (dashboardWeek) dashboardWeek.innerHTML = "";
+      if (dashboardRevenue) dashboardRevenue.innerHTML = "";
+      return;
+    }
+    const today = getToday();
+    const sessions = state.sessions.filter((session) => session.session_date === today);
+    const sessionIds = new Set(sessions.map((session) => session.id));
+    const present = state.records.filter((record) => sessionIds.has(record.session_id) && record.present).length;
+    const openTrials = getOpenTrialRequests();
+    const nextSession = getTodaySessionTarget();
+    const nextCourse = nextSession ? state.courses.find((course) => course.id === nextSession.course_id) : null;
+    [
+      { title: "Nächster Termin", value: nextCourse ? nextCourse.name : "Kein Termin mehr", meta: nextCourse?.time ? `${nextCourse.time.slice(0, 5)} Uhr · ${nextCourse.location || "Ort offen"}` : "Heute ist kein weiteres Training geplant", action: nextSession ? () => openTodaySession(nextSession.id) : null, tone: "focus" },
+      { title: "Check-ins", value: `${present} / ${sessions.reduce((sum, session) => sum + getAttendanceParticipantsForCourse(session.course_id, session.id).length, 0)}`, meta: sessions.length ? `${sessions.length} Session${sessions.length === 1 ? "" : "s"} heute` : "keine Session heute", tone: "default" },
+      { title: "Probetraining", value: openTrials.length, meta: openTrials.length ? "offene Anfragen" : "keine offenen Anfragen", action: openTrials.length ? () => setActiveSection("#trialsPanel") : null, tone: "default" },
+    ].forEach((item) => {
+      const card = document.createElement("article");
+      card.className = `dashboard-summary-card dashboard-summary-card-${item.tone}`;
+      card.innerHTML = `<h4>${escapeHtml(item.title)}</h4><p>${escapeHtml(item.value)}</p><span>${escapeHtml(item.meta)}</span>`;
+      if (item.action) {
+        card.classList.add("dashboard-card-clickable"); card.tabIndex = 0; card.setAttribute("role", "button");
+        card.addEventListener("click", item.action);
+        card.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); item.action(); } });
+      }
+      todayCards.appendChild(card);
+    });
+    renderWeek(); renderSeason(); renderRevenue();
+  };
+
+  document.querySelectorAll("[data-dashboard-target]").forEach((button) => button.addEventListener("click", () => setActiveSection(button.dataset.dashboardTarget)));
+})();

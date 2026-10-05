@@ -547,18 +547,35 @@
       <section class="panel wide hidden" id="todayPanel">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">Dein Trainingstag</p>
-            <h2>Heute im Blick</h2>
+            <p class="eyebrow">BEATFIELD Coach Hub</p>
+            <h2>Dashboard</h2>
           </div>
         </div>
-        <div class="today-actions">
+        <div class="today-actions dashboard-quick-actions" aria-label="Schnellaktionen">
           <button id="jumpToTodayBtn" type="button" class="primary">Anwesenheit erfassen</button>
           <button id="focusNextCourseBtn" type="button" class="ghost">Kursübersicht öffnen</button>
-          <button id="openPushSettingsBtn" type="button" class="ghost">Erinnerungen einstellen</button>
+          <button type="button" class="ghost" data-dashboard-target="#bookingPanel">Teilnehmer hinzufügen</button>
+          <button type="button" class="ghost" data-dashboard-target="#trialsPanel">Probetraining anlegen</button>
+          <button type="button" class="ghost" data-dashboard-target="#wixPanel">Wix-Verbindung</button>
+          <button type="button" class="ghost" data-dashboard-target="#businessPanel">Season-Auswertung</button>
         </div>
-        <div id="todaySchedule" class="today-schedule"></div>
-        <div id="todayCards" class="stats-grid"></div>
-        <div id="todayInsights" class="stats-grid business-insights"></div>
+        <section class="dashboard-section" aria-labelledby="dashboardTodayTitle">
+          <div class="dashboard-section-heading"><div><p class="eyebrow">Training</p><h3 id="dashboardTodayTitle">Heute</h3></div><p class="stat-meta">Dein nächster Termin und der aktuelle Check-in.</p></div>
+          <div id="todaySchedule" class="today-schedule"></div>
+          <div id="todayCards" class="stats-grid dashboard-today-grid"></div>
+        </section>
+        <section class="dashboard-section" aria-labelledby="dashboardWeekTitle">
+          <div class="dashboard-section-heading"><div><p class="eyebrow">Planung</p><h3 id="dashboardWeekTitle">Diese Woche</h3></div><p class="stat-meta">Die nächsten Trainingstermine auf einen Blick.</p></div>
+          <div id="dashboardWeek" class="dashboard-week-grid"></div>
+        </section>
+        <section class="dashboard-section" aria-labelledby="dashboardSeasonTitle">
+          <div class="dashboard-section-heading"><div><p class="eyebrow">Organisation</p><h3 id="dashboardSeasonTitle">Aktive Season</h3></div><p class="stat-meta">Teilnehmer, Pakete und BEAT-OUTs.</p></div>
+          <div id="todayInsights" class="dashboard-season-grid"></div>
+        </section>
+        <section class="dashboard-section" id="dashboardRevenueSection" aria-labelledby="dashboardRevenueTitle">
+          <div class="dashboard-section-heading"><div><p class="eyebrow">Business</p><h3 id="dashboardRevenueTitle">Umsatz der Season</h3></div><button type="button" class="ghost" data-dashboard-target="#businessPanel">Details öffnen</button></div>
+          <div id="dashboardRevenue" class="dashboard-revenue-grid"></div>
+        </section>
       </section>
 
       <section class="panel wide hidden" id="trialsPanel">
