@@ -725,3 +725,47 @@ tbody tr:hover { background: rgba(120,204,90,.055); }
 #attendancePanel #participantTableBody > tr > td { background: #396944; color: #ffffff; border-bottom-color: #609a69; }
 #attendancePanel #participantTableBody > tr:hover > td, #attendancePanel #participantTableBody > tr:focus-within > td { background: #24522f; color: #ffffff; }
 #attendancePanel .participant-card .stat-meta, #attendancePanel #participantTableBody .stat-meta, #attendancePanel #participantTableBody .muted { color: #e2f0df; }
+
+/* Attendance table: explicit high-contrast colors on green participant rows. */
+#attendancePanel #participantTableBody > tr > td {
+  background: #396944;
+  color: #ffffff;
+  border-bottom-color: #75a97b;
+}
+#attendancePanel #participantTableBody > tr:hover > td,
+#attendancePanel #participantTableBody > tr:focus-within > td {
+  background: #24522f;
+  color: #ffffff;
+}
+#attendancePanel #participantTableBody :is(.stat-meta, .muted, .beatout-meta) {
+  color: #e4f7e5 !important;
+  font-weight: 650;
+  opacity: 1;
+}
+#attendancePanel #participantTableBody :is(.badge, .course-status-pill) {
+  background: #f3fff1;
+  border-color: #c5edbd;
+  color: #163a1d !important;
+}
+#attendancePanel #participantTableBody button.ghost {
+  background: #1e4f2d;
+  border-color: #82ce75;
+  color: #ffffff !important;
+}
+#attendancePanel #participantTableBody button.ghost:not(:disabled):hover,
+#attendancePanel #participantTableBody button.ghost:not(:disabled):focus-visible {
+  background: #143d22;
+  border-color: #b5ed9e;
+  color: #ffffff !important;
+}
+#attendancePanel #participantTableBody button.danger {
+  background: #6a2e28;
+  border-color: #ed9b8f;
+  color: #ffffff !important;
+}
+#attendancePanel #participantTableBody button.danger:not(:disabled):hover,
+#attendancePanel #participantTableBody button.danger:not(:disabled):focus-visible {
+  background: #4f211d;
+  border-color: #ffc0b7;
+  color: #ffffff !important;
+}
