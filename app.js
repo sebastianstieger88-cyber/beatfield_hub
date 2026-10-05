@@ -15994,5 +15994,10 @@ function formatCampusDetailCopy(value) {
     renderCampusLibrary();
   };
 
-  document.querySelectorAll("[data-campus-dashboard-target]").forEach((button) => button.addEventListener("click", () => openCampusTarget(button.dataset.campusDashboardTarget)));
+  campusPanel?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-campus-dashboard-target]");
+    if (!button) return;
+    event.preventDefault();
+    openCampusTarget(button.dataset.campusDashboardTarget);
+  });
 })();
