@@ -15921,3 +15921,78 @@ function formatCampusDetailCopy(value) {
 
   document.querySelectorAll("[data-dashboard-target]").forEach((button) => button.addEventListener("click", () => setActiveSection(button.dataset.dashboardTarget)));
 })();
+
+/* Compact Workout Campus dashboard: preparation first, libraries second. */
+(() => {
+  const nextWorkout = document.querySelector("#campusNextWorkout");
+  const workoutFlow = document.querySelector("#campusWorkoutFlow");
+  const campusOverview = document.querySelector("#campusOverviewGrid");
+  const campusRecent = document.querySelector("#campusRecentGrid");
+
+  function openCampusTarget(target) {
+    setActiveSection(target);
+  }
+
+  function renderCampusNextTraining() {
+    if (!nextWorkout) return;
+    const today = getToday();
+    const upcoming = state.sessions
+      .filter((session) => String(session.session_date || "") >= today)
+      .map((session) => ({ session, course: state.courses.find((course) => course.id === session.course_id) }))
+      .filter((entry) => entry.course)
+      .sort((left, right) => `${left.session.session_date}-${left.course.time || ""}`.localeCompare(`${right.session.session_date}-${right.course.time || ""}`));
+    const next = upcoming[0] || null;
+    if (!next) {
+      nextWorkout.innerHTML = '<div class="campus-dashboard-empty"><strong>Kein kommender Termin geplant.</strong><span>Lege eine Session im Trainingsbereich an, damit sie hier erscheint.</span><button type="button" class="primary" data-campus-dashboard-target="#workoutBuilderPanel">Workout vorbereiten</button></div>';
+      return;
+    }
+    const snapshot = getCourseStatusSnapshot(next.course);
+    nextWorkout.innerHTML = `<article class="campus-next-card"><div><p class="eyebrow">${escapeHtml(formatDateLabel(next.session.session_date))} · ${escapeHtml(next.course.time ? `${next.course.time.slice(0, 5)} Uhr` : "Uhrzeit offen")}</p><h4>${escapeHtml(next.course.name)}</h4><p>${escapeHtml(next.course.location || "Trainingsort noch offen")}</p></div><div class="campus-next-meta"><strong>${snapshot.participants.length}</strong><span>Teilnehmende</span></div><div class="campus-next-actions"><button type="button" class="primary" data-campus-dashboard-target="#workoutBuilderPanel">Workout öffnen</button><button type="button" class="ghost" data-campus-next-session="${escapeHtml(next.session.id)}">Kurs öffnen</button></div></article>`;
+    nextWorkout.querySelector("[data-campus-next-session]")?.addEventListener("click", () => openTodaySession(next.session.id));
+  }
+
+  function renderCampusFlow() {
+    if (!workoutFlow) return;
+    const selection = getWorkoutBuilderSelection();
+    const config = getWorkoutBuilderTemplateConfig();
+    const title = selection.title || "Neues Workout";
+    workoutFlow.innerHTML = `
+      <article class="campus-flow-intro"><span>Workout</span><strong>${escapeHtml(title)}</strong><p>${escapeHtml([selection.templateTitle, selection.focus, selection.duration].filter(Boolean).join(" · ") || "Noch nicht vollständig zusammengestellt")}</p></article>
+      <article class="campus-flow-card"><span>01</span><div><small>Warm-Up</small><strong>${escapeHtml(selection.warmup?.title || "Noch nicht gewählt")}</strong><p>${escapeHtml(selection.warmup ? [getWarmupTypeLabel(selection.warmup), getWarmupDurationLabel(selection.warmup)].filter(Boolean).join(" · ") || "Ausgewählt" : "Wähle einen Einstieg.")}</p></div></article>
+      <article class="campus-flow-card"><span>02</span><div><small>${escapeHtml(selection.templateTitle)}</small><strong>${escapeHtml(config.title)}</strong><p>${escapeHtml(`${selection.exercises.length} von ${config.slots} Übungen gewählt`)}</p></div></article>
+      <article class="campus-flow-card"><span>03</span><div><small>Finisher</small><strong>${escapeHtml(selection.finisher?.title || "Noch nicht gewählt")}</strong><p>${escapeHtml(selection.finisher ? [getFinisherTypeLabel(selection.finisher), getFinisherDurationLabel(selection.finisher)].filter(Boolean).join(" · ") || "Ausgewählt" : "Wähle einen Abschluss.")}</p></div></article>`;
+  }
+
+  function renderCampusSavedWorkouts() {
+    if (!campusRecent) return;
+    const workouts = (state.savedWorkouts || []).slice().sort((left, right) => String(right.updated_at || right.saved_at || right.created_at || "").localeCompare(String(left.updated_at || left.saved_at || left.created_at || ""))).slice(0, 6);
+    if (!workouts.length) {
+      campusRecent.innerHTML = '<div class="campus-dashboard-empty"><strong>Noch keine Workouts gespeichert.</strong><span>Erstelle im Workout Builder eine Vorlage, um sie später schnell wiederzuverwenden.</span><button type="button" class="ghost" data-campus-dashboard-target="#workoutBuilderPanel">Workout Builder öffnen</button></div>';
+      return;
+    }
+    campusRecent.innerHTML = workouts.map((workout) => `<article class="campus-saved-workout"><div><strong>${escapeHtml(workout.title || "BEATFIELD Workout")}</strong><p>${escapeHtml([workout.template === "tabata" ? "Tabata" : "Zirkel", workout.focus, workout.duration].filter(Boolean).join(" · ") || "Workout-Vorlage")}</p></div><div class="mini-actions"><button type="button" class="ghost" data-campus-load-workout="${escapeHtml(workout.id)}">Laden</button><button type="button" class="primary" data-campus-open-workout="${escapeHtml(workout.id)}">Öffnen</button></div></article>`).join("");
+    campusRecent.querySelectorAll("[data-campus-load-workout]").forEach((button) => button.addEventListener("click", () => applySavedWorkout(button.dataset.campusLoadWorkout)));
+    campusRecent.querySelectorAll("[data-campus-open-workout]").forEach((button) => button.addEventListener("click", () => { applySavedWorkout(button.dataset.campusOpenWorkout); openCampusTarget("#workoutBuilderPanel"); }));
+  }
+
+  function renderCampusLibrary() {
+    if (!campusOverview) return;
+    const entries = [
+      { title: "Übungen", count: state.exercises.length, panel: "#exercisePanel" },
+      { title: "Warm-Ups", count: state.warmups.length, panel: "#warmupPanel" },
+      { title: "Finisher", count: state.finishers.length, panel: "#finisherPanel" },
+      { title: "Musik", count: state.music.length, panel: "#musicPanel" },
+      { title: "Specials", count: state.specials.length, panel: "#specialsPanel" },
+    ];
+    campusOverview.innerHTML = entries.map((entry) => `<button type="button" class="campus-library-card" data-campus-dashboard-target="${escapeHtml(entry.panel)}"><strong>${escapeHtml(String(entry.count))}</strong><span>${escapeHtml(entry.title)}</span><small>Öffnen</small></button>`).join("");
+  }
+
+  renderCampusOverview = function () {
+    renderCampusNextTraining();
+    renderCampusFlow();
+    renderCampusSavedWorkouts();
+    renderCampusLibrary();
+  };
+
+  document.querySelectorAll("[data-campus-dashboard-target]").forEach((button) => button.addEventListener("click", () => openCampusTarget(button.dataset.campusDashboardTarget)));
+})();

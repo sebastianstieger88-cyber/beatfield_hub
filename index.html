@@ -668,23 +668,36 @@
       <section class="panel wide hidden" id="campusPanel">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">CAMPUS</p>
-            <h2>Bibliotheken & Schnellzugriff</h2>
+            <p class="eyebrow">BEATFIELD</p>
+            <h2>Workout Campus</h2>
           </div>
         </div>
-        <div class="exercise-toolbar campus-search-toolbar">
-          <label>
-            <span>CAMPUS-Suche</span>
-            <input id="campusSearch" type="search" placeholder="Übungen, Finisher, Warm-Ups oder Specials durchsuchen">
-          </label>
-          <button id="campusSaveSearchBtn" type="button" class="ghost">Suche speichern</button>
-          <button id="campusResetSearchBtn" type="button" class="ghost">Zurücksetzen</button>
-        </div>
-        <div id="campusActiveFilters" class="exercise-active-filters"></div>
-        <div id="campusSavedSearches" class="exercise-active-filters campus-saved-searches"></div>
-        <div id="campusSearchResults" class="stats-grid campus-grid"></div>
-        <div id="campusOverviewGrid" class="stats-grid campus-grid"></div>
-        <div id="campusRecentGrid" class="stats-grid campus-grid"></div>
+        <p class="campus-dashboard-intro">Dein schneller Startpunkt für die nächste Trainingseinheit.</p>
+        <section class="campus-dashboard-section campus-dashboard-next" aria-labelledby="campusNextTitle">
+          <div class="campus-dashboard-heading"><div><p class="eyebrow">Nächster Termin</p><h3 id="campusNextTitle">Training vorbereiten</h3></div></div>
+          <div id="campusNextWorkout" class="campus-next-workout"></div>
+        </section>
+        <section class="campus-dashboard-section" aria-labelledby="campusFlowTitle">
+          <div class="campus-dashboard-heading"><div><p class="eyebrow">Aktuelles Workout</p><h3 id="campusFlowTitle">Ablauf auf einen Blick</h3></div><button type="button" class="ghost" data-campus-dashboard-target="#workoutBuilderPanel">Workout bearbeiten</button></div>
+          <div id="campusWorkoutFlow" class="campus-workout-flow"></div>
+        </section>
+        <section class="campus-dashboard-section" aria-labelledby="campusQuickTitle">
+          <div class="campus-dashboard-heading"><div><p class="eyebrow">Direktzugriff</p><h3 id="campusQuickTitle">Schnellaktionen</h3></div></div>
+          <div class="campus-quick-actions">
+            <button type="button" class="primary" data-campus-dashboard-target="#workoutBuilderPanel">Workout erstellen</button>
+            <button type="button" class="ghost" data-campus-dashboard-target="#warmupPanel">Warm-Up wählen</button>
+            <button type="button" class="ghost" data-campus-dashboard-target="#finisherPanel">Finisher wählen</button>
+            <button type="button" class="ghost" data-campus-dashboard-target="#musicPanel">Musik öffnen</button>
+          </div>
+        </section>
+        <section class="campus-dashboard-section" aria-labelledby="campusRecentTitle">
+          <div class="campus-dashboard-heading"><div><p class="eyebrow">Vorlagen</p><h3 id="campusRecentTitle">Zuletzt gespeicherte Workouts</h3></div><button type="button" class="ghost" data-campus-dashboard-target="#workoutBuilderPanel">Alle anzeigen</button></div>
+          <div id="campusRecentGrid" class="campus-saved-workouts"></div>
+        </section>
+        <section class="campus-dashboard-section" aria-labelledby="campusLibraryTitle">
+          <div class="campus-dashboard-heading"><div><p class="eyebrow">Bibliothek</p><h3 id="campusLibraryTitle">Deine Inhalte</h3></div></div>
+          <div id="campusOverviewGrid" class="campus-library-grid"></div>
+        </section>
       </section>
 
       <section class="panel wide hidden" id="workoutBuilderPanel">
