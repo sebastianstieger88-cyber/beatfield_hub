@@ -10121,9 +10121,7 @@ function renderParticipants() {
     button.classList.toggle("is-active", active);
     button.setAttribute("aria-pressed", String(active));
   });
-  const sessionParticipants = isAdmin()
-    ? rawSessionParticipants
-    : [...rawSessionParticipants].sort((left, right) => {
+  const sessionParticipants = [...rawSessionParticipants].sort((left, right) => {
       const leftRecord = records.find((entry) => entry.participant_id === left.id);
       const rightRecord = records.find((entry) => entry.participant_id === right.id);
       const leftPresent = left.is_trial
@@ -10140,26 +10138,16 @@ function renderParticipants() {
       const rightAbsent = !right.is_trial && !right.is_dropin && Boolean(rightRecord) && !rightRecord?.present;
       const leftBeatOut = getBeatOutEntryForParticipantSession(left.id, session?.id);
       const rightBeatOut = getBeatOutEntryForParticipantSession(right.id, session?.id);
-      const leftOverride = session?.id ? getSessionOverrideForTarget(left.id, session.id) : null;
-      const rightOverride = session?.id ? getSessionOverrideForTarget(right.id, session.id) : null;
-      const leftWeight = getTrainerChecklistWeight({
-        participant: left,
-        isPresent: leftPresent,
-        isAbsent: leftAbsent,
-        beatOutEntry: leftBeatOut,
-        targetOverride: leftOverride,
-      });
-      const rightWeight = getTrainerChecklistWeight({
-        participant: right,
-        isPresent: rightPresent,
-        isAbsent: rightAbsent,
-        beatOutEntry: rightBeatOut,
-        targetOverride: rightOverride,
-      });
+      const getStatusRank = ({ present, absent, beatOut }) => {
+        if (beatOut) return 2;
+        if (present) return 0;
+        if (absent) return 3;
+        return 1;
+      };
+      const leftRank = getStatusRank({ present: leftPresent, absent: leftAbsent, beatOut: Boolean(leftBeatOut) });
+      const rightRank = getStatusRank({ present: rightPresent, absent: rightAbsent, beatOut: Boolean(rightBeatOut) });
 
-      if (leftWeight !== rightWeight) {
-        return leftWeight - rightWeight;
-      }
+      if (leftRank !== rightRank) return leftRank - rightRank;
 
       return String(left.full_name || "").localeCompare(String(right.full_name || ""));
     });
@@ -10179,6 +10167,15 @@ function renderParticipants() {
     return;
   }
 
+  let lastTableStatusGroup = null;
+  let lastCardStatusGroup = null;
+  const statusGroupLabels = {
+    present: "Anwesend",
+    open: "Noch offen",
+    beatout: "BEAT-OUT",
+    absent: "Abwesend",
+  };
+
   sessionParticipants.forEach((participant) => {
     const isTrialParticipant = Boolean(participant.is_trial);
     const isDropInParticipant = Boolean(participant.is_dropin);
@@ -10193,6 +10190,13 @@ function renderParticipants() {
     const booking = getParticipantSeasonBooking(participant);
     const beatOutEntry = getBeatOutEntryForParticipantSession(participant.id, session?.id);
     const bookingUsage = getBeatOutUsageForBooking(booking?.id);
+    const statusGroup = beatOutEntry
+      ? "beatout"
+      : isPresent
+        ? "present"
+        : isAbsent
+          ? "absent"
+          : "open";
     const attendanceSummary = !isTrialParticipant && !isDropInParticipant
       ? (booking
         ? getSeasonBookingAttendanceSummary(booking, participant)
@@ -10217,6 +10221,7 @@ function renderParticipants() {
 
       const row = document.createElement("tr");
       row.className = [
+        `participant-row-${statusGroup}`,
         targetOverride ? "participant-row-override" : "",
         isTrialParticipant ? "participant-row-trial" : "",
         isDropInParticipant ? "participant-row-dropin" : "",
@@ -10340,6 +10345,13 @@ function renderParticipants() {
       moveButton.textContent = "Probetraining umbuchen";
     }
 
+    if (statusGroup !== lastTableStatusGroup) {
+      const separator = document.createElement("tr");
+      separator.className = `participant-status-separator participant-status-separator-${statusGroup}`;
+      separator.innerHTML = `<td colspan="5"><span>${escapeHtml(statusGroupLabels[statusGroup])}</span></td>`;
+      participantTableBody.appendChild(separator);
+      lastTableStatusGroup = statusGroup;
+    }
     participantTableBody.appendChild(row);
 
     const mobileStatusLabel = isDropInParticipant
@@ -10354,7 +10366,7 @@ function renderParticipants() {
             ? "Abwesend"
             : "Noch offen";
       const card = document.createElement("article");
-      card.className = `participant-card${targetOverride ? " participant-card-override" : ""}${isTrialParticipant ? " participant-card-trial" : ""}${isDropInParticipant ? " participant-card-dropin" : ""}${!isAdmin() && isCompletedForChecklist ? " participant-card-complete" : ""}`;
+      card.className = `participant-card participant-card-${statusGroup}${targetOverride ? " participant-card-override" : ""}${isTrialParticipant ? " participant-card-trial" : ""}${isDropInParticipant ? " participant-card-dropin" : ""}${!isAdmin() && isCompletedForChecklist ? " participant-card-complete" : ""}`;
       card.innerHTML = `
         <div class="participant-card-head">
           <div>
@@ -10496,6 +10508,13 @@ function renderParticipants() {
       mobileMoveButton.textContent = "Probetraining umbuchen";
     }
 
+    if (statusGroup !== lastCardStatusGroup) {
+      const separator = document.createElement("div");
+      separator.className = `participant-card-status-separator participant-card-status-separator-${statusGroup}`;
+      separator.textContent = statusGroupLabels[statusGroup];
+      participantCards.appendChild(separator);
+      lastCardStatusGroup = statusGroup;
+    }
     participantCards.appendChild(card);
   });
 }

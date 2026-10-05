@@ -850,3 +850,54 @@ tbody tr:hover { background: rgba(120,204,90,.055); }
   .workspace-active .dashboard-revenue-mix { padding: 16px; }
   .workspace-active .dashboard-revenue-row { grid-template-columns: 93px minmax(45px, 1fr) 82px; gap: 8px; font-size: .76rem; }
 }
+
+/* Attendance roster: status groups keep decisions visible at a glance. */
+#attendancePanel .participant-status-separator td {
+  padding: 20px 14px 8px;
+  border: 0;
+  background: #f7faf5;
+}
+#attendancePanel .participant-status-separator span,
+#attendancePanel .participant-card-status-separator {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: .72rem;
+  font-weight: 850;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+#attendancePanel .participant-status-separator-present td { padding-top: 8px; }
+#attendancePanel .participant-status-separator-present span,
+#attendancePanel .participant-card-status-separator-present { color: #1b4a27; background: #dff4d6; }
+#attendancePanel .participant-status-separator-open span,
+#attendancePanel .participant-card-status-separator-open { color: #345144; background: #e8f0e8; }
+#attendancePanel .participant-status-separator-beatout span,
+#attendancePanel .participant-card-status-separator-beatout { color: #5f4205; background: #ffe5ad; }
+#attendancePanel .participant-status-separator-absent span,
+#attendancePanel .participant-card-status-separator-absent { color: #6b211b; background: #ffd5cf; }
+#attendancePanel #participantTableBody > tr.participant-row-present > td { background: #396944; }
+#attendancePanel #participantTableBody > tr.participant-row-open > td { background: #2f6240; }
+#attendancePanel #participantTableBody > tr.participant-row-beatout > td { background: #695221; border-bottom-color: #ab8b4f; }
+#attendancePanel #participantTableBody > tr.participant-row-absent > td { background: #6b3531; border-bottom-color: #ab6e68; }
+#attendancePanel #participantTableBody > tr.participant-row-beatout:hover > td,
+#attendancePanel #participantTableBody > tr.participant-row-beatout:focus-within > td { background: #4d3b17; }
+#attendancePanel #participantTableBody > tr.participant-row-absent:hover > td,
+#attendancePanel #participantTableBody > tr.participant-row-absent:focus-within > td { background: #502521; }
+#attendancePanel #participantTableBody > tr.participant-row-beatout :is(.stat-meta, .muted, .beatout-meta),
+#attendancePanel #participantTableBody > tr.participant-row-absent :is(.stat-meta, .muted, .beatout-meta) { color: #fff1d0 !important; }
+#attendancePanel #participantTableBody > tr.participant-row-absent :is(.stat-meta, .muted, .beatout-meta) { color: #ffe1dc !important; }
+#attendancePanel .participant-card-status-separator { grid-column: 1 / -1; margin: 14px 0 1px; width: fit-content; }
+#attendancePanel .participant-card-status-separator-present { margin-top: 0; }
+#attendancePanel .participant-card-beatout { background: #695221; border-color: #ab8b4f; }
+#attendancePanel .participant-card-absent { background: #6b3531; border-color: #ab6e68; }
+#attendancePanel .participant-card-beatout:hover,
+#attendancePanel .participant-card-beatout:focus-within { background: #4d3b17; border-color: #e3bc65; }
+#attendancePanel .participant-card-absent:hover,
+#attendancePanel .participant-card-absent:focus-within { background: #502521; border-color: #efa098; }
+#attendancePanel .participant-card-beatout .stat-meta { color: #fff1d0 !important; }
+#attendancePanel .participant-card-absent .stat-meta { color: #ffe1dc !important; }
+#attendancePanel .participant-card-beatout button.ghost { background: #594517; border-color: #d4aa54; color: #fff8e5 !important; }
+#attendancePanel .participant-card-absent button.ghost { background: #572a26; border-color: #dd8a82; color: #fff1ef !important; }
