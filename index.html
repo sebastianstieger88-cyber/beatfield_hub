@@ -704,11 +704,18 @@
         <div class="panel-heading">
           <div>
             <p class="eyebrow">CAMPUS</p>
-            <h2>Build Your Own Workout</h2>
+            <h2>Workout erstellen</h2>
           </div>
         </div>
         <div class="workout-builder-layout">
           <form id="workoutBuilderForm" class="stack workout-builder-form">
+            <div class="workout-builder-steps" aria-label="Schritte im Workout Builder">
+              <span class="is-current"><b>1</b> Grundlagen</span>
+              <span><b>2</b> Warm-Up</span>
+              <span><b>3</b> Stationen</span>
+              <span><b>4</b> Finisher</span>
+              <span><b>5</b> Export</span>
+            </div>
             <div class="exercise-toolbar workout-builder-toolbar">
               <label>
                 <span>Template</span>
@@ -730,7 +737,7 @@
                 <input id="workoutDurationInput" name="duration" type="text" placeholder="z. B. 45 Minuten">
               </label>
             </div>
-            <label>
+            <label class="workout-builder-selection">
               <span>Warm-Up</span>
               <select id="workoutWarmupSelect" name="warmupId">
                 <option value="">Bitte wählen</option>
@@ -738,24 +745,24 @@
             </label>
             <div class="workout-stations">
               <div class="workout-stations-head">
-                <h3 id="workoutStationsTitle">7 Stationen Zirkel</h3>
-                <p id="workoutStationsMeta" class="stat-meta">Wähle genau sieben Übungen für den Circuit aus.</p>
+                <div><p class="eyebrow">Hauptteil</p><h3 id="workoutStationsTitle">7 Stationen Zirkel</h3><p id="workoutStationsMeta" class="stat-meta">Wähle genau sieben Übungen für den Circuit aus.</p></div>
+                <span id="workoutStationProgress" class="workout-station-progress">0 von 7 belegt</span>
               </div>
               <div id="workoutExerciseSelects" class="workout-station-grid"></div>
             </div>
-            <label>
+            <label class="workout-builder-selection">
               <span>Finisher</span>
               <select id="workoutFinisherSelect" name="finisherId">
                 <option value="">Bitte wählen</option>
               </select>
             </label>
-            <label>
+            <label class="workout-builder-notes">
               <span>Coach-Notiz</span>
               <textarea id="workoutNotesInput" name="notes" rows="4" placeholder="Optional: Ablauf, Runden, Pausen, Hinweise"></textarea>
             </label>
-            <div class="mini-actions workout-builder-actions">
+            <div class="mini-actions workout-builder-actions" aria-label="Workout Aktionen">
               <button id="workoutResetBtn" type="button" class="ghost">Zurücksetzen</button>
-              <button id="workoutSaveBtn" type="button" class="ghost">Workout speichern</button>
+              <button id="workoutSaveBtn" type="button" class="primary">Workout speichern</button>
               <button id="workoutPdfBtn" type="button" class="primary">PDF exportieren</button>
               <button id="workoutExcelBtn" type="button" class="ghost">Excel exportieren</button>
             </div>

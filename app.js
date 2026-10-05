@@ -6319,6 +6319,11 @@ function renderWorkoutBuilder() {
   if (workoutStationsMeta) {
     workoutStationsMeta.textContent = config.meta;
   }
+  const workoutStationProgress = document.querySelector("#workoutStationProgress");
+  if (workoutStationProgress) {
+    const selectedCount = state.workoutBuilder.exerciseIds.slice(0, config.slots).filter(Boolean).length;
+    workoutStationProgress.textContent = `${selectedCount} von ${config.slots} belegt`;
+  }
 
   if (workoutTitleInput) {
     workoutTitleInput.value = state.workoutBuilder.title || "";
@@ -6356,7 +6361,7 @@ function renderWorkoutBuilder() {
         const firstSlot = stationIndex * 2;
         const secondSlot = firstSlot + 1;
         return `
-          <div class="workout-station-card">
+          <div class="workout-station-card${state.workoutBuilder.exerciseIds[firstSlot] || state.workoutBuilder.exerciseIds[secondSlot] ? " is-filled" : ""}">
             <p class="eyebrow">Station ${stationIndex + 1}</p>
             <label class="workout-station-field">
               <span>Übung A</span>
@@ -6377,7 +6382,7 @@ function renderWorkoutBuilder() {
       }).join("");
     } else {
       workoutExerciseSelects.innerHTML = Array.from({ length: config.stationCount }, (_, index) => `
-        <label class="workout-station-field">
+        <label class="workout-station-field${state.workoutBuilder.exerciseIds[index] ? " is-filled" : ""}">
           <span>Station ${index + 1}</span>
           <select data-workout-station="${index}">
             <option value="">Bitte wählen</option>
