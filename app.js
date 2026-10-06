@@ -2085,6 +2085,7 @@ function showBookingStep(step, focus = true) {
 
 function setBookingFormBusy(busy) {
   seasonBookingForm.setAttribute('aria-busy', String(busy));
+  saveBookingBtn.setAttribute('aria-busy', String(busy));
   seasonBookingForm.querySelectorAll('input, select, button, textarea').forEach(control => {
     if (busy) { control.dataset.bookingWasDisabled = String(control.disabled); control.disabled = true; }
     else if ('bookingWasDisabled' in control.dataset) { control.disabled = control.dataset.bookingWasDisabled === 'true'; delete control.dataset.bookingWasDisabled; }
@@ -5226,6 +5227,7 @@ function renderExercises() {
   if (exerciseSyncBtn) {
     exerciseSyncBtn.classList.toggle("hidden", !isAdmin());
     exerciseSyncBtn.disabled = state.exerciseSyncing;
+    exerciseSyncBtn.setAttribute("aria-busy", String(state.exerciseSyncing));
     exerciseSyncBtn.textContent = state.exerciseSyncing ? "Synchronisiert..." : "Jetzt mit Notion synchronisieren";
   }
   if (exerciseFavoriteFilterBtn) {
@@ -7010,6 +7012,7 @@ function renderSpecials() {
   specialsUploadForm?.classList.toggle("hidden", !isAdmin());
   if (specialsUploadBtn) {
     specialsUploadBtn.disabled = state.specialsUploading;
+    specialsUploadBtn.setAttribute("aria-busy", String(state.specialsUploading));
     specialsUploadBtn.textContent = state.specialsUploading ? "Lädt hoch..." : state.editingSpecialId ? "Special speichern" : "PDF hochladen";
   }
   if (specialsFavoriteFilterBtn) {
@@ -7253,6 +7256,7 @@ function renderMusic() {
   musicUploadForm?.classList.toggle("hidden", !isAdmin());
   if (musicUploadBtn) {
     musicUploadBtn.disabled = state.musicUploading;
+    musicUploadBtn.setAttribute("aria-busy", String(state.musicUploading));
     musicUploadBtn.textContent = state.musicUploading ? "Lädt hoch..." : "Musik hochladen";
   }
 
@@ -7685,6 +7689,7 @@ function renderFinishers() {
   if (finisherSyncBtn) {
     finisherSyncBtn.classList.toggle("hidden", !isAdmin());
     finisherSyncBtn.disabled = state.finisherSyncing;
+    finisherSyncBtn.setAttribute("aria-busy", String(state.finisherSyncing));
     finisherSyncBtn.textContent = state.finisherSyncing ? "Synchronisiert..." : "Jetzt mit Notion synchronisieren";
   }
   if (finisherFavoriteFilterBtn) {
@@ -7899,6 +7904,7 @@ function renderWarmups() {
   if (warmupSyncBtn) {
     warmupSyncBtn.classList.toggle("hidden", !isAdmin());
     warmupSyncBtn.disabled = state.warmupSyncing;
+    warmupSyncBtn.setAttribute("aria-busy", String(state.warmupSyncing));
     warmupSyncBtn.textContent = state.warmupSyncing ? "Synchronisiert..." : "Jetzt mit Notion synchronisieren";
   }
   if (warmupFavoriteFilterBtn) {
@@ -14807,8 +14813,14 @@ function registerServiceWorker() {
 function notify(message, isError = false) {
   const toast = document.querySelector("#actionToast");
   const toastMessage = document.querySelector("#actionToastMessage");
+  const toastLabel = document.querySelector("#actionToastLabel");
   if (toast && toastMessage) {
     toastMessage.textContent = message;
+    toastMessage.setAttribute("role", isError ? "alert" : "status");
+    toast.dataset.tone = isError ? "error" : "success";
+    if (toastLabel) {
+      toastLabel.textContent = isError ? "Fehler" : "Erfolg";
+    }
     toast.classList.remove("hidden");
     toast.classList.toggle("is-error", isError);
     window.clearTimeout(notify.toastTimerId);

@@ -1376,8 +1376,12 @@
     </div>
   </template>
 
-  <div id="actionToast" class="action-toast hidden">
-    <p id="actionToastMessage" role="status" aria-live="polite" aria-atomic="true"></p>
+  <div id="actionToast" class="action-toast hidden" data-tone="success">
+    <span class="action-toast-icon" aria-hidden="true"></span>
+    <div class="action-toast-content">
+      <span id="actionToastLabel" class="action-toast-label">Erfolg</span>
+      <p id="actionToastMessage" role="status" aria-live="polite" aria-atomic="true"></p>
+    </div>
     <button id="dismissActionToast" type="button" class="ghost" aria-label="Meldung schließen">Schließen</button>
   </div>
   <script src="config.js"></script>

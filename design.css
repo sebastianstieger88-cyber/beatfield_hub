@@ -1808,3 +1808,142 @@ tbody tr:hover { background: rgba(120,204,90,.055); }
   .workspace-active #trialsPanel .form-actions { display: grid; gap: 10px; }
   .workspace-active #trialsPanel .form-actions button { min-height: 46px; }
 }
+
+/* Universal feedback system: empty, loading and status states use one clear language. */
+.workspace-active .empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 9px;
+  min-height: 132px;
+  padding: 24px;
+  border: 1px dashed #a8caa0 !important;
+  border-radius: 16px;
+  background: #f4f9f2 !important;
+  color: #314238 !important;
+  text-align: center;
+  align-content: center;
+}
+.workspace-active .empty-state::before {
+  content: "—";
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #dff1da;
+  color: #397754;
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+.workspace-active .empty-state :is(h3, strong) { margin: 0; color: #153329; }
+.workspace-active .empty-state p { margin: 0; max-width: 46ch; color: #526357 !important; line-height: 1.48; }
+.workspace-active .empty-state.is-error {
+  border-color: #e8b0aa !important;
+  background: #fff3f1 !important;
+}
+.workspace-active .empty-state.is-error::before { background: #f9d9d5; color: #9b3028; content: "!"; }
+
+.workspace-active :is(.status-pill, .course-status-pill) {
+  color: #24513b;
+  border-color: #b8d9ae;
+  background: #edf7e9;
+  font-weight: 800;
+}
+.workspace-active :is(.status-pill-ok, .course-status-pill-ok) {
+  color: #24513b;
+  border-color: #9dce8c;
+  background: #dff3d8;
+}
+.workspace-active :is(.status-pill-info, .course-status-pill-info) {
+  color: #15546b;
+  border-color: #a9d8e6;
+  background: #ebf8fb;
+}
+.workspace-active :is(.status-pill-warn, .course-status-pill-warn) {
+  color: #674c10;
+  border-color: #e6cf8f;
+  background: #fff8df;
+}
+.workspace-active :is(.status-pill-critical, .course-status-pill-critical) {
+  color: #8e2a24;
+  border-color: #e8b0aa;
+  background: #fff0ee;
+}
+
+.workspace-active :is(button, [role="button"])[aria-busy="true"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: progress;
+}
+.workspace-active :is(button, [role="button"])[aria-busy="true"]::before {
+  content: "";
+  width: .82rem;
+  height: .82rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: beatfield-spin .72s linear infinite;
+}
+.workspace-active form[aria-busy="true"] {
+  outline: 2px solid rgba(120,204,90,.48);
+  outline-offset: 3px;
+}
+@keyframes beatfield-spin { to { transform: rotate(360deg); } }
+
+.workspace-active .action-toast {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  gap: 11px;
+  align-items: center;
+  padding: 12px 13px;
+  border: 1px solid #8bcb76;
+  border-radius: 15px;
+  background: #153329;
+  color: #fff;
+}
+.workspace-active .action-toast.hidden { display: none; }
+.workspace-active .action-toast-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #b8eea5;
+  color: #153329;
+  font-weight: 900;
+}
+.workspace-active .action-toast-icon::before { content: "✓"; }
+.workspace-active .action-toast-content { min-width: 0; }
+.workspace-active .action-toast-label {
+  display: block;
+  margin-bottom: 2px;
+  color: #b8eea5;
+  font-size: .69rem;
+  font-weight: 850;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.workspace-active .action-toast p { color: #fff !important; font-size: .88rem; line-height: 1.38; }
+.workspace-active .action-toast .ghost {
+  min-height: 38px;
+  padding-inline: 10px;
+  color: #fff;
+  border-color: rgba(255,255,255,.55);
+  background: rgba(255,255,255,.08);
+}
+.workspace-active .action-toast[data-tone="error"] { border-color: #df9189; background: #572a26; }
+.workspace-active .action-toast[data-tone="error"] .action-toast-icon { background: #ffd8d3; color: #8e2a24; }
+.workspace-active .action-toast[data-tone="error"] .action-toast-icon::before { content: "!"; }
+.workspace-active .action-toast[data-tone="error"] .action-toast-label { color: #ffd8d3; }
+@media (max-width: 680px) {
+  .workspace-active .empty-state { min-height: 116px; padding: 18px; }
+  .workspace-active .action-toast {
+    grid-template-columns: 29px minmax(0, 1fr);
+    width: min(100% - 22px, 520px);
+    padding: 11px;
+  }
+  .workspace-active .action-toast-icon { width: 29px; height: 29px; }
+  .workspace-active .action-toast .ghost { grid-column: 2; width: 100%; min-height: 40px; }
+}
