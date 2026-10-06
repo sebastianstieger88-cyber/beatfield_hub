@@ -10897,26 +10897,6 @@ function renderBusinessDashboard() {
   }
   trialSeasonCard.appendChild(trialSeasonList);
   businessInsights.appendChild(trialSeasonCard);
-
-  const activeSeason = getSelectedSeason() || state.seasons.find((season) => season.status === "aktiv") || null;
-  if (activeSeason) {
-    businessInsights.appendChild(buildBeatOutOverviewCard(activeSeason, {
-      title: "Aktuelle BEAT-OUTs & Gratis-Seasons",
-      subtitle: `Aktive Season | ${activeSeason.name}: aktuelle Season-Nutzung plus seasonübergreifende Freistufen pro Teilnehmer.`,
-      emptyText: "Noch keine BEAT-OUTs oder Gratis-Season-Dynamik in der aktiven Season.",
-      maxItems: 999,
-      includeRedeemAction: true,
-      tableLayout: true,
-    }));
-  } else {
-    const beatOutCard = document.createElement("article");
-    beatOutCard.className = "stat-card";
-    beatOutCard.innerHTML = `
-      <h3>Aktuelle BEAT-OUTs & Gratis-Seasons</h3>
-      <p class="stat-meta">Sobald eine aktive Season vorhanden ist, siehst du hier die aktuelle Übersicht.</p>
-    `;
-    businessInsights.appendChild(beatOutCard);
-  }
 }
 
 function getBeatOutAnalysisRows() {
