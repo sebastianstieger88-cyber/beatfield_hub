@@ -1108,3 +1108,227 @@ tbody tr:hover { background: rgba(120,204,90,.055); }
   .workspace-active #exercisePanel .exercise-grid { grid-template-columns: 1fr; gap: 10px; }
   .workspace-active #exercisePanel .exercise-library-card { min-height: 0; padding: 16px; }
 }
+
+/* CAMPUS mobile readability: each library uses the same high-contrast cards and
+   touch targets, including the older Finisher, Warm-Up, PDF and music views. */
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) {
+  background: #f7faf5;
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .panel-heading h2 {
+  color: #153329;
+  letter-spacing: -.04em;
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) :is(.exercise-sync-meta, .specials-preview-card, .exercise-card, .inline-form) {
+  color: #162019;
+  border: 1px solid rgba(21,51,41,.15);
+  background: #fff;
+  box-shadow: 0 6px 17px rgba(17,42,29,.06);
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .exercise-sync-meta {
+  display: grid;
+  gap: 5px;
+  margin: 0 0 17px;
+  padding: 15px 17px;
+  border-radius: 16px;
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .exercise-sync-meta h3 {
+  margin: 0 0 2px;
+  color: #153329;
+  font-size: 1rem;
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .exercise-sync-meta .stat-meta {
+  margin: 0;
+  color: #526357 !important;
+  line-height: 1.45;
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .exercise-card {
+  min-height: 0;
+  padding: 17px;
+  border-radius: 18px;
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .exercise-card-favorite {
+  border-color: #d6b65f;
+  box-shadow: inset 0 3px 0 #f1cb6d, 0 6px 17px rgba(165,120,26,.09);
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .exercise-card-head .eyebrow {
+  margin: 0 0 6px;
+  color: #397754 !important;
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .exercise-card-head h3,
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .specials-preview-card h3 {
+  margin: 0;
+  color: #153329;
+  font-size: 1.12rem;
+  line-height: 1.25;
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .exercise-meta-grid {
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .exercise-meta-grid p {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f1f7ef;
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .exercise-meta-grid strong {
+  color: #397754;
+  font-size: .69rem;
+  font-weight: 850;
+  letter-spacing: .06em;
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .exercise-meta-grid span,
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) :is(.exercise-copy, .exercise-copy-muted) {
+  color: #314238 !important;
+  line-height: 1.48;
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) :is(.course-status-pill, .exercise-tag) {
+  color: #214735;
+  border-color: #b8d9ae;
+  background: #edf7e9;
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .course-status-pill-info {
+  color: #15546b;
+  border-color: #a9d8e6;
+  background: #ebf8fb;
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .course-status-pill-warn {
+  color: #674c10;
+  border-color: #e6cf8f;
+  background: #fff8df;
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .exercise-tag-row { gap: 7px; }
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .exercise-tag { padding: 5px 8px; font-size: .72rem; }
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .exercise-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .exercise-actions > :is(button, a) {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  margin: 0;
+  padding: 8px 10px;
+  text-align: center;
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .inline-form {
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border-radius: 17px;
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .inline-form label > span {
+  display: block;
+  margin-bottom: 6px;
+  color: #397754;
+  font-size: .72rem;
+  font-weight: 850;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .inline-form :is(input, select) {
+  min-height: 46px;
+  border-radius: 11px;
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .specials-preview-card {
+  gap: 13px;
+  padding: 18px;
+  border-radius: 18px;
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .specials-preview-frame {
+  border-color: #c9dfc2;
+  background: #f3f8f1;
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .specials-preview-placeholder {
+  color: #526357;
+  background: #f3f8f1;
+}
+.workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .exercise-filter-chip {
+  color: #214735;
+  border-color: #b8d9ae;
+  background: #edf7e9;
+}
+
+@media (max-width: 680px) {
+  .workspace-active :is(#campusPanel, #workoutBuilderPanel, #exercisePanel, #finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) {
+    padding: 16px 13px;
+  }
+  .workspace-active :is(#campusPanel, #workoutBuilderPanel, #exercisePanel, #finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .panel-heading {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .workspace-active :is(#campusPanel, #workoutBuilderPanel, #exercisePanel, #finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .panel-heading > button {
+    width: 100%;
+    min-height: 48px;
+  }
+  .workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .finisher-toolbar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0 0 13px;
+  }
+  .workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .finisher-toolbar label:first-child {
+    grid-column: 1 / -1;
+  }
+  .workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .finisher-toolbar label > span {
+    display: block;
+    margin-bottom: 6px;
+    color: #397754;
+    font-size: .71rem;
+    font-weight: 850;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+  }
+  .workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .finisher-toolbar :is(input, select, button) {
+    width: 100%;
+    min-width: 0;
+    min-height: 46px;
+    padding-inline: 9px;
+    font-size: .79rem;
+  }
+  .workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .exercise-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .exercise-card {
+    padding: 15px;
+  }
+  .workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .exercise-card-head {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .course-status-grid {
+    width: 100%;
+  }
+  .workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .course-status-pill {
+    min-height: 28px;
+    font-size: .72rem;
+  }
+  .workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .exercise-meta-grid p {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .exercise-meta-grid span { text-align: left; }
+  .workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .exercise-actions > :is(button, a) { min-height: 46px; font-size: .82rem; }
+  .workspace-active :is(#finisherPanel, #warmupPanel, #specialsPanel, #musicPanel) .specials-layout { gap: 12px; }
+  .workspace-active :is(#specialsPanel, #musicPanel) .exercise-table-wrap { display: none; }
+  .workspace-active :is(#finisherPanel, #warmupPanel) .exercise-table-wrap {
+    margin-bottom: 4px;
+    border-radius: 13px;
+  }
+  .workspace-active :is(#finisherPanel, #warmupPanel) .exercise-table { min-width: 660px; }
+  .workspace-active :is(#specialsPanel, #musicPanel) .specials-preview-frame,
+  .workspace-active :is(#specialsPanel, #musicPanel) .specials-preview-frame iframe,
+  .workspace-active :is(#specialsPanel, #musicPanel) .specials-preview-frame embed { min-height: 265px; }
+  .workspace-active :is(#specialsPanel, #musicPanel) .specials-preview-placeholder { min-height: 180px; padding: 20px; }
+  .workspace-active .workout-preview-pair { grid-template-columns: 1fr; }
+  .workspace-active .workout-saved-list { padding: 14px; }
+}
