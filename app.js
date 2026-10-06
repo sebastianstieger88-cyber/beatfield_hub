@@ -15678,12 +15678,13 @@ function formatCampusDetailCopy(value) {
     });
     const packageRevenue = packages.reduce((sum, row) => sum + row.revenue, 0);
     const singleRevenue = singles.reduce((sum, row) => sum + row.revenue, 0);
+    const dropInRevenue = singles.find((row) => row.provider === 'dropin')?.revenue || 0;
     const checkInRevenue = singles.filter(row => row.provider !== 'dropin').reduce((sum, row) => sum + row.revenue, 0);
     const total = packageRevenue + singleRevenue;
     const summary = [
       ['Season-Umsatz', euro(total), season.name + ' · alle erfassten Einnahmen'],
       ['Season-Pakete', euro(packageRevenue), packages.reduce((sum, row) => sum + row.count, 0) + ' gebuchte Pakete'],
-      ['Einzelbuchungen', euro(singleRevenue), singles[0].count + ' DROP-IN-Buchungen'],
+      ['Einzelbuchungen', euro(dropInRevenue), singles[0].count + ' DROP-IN-Buchungen'],
       ['eGYM & Hansefit', euro(checkInRevenue), (singles[1].count + singles[2].count) + ' abgerechnete Check-ins'],
     ];
     cards.innerHTML = summary.map(([title,value,meta]) => '<article class="stat-card"><h3>' + escape(title) + '</h3><p class="hero-stat">' + escape(value) + '</p><p class="stat-meta">' + escape(meta) + '</p></article>').join('');
@@ -15721,12 +15722,13 @@ function formatCampusDetailCopy(value) {
     ].map(([provider,label,unitPrice,description,qualifies]) => { const count = state.dropInBookings.filter(entry => (entry.booking_provider || 'dropin') === provider && sessionIds.has(entry.attendance_session_id) && qualifies(entry)).length; return {label,count,unitPrice,revenue:count*unitPrice,description,provider}; });
     const packageRevenue = packages.reduce((sum,row) => sum + row.revenue, 0);
     const singleRevenue = singles.reduce((sum,row) => sum + row.revenue, 0);
+    const dropInRevenue = singles.find((row) => row.provider === 'dropin')?.revenue || 0;
     const checkInRevenue = singles.filter(row => row.provider !== 'dropin').reduce((sum,row) => sum + row.revenue, 0);
     const total = packageRevenue + singleRevenue;
     const summary = [
       ['Season-Umsatz', euro(total), season.name + ' · tatsächliche Einnahmen'],
       ['Season-Pakete', euro(packageRevenue), packages.reduce((sum,row) => sum + row.count, 0) + ' gebuchte Pakete'],
-      ['Einzelbuchungen', euro(singleRevenue), singles[0].count + ' DROP-IN-Buchungen'],
+      ['Einzelbuchungen', euro(dropInRevenue), singles[0].count + ' DROP-IN-Buchungen'],
       ['eGYM & Hansefit', euro(checkInRevenue), (singles[1].count + singles[2].count) + ' abgerechnete Check-ins'],
     ];
     cards.innerHTML = summary.map(([title,value,meta]) => '<article class="stat-card"><h3>' + escape(title) + '</h3><p class="hero-stat">' + escape(value) + '</p><p class="stat-meta">' + escape(meta) + '</p></article>').join('');
@@ -15895,10 +15897,11 @@ function formatCampusDetailCopy(value) {
     ].map((item) => { const count = state.dropInBookings.filter((entry) => (entry.booking_provider || "dropin") === item.provider && sessionIds.has(entry.attendance_session_id) && item.qualifies(entry)).length; return { ...item, count, revenue: count * item.price }; });
     const packageRevenue = packages.reduce((sum, item) => sum + item.revenue, 0);
     const singleRevenue = singles.reduce((sum, item) => sum + item.revenue, 0);
+    const dropInRevenue = singles.find((item) => item.provider === "dropin")?.revenue || 0;
     const total = packageRevenue + singleRevenue;
     const rows = [...packages, ...singles];
     const maxRevenue = Math.max(...rows.map((item) => item.revenue), 1);
-    dashboardRevenue.innerHTML = `<article class="dashboard-revenue-total"><span>Season-Umsatz</span><strong>${escapeHtml(money(total))}</strong><p>${escapeHtml(season.name)} · tatsächliche Einnahmen</p></article><article class="dashboard-revenue-mix"><div class="dashboard-revenue-kpis"><span><strong>${escapeHtml(money(packageRevenue))}</strong>Season-Pakete</span><span><strong>${escapeHtml(money(singleRevenue))}</strong>Einzelbuchungen</span></div><div class="dashboard-revenue-bars">${rows.map((item) => `<div class="dashboard-revenue-row"><span>${escapeHtml(item.label)} <b>${item.count}</b></span><div><i style="--revenue-width:${Math.round((item.revenue / maxRevenue) * 100)}%"></i></div><strong>${escapeHtml(money(item.revenue))}</strong></div>`).join("")}</div></article>`;
+    dashboardRevenue.innerHTML = `<article class="dashboard-revenue-total"><span>Season-Umsatz</span><strong>${escapeHtml(money(total))}</strong><p>${escapeHtml(season.name)} · tatsächliche Einnahmen</p></article><article class="dashboard-revenue-mix"><div class="dashboard-revenue-kpis"><span><strong>${escapeHtml(money(packageRevenue))}</strong>Season-Pakete</span><span><strong>${escapeHtml(money(dropInRevenue))}</strong>DROP-INs</span></div><div class="dashboard-revenue-bars">${rows.map((item) => `<div class="dashboard-revenue-row"><span>${escapeHtml(item.label)} <b>${item.count}</b></span><div><i style="--revenue-width:${Math.round((item.revenue / maxRevenue) * 100)}%"></i></div><strong>${escapeHtml(money(item.revenue))}</strong></div>`).join("")}</div></article>`;
   }
 
   renderTodayDashboard = function () {
