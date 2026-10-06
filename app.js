@@ -2,6 +2,7 @@
 
 import { createPushReminders, preparePushWorker } from './push-reminders.js';
 import { createWixIntegration } from './wix-integration.js';
+import { createWorkoutTimer } from './features/campus/timer/ui.js';
 const config = window.APP_CONFIG || {};
 const hasConfig = Boolean(config.supabaseUrl && config.supabaseAnonKey && config.siteUrl);
 const ENABLE_OFFLINE_MODE = false;
@@ -408,6 +409,7 @@ const contentPanels = [
   seasonPanel,
   bookingPanel,
   todayPanel,
+  document.querySelector("#timerPanel"),
   campusPanel,
   workoutBuilderPanel,
   trialsPanel,
@@ -834,6 +836,9 @@ window.addEventListener("offline", handleConnectivityChange);
 
 const pushReminders = createPushReminders({ getState: () => state, notify, openSession: openTodaySession });
 document.querySelector('#openPushSettingsBtn')?.addEventListener('click', () => scrollToSection('#sessionPanel'));
+const workoutTimer = createWorkoutTimer({root: document.querySelector("#timerPanel"), getContext: () => ({userId: state.session?.user?.id && ["admin", "trainer"].includes(state.profile?.role) ? state.session.user.id : null, client: state.supabase, isAdmin: isAdmin()}), notify});
+window.BEATFIELD_TIMER = {loadWorkout: input => workoutTimer.loadWorkout(input)};
+
 initialize();
 
 async function initialize() {
@@ -3789,6 +3794,7 @@ function openSingleBookingForm(entry = null, sessionId = null) {
 }
 
 function render() {
+  workoutTimer.sync();
   wixIntegration.render();
   pushReminders.render();
   const connected = Boolean(state.supabase);
@@ -14397,7 +14403,8 @@ function getAvailableSections({ connected, loggedIn, appUnlocked }) {
         "#todayPanel",
         "#trialsPanel",
         "#campusPanel",
-        "#workoutBuilderPanel",
+        "#timerPanel",
+    "#workoutBuilderPanel",
         "#exercisePanel",
         "#finisherPanel",
         "#warmupPanel",
@@ -14416,6 +14423,7 @@ function getAvailableSections({ connected, loggedIn, appUnlocked }) {
         "#todayPanel",
         "#trialsPanel",
         "#campusPanel",
+        "#timerPanel",
         "#workoutBuilderPanel",
         "#exercisePanel",
         "#finisherPanel",
@@ -14439,7 +14447,8 @@ function getNavigationSections(availableSections, { connected, loggedIn, appUnlo
   return availableSections.filter((sectionId) => [
     "#todayPanel",
     "#campusPanel",
-    "#workoutBuilderPanel",
+    "#timerPanel",
+        "#workoutBuilderPanel",
     "#exercisePanel",
     "#finisherPanel",
     "#warmupPanel",

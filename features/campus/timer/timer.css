@@ -1,0 +1,45 @@
+/* Campus Timer: high contrast setup and outdoor coach display. */
+#timerPanel {color:#162019;background:#f7faf5;}
+#timerPanel h2,#timerPanel h3,#timerPanel legend {color:#162019;}
+#timerPanel p,#timerPanel label,#timerPanel summary {color:#314238;}
+#timerPanel button {min-height:48px;padding:12px 18px;border:1px solid #afc4b6;border-radius:12px;background:#fff;color:#153329;font-weight:700;cursor:pointer;}
+#timerPanel button:hover {background:#e3f1dc;color:#153329;border-color:#468439;}
+#timerPanel button.primary {background:#78cc5a;color:#102015;border-color:#78cc5a;}
+#timerPanel button:disabled {opacity:.55;cursor:default;}
+#timerPanel input,#timerPanel select,#timerPanel textarea {background:#fff;color:#162019;min-height:48px;border:1px solid #a3b4a9;border-radius:10px;width:100%;padding:12px;box-sizing:border-box;}
+#timerPanel input[type=checkbox] {width:24px;min-height:24px;accent-color:#468439;}
+#timerPanel :focus-visible {outline:3px solid #468439;outline-offset:3px;}
+.timer-heading,.timer-coach-top {display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;}
+.timer-heading h2 {margin-top:4px;}
+.timer-actions {display:flex;gap:10px;flex-wrap:wrap;margin:16px 0;}
+.timer-grid,.timer-preset-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;}
+.timer-grid label {display:flex;flex-direction:column;gap:8px;font-weight:600;}
+.timer-grid .timer-toggle {flex-direction:row;align-items:center;}
+.timer-mode-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0;}
+#timerPanel .timer-mode-grid button {background:#153329;color:#fff;min-height:76px;}
+#timerPanel .timer-mode-grid button:hover {background:#28583d;color:#fff;}
+.timer-preset,.timer-summary,.timer-blocks fieldset {padding:20px;border:1px solid #c6d5cb;border-radius:16px;background:#fff;min-width:0;}
+.timer-preset {display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;}
+.timer-preset strong,.timer-preset span {display:block;overflow-wrap:anywhere;}
+.timer-preset span {color:#526357;font-size:.9rem;margin-top:6px;}
+.timer-summary>strong {font-size:3rem;color:#153329;}
+.timer-blocks fieldset {margin:16px 0;}
+.timer-history {margin-top:24px;}
+#timerPanel .timer-history summary {padding:16px;font-weight:700;cursor:pointer;}
+.timer-coach {background:#0e1a14;color:#fff;padding:24px;border-radius:20px;text-align:center;min-height:70vh;display:flex;flex-direction:column;justify-content:center;}
+#timerPanel .timer-coach p,#timerPanel .timer-coach summary {color:#d7e9dc;}
+.timer-coach-top {font-size:1rem;text-align:left;}
+.timer-phase {font-size:clamp(1.5rem,4vw,3rem);font-weight:800;color:#a8eb8f;margin-top:18px;overflow-wrap:anywhere;}
+.timer-time {font-size:clamp(5rem,18vw,13rem);line-height:1.2;font-variant-numeric:tabular-nums;font-weight:800;letter-spacing:-.04em;color:#fff;}
+.timer-round,.timer-next {font-size:clamp(1rem,2.3vw,1.6rem);margin:8px 0;}
+.timer-coach .timer-actions {justify-content:center;}
+#timerPanel .timer-coach button {background:#244533;color:#fff;border-color:#517960;}
+#timerPanel .timer-coach button:hover {background:#386447;color:#fff;}
+#timerPanel .timer-main-controls button:first-child {background:#78cc5a;color:#102015;}
+.timer-coach[data-phase=REST] .timer-phase,.timer-coach[data-phase=SET_REST] .timer-phase {color:#8acbff;}
+body.timer-coaching .app-nav,body.timer-coaching .hero,body.timer-coaching .mobile-bottom-nav {display:none!important;}
+#timerPanel:fullscreen {background:#0e1a14;padding:24px;overflow:auto;}
+.timer-big .timer-time {font-size:clamp(7rem,24vw,20rem);}
+#timerPanel .timer-audio-warning {font-size:.85rem;color:#ffe3a0;}
+@media(max-width:680px){#timerPanel {padding:16px 12px;}.timer-grid,.timer-preset-grid {grid-template-columns:1fr;}.timer-mode-grid {grid-template-columns:repeat(2,minmax(0,1fr));}.timer-preset,.timer-summary {padding:16px;}.timer-coach {padding:16px 10px;}.timer-actions button {flex:1 1 auto;}.timer-heading .timer-actions {width:100%;}.timer-time {font-size:clamp(4.5rem,21vw,8rem);}}
+@media(orientation:landscape) and (max-height:600px){.timer-coach {min-height:80vh;padding:12px;}.timer-time {font-size:clamp(5rem,20vh,9rem);}.timer-phase {font-size:1.4rem;margin:0;}.timer-coach-top {font-size:.85rem;}.timer-round,.timer-next {font-size:1rem;margin:4px;}.timer-actions {margin:8px 0;}}

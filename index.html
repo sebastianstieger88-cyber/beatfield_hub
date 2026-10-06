@@ -11,6 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="design.css">
+  <link rel="stylesheet" href="features/campus/timer/timer.css">
 </head>
 <body>
   <div class="app-shell">
@@ -45,7 +46,8 @@
         <details class="nav-group">
           <summary><span class="nav-icon">&#9679;</span><span>CAMPUS</span></summary>
           <div class="nav-submenu">
-            <a href="#campusPanel">Dashboard</a>
+            <a href="#campusPanel">Workouts</a>
+            <a href="#timerPanel">Timer</a>
             <a href="#workoutBuilderPanel">Workout Builder</a>
             <a href="#exercisePanel">&#220;bungen</a>
             <a href="#finisherPanel">Finisher</a>
@@ -699,6 +701,8 @@
           <div id="campusOverviewGrid" class="campus-library-grid"></div>
         </section>
       </section>
+
+      <section class="panel wide hidden" id="timerPanel" aria-label="Campus Workout Timer"></section>
 
       <section class="panel wide hidden" id="workoutBuilderPanel">
         <div class="panel-heading">

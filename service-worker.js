@@ -1,4 +1,4 @@
-const CACHE_NAME = "beatfield-attendance-cache-v9";
+const CACHE_NAME = "beatfield-attendance-cache-v10";
 const ENABLE_ASSET_CACHE = false;
 const CORE_ASSETS = [
   "./",
@@ -6,6 +6,11 @@ const CORE_ASSETS = [
   "./styles.css",
   "./design.css",
   "./app.js",
+  "./features/campus/timer/engine.js",
+  "./features/campus/timer/audio.js",
+  "./features/campus/timer/storage.js",
+  "./features/campus/timer/ui.js",
+  "./features/campus/timer/timer.css",
   "./push-reminders.js",
   "./wix-integration.js",
   "./config.js",
