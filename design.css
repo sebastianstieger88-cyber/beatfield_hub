@@ -632,6 +632,51 @@ tbody tr:hover { background: rgba(120,204,90,.055); }
 .workspace-active #revenueBreakdown .revenue-bar { display: block; width: 100%; height: 5px; margin-top: 8px; overflow: hidden; border-radius: 999px; background: #e3ebe1; }
 .workspace-active #revenueBreakdown .revenue-bar::after { content: ""; display: block; width: var(--revenue-share, 0%); height: 100%; border-radius: inherit; background: linear-gradient(90deg, #78cc5a, #3f9374); }
 
+/* The breakdown itself is the table wrapper.  Give that element an explicit
+   light surface so the dark legacy wrapper cannot lower the text contrast. */
+.workspace-active #revenueBreakdown {
+  overflow: hidden;
+  border: 1px solid rgba(21,51,41,.16) !important;
+  border-radius: 16px;
+  background: #fff !important;
+  box-shadow: 0 8px 24px rgba(17,42,29,.06);
+}
+.workspace-active #revenueBreakdown table { background: #fff; }
+.workspace-active #revenueBreakdown tbody tr { background: #fff; }
+.workspace-active #revenueBreakdown tbody tr:nth-child(even) { background: #f6faf4; }
+.workspace-active #revenueBreakdown tbody tr:hover { background: #eaf6e6; }
+.workspace-active #revenueBreakdown :is(th, td) {
+  color: #314238 !important;
+  border-bottom-color: rgba(21,51,41,.11) !important;
+}
+.workspace-active #revenueBreakdown td {
+  padding: 17px 16px;
+  font-size: .94rem;
+}
+.workspace-active #revenueBreakdown td strong {
+  color: #153329 !important;
+  font-weight: 820;
+}
+.workspace-active #revenueBreakdown td .stat-meta {
+  margin-top: 4px;
+  color: #526357 !important;
+  font-size: .83rem;
+}
+.workspace-active #revenueBreakdown td:last-child strong {
+  color: #24513b !important;
+  font-size: 1.06rem;
+}
+.workspace-active #revenueBreakdown tfoot td,
+.workspace-active #revenueBreakdown tfoot td strong {
+  color: #fff !important;
+  background: #153329 !important;
+}
+.workspace-active #revenueBreakdown tfoot td:last-child strong { color: #b8eea5 !important; }
+@media (max-width: 600px) {
+  .workspace-active #revenueBreakdown { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .workspace-active #revenueBreakdown table { min-width: 620px; }
+}
+
 
 /* Coach Hub readability audit: light surfaces use explicit dark text, not inherited dark-theme tokens. */
 .workspace-active {
