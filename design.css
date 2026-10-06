@@ -1332,3 +1332,201 @@ tbody tr:hover { background: rgba(120,204,90,.055); }
   .workspace-active .workout-preview-pair { grid-template-columns: 1fr; }
   .workspace-active .workout-saved-list { padding: 14px; }
 }
+
+/* Analysis workspace: consistent Finance-style contrast for every report view. */
+.workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) {
+  background: #f7faf5;
+}
+.workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) .panel-heading h2 {
+  color: #153329;
+  letter-spacing: -.045em;
+}
+.workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) :is(.stat-card, .dashboard-card) {
+  color: #162019;
+  border: 1px solid rgba(21,51,41,.15) !important;
+  background: #fff !important;
+  box-shadow: 0 6px 17px rgba(17,42,29,.06) !important;
+}
+.workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) :is(.stat-card, .dashboard-card) h3 {
+  margin: 0 0 9px;
+  color: #397754;
+  font-size: .76rem;
+  font-weight: 850;
+  letter-spacing: .075em;
+  text-transform: uppercase;
+}
+.workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) :is(.stat-card, .dashboard-card) .hero-stat {
+  margin: 0 0 10px;
+  color: #153329;
+  font-weight: 840;
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+}
+.workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) :is(.stat-card, .dashboard-card) .stat-meta {
+  margin: 0;
+  color: #526357 !important;
+  line-height: 1.48;
+}
+.workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) .kpi-section {
+  gap: 13px;
+  padding: 19px;
+  border: 1px solid rgba(21,51,41,.13);
+  border-radius: 19px;
+  background: rgba(255,255,255,.7);
+}
+.workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) .kpi-section + .kpi-section { margin-top: 15px; }
+.workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) .kpi-section-head {
+  padding-bottom: 13px;
+  border-bottom-color: rgba(21,51,41,.12);
+}
+.workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) .kpi-section-head h3 {
+  color: #153329;
+  font-size: 1.15rem;
+}
+.workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) .kpi-section-head .stat-meta {
+  color: #526357 !important;
+  line-height: 1.45;
+}
+.workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) :is(.report-actions, .operations-toolbar) {
+  border: 1px solid rgba(21,51,41,.15);
+  background: #fff;
+  box-shadow: 0 6px 17px rgba(17,42,29,.06);
+}
+.workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) .list-row {
+  padding: 13px 14px;
+  border: 1px solid #e0eadc;
+  border-radius: 13px;
+  background: #f4f8f2;
+}
+.workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) .list-row strong { color: #153329; }
+.workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) :is(.status-pill, .course-status-pill) {
+  color: #214735;
+  border-color: #b8d9ae;
+  background: #edf7e9;
+}
+.workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) .status-pill-warn {
+  color: #674c10;
+  border-color: #e6cf8f;
+  background: #fff8df;
+}
+.workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) .status-pill-info {
+  color: #15546b;
+  border-color: #a9d8e6;
+  background: #ebf8fb;
+}
+.workspace-active #beatoutHistory > .stat-card { padding: 20px; }
+.workspace-active #beatoutHistory .table-wrap {
+  border: 1px solid rgba(21,51,41,.15);
+  border-radius: 15px;
+  background: #fff;
+}
+.workspace-active #beatoutHistory .beatout-table thead th {
+  background: #edf5ea;
+  color: #314238;
+  border-bottom-color: rgba(21,51,41,.12);
+}
+.workspace-active #beatoutHistory .beatout-table tbody tr:hover { background: #f1f8ee; }
+.workspace-active #beatoutHistory .beatout-history-event {
+  color: #15546b;
+  border-color: #a9d8e6;
+  background: #ebf8fb;
+}
+
+/* Monthly calendar remains readable by using light event cards instead of inherited dark tokens. */
+.workspace-active #monthlyPanel .stack > label > span {
+  display: block;
+  margin-bottom: 7px;
+  color: #397754;
+  font-size: .74rem;
+  font-weight: 850;
+  letter-spacing: .075em;
+  text-transform: uppercase;
+}
+.workspace-active #monthlyPanel #monthPicker {
+  min-height: 46px;
+  border-radius: 12px;
+}
+.workspace-active #monthlyPanel .monthly-calendar-panel {
+  padding: 17px;
+  border: 1px solid rgba(21,51,41,.15);
+  border-radius: 19px;
+  background: #fff;
+  box-shadow: 0 6px 17px rgba(17,42,29,.06);
+}
+.workspace-active #monthlyPanel .monthly-calendar-heading h3 { color: #153329; }
+.workspace-active #monthlyPanel .monthly-calendar-legend-item {
+  color: #314238;
+  border-color: #d5e5d0;
+  background: #f4f8f2;
+}
+.workspace-active #monthlyPanel .monthly-calendar-weekdays span { color: #526357; }
+.workspace-active #monthlyPanel .monthly-calendar-day {
+  border-color: #d9e7d5;
+  background: #fff;
+}
+.workspace-active #monthlyPanel .monthly-calendar-day.has-events { background: #f5faf3; }
+.workspace-active #monthlyPanel .monthly-calendar-day.is-today {
+  border-color: #78cc5a;
+  box-shadow: inset 0 0 0 1px rgba(120,204,90,.22);
+}
+.workspace-active #monthlyPanel .monthly-calendar-day-number { color: #153329; font-weight: 820; }
+.workspace-active #monthlyPanel .monthly-calendar-day-meta { color: #526357; }
+.workspace-active #monthlyPanel .monthly-calendar-day-count { color: #24513b; }
+.workspace-active #monthlyPanel .monthly-calendar-event-session { color: #214735; border-color: #b8d9ae; background: #edf7e9; }
+.workspace-active #monthlyPanel .monthly-calendar-event-trial { color: #674c10; border-color: #e6cf8f; background: #fff8df; }
+.workspace-active #monthlyPanel .monthly-calendar-event-dropin { color: #15546b; border-color: #a9d8e6; background: #ebf8fb; }
+.workspace-active #monthlyPanel .monthly-calendar-event-override { color: #314238; border-color: #cfd8d1; background: #f1f4f1; }
+.workspace-active #monthlyPanel .monthly-calendar-more { color: #24513b; background: #edf7e9; }
+
+@media (max-width: 680px) {
+  .workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) {
+    padding: 16px 13px;
+  }
+  .workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) .panel-heading {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 9px;
+  }
+  .workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) :is(.stats-grid, #statsCards, #monthlyCards, #businessCards, #businessInsights, #beatoutCards, #reportPreview) {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .workspace-active :is(#statsCards, #businessCards, #beatoutCards, #reportPreview) > .stat-card:first-child {
+    grid-column: auto;
+  }
+  .workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) :is(.stat-card, .dashboard-card) {
+    min-height: 0 !important;
+    padding: 16px !important;
+  }
+  .workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) :is(.stat-card, .dashboard-card) .hero-stat {
+    font-size: clamp(1.6rem, 7vw, 2.1rem) !important;
+  }
+  .workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) .kpi-section {
+    padding: 15px;
+    border-radius: 16px;
+  }
+  .workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) .kpi-section-head {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .workspace-active :is(#monthlyPanel, #statsPanel, #businessPanel, #beatoutPanel, #reportsPanel) .kpi-section-head .stat-meta { text-align: left; }
+  .workspace-active #reportsPanel .report-actions { grid-template-columns: 1fr; padding: 11px; }
+  .workspace-active #reportsPanel .report-actions button { width: 100%; min-height: 48px; }
+  .workspace-active #beatoutHistory > .stat-card { padding: 15px !important; }
+  .workspace-active #beatoutHistory .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .workspace-active #beatoutHistory .beatout-table { min-width: 840px; }
+  .workspace-active #monthlyPanel .monthly-calendar-panel {
+    padding: 13px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .workspace-active #monthlyPanel .monthly-calendar-heading,
+  .workspace-active #monthlyPanel .monthly-calendar-actions { min-width: 610px; }
+  .workspace-active #monthlyPanel :is(.monthly-calendar-weekdays, .monthly-calendar-grid) {
+    min-width: 610px;
+    gap: 7px;
+  }
+  .workspace-active #monthlyPanel .monthly-calendar-day { min-height: 144px; padding: 9px; border-radius: 13px; }
+  .workspace-active #monthlyPanel .monthly-calendar-event { padding: 8px; font-size: .78rem; }
+}
