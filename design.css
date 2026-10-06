@@ -1575,3 +1575,236 @@ tbody tr:hover { background: rgba(120,204,90,.055); }
   .workspace-active #monthlyPanel .monthly-calendar-day { min-height: 144px; padding: 9px; border-radius: 13px; }
   .workspace-active #monthlyPanel .monthly-calendar-event { padding: 8px; font-size: .78rem; }
 }
+
+/* Booking workspace: remove the remaining dark legacy surfaces and make every
+   form, booking history and trial card easy to scan on a phone. */
+.workspace-active :is(#bookingPanel, #trialsPanel) { background: #f7faf5; }
+.workspace-active :is(#bookingPanel, #trialsPanel) .panel-heading h2 {
+  color: #153329;
+  letter-spacing: -.045em;
+}
+.workspace-active #bookingPanel .booking-form-shell,
+.workspace-active #bookingPanel .booking-list-shell,
+.workspace-active #trialsPanel .trial-section {
+  border: 1px solid rgba(21,51,41,.15);
+  background: #fff;
+  box-shadow: 0 7px 19px rgba(17,42,29,.06);
+}
+.workspace-active #bookingPanel .booking-section-head,
+.workspace-active #trialsPanel .trial-section-head { margin-bottom: 16px; }
+.workspace-active #bookingPanel :is(.booking-section-head h3, .booking-step h4),
+.workspace-active #trialsPanel .trial-section-head h3 {
+  color: #153329;
+}
+.workspace-active #bookingPanel :is(.booking-section-head .stat-meta, .booking-step .stat-meta),
+.workspace-active #trialsPanel .trial-section-head .stat-meta { color: #526357 !important; }
+.workspace-active #bookingPanel .booking-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: none;
+}
+.workspace-active #bookingPanel .booking-steps li {
+  min-height: 42px;
+  padding: 9px 10px;
+  border: 1px solid #d2e4cc;
+  border-radius: 12px;
+  background: #f3f8f1;
+  color: #397754;
+  font-size: .79rem;
+  font-weight: 820;
+}
+.workspace-active #bookingPanel .booking-steps li[aria-current="step"] {
+  border-color: #78cc5a;
+  background: #dff3d8;
+  color: #153329;
+  box-shadow: inset 3px 0 0 #78cc5a;
+}
+.workspace-active #bookingPanel .booking-step {
+  padding: 17px;
+  border: 1px solid #dce9d7;
+  border-radius: 16px;
+  background: #fbfef9;
+}
+.workspace-active #bookingPanel .booking-step h4 { margin: 0 0 14px; font-size: 1.12rem; }
+.workspace-active #bookingPanel :is(label, legend) > span,
+.workspace-active #bookingPanel .weekday-picker legend,
+.workspace-active #trialsPanel form label > span,
+.workspace-active #trialsPanel .form-actions label > span {
+  color: #397754;
+  font-size: .72rem;
+  font-weight: 850;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+.workspace-active #bookingPanel :is(input, select),
+.workspace-active #trialsPanel :is(input, select) {
+  min-height: 46px;
+  border-radius: 11px;
+  background: #fff !important;
+}
+.workspace-active #bookingPanel .booking-optional {
+  padding: 12px 13px;
+  border: 1px solid #d9e7d5;
+  border-radius: 13px;
+  background: #f5faf3;
+}
+.workspace-active #bookingPanel .booking-optional summary {
+  color: #24513b;
+  font-weight: 760;
+  cursor: pointer;
+}
+.workspace-active #bookingPanel .booking-optional[open] summary { margin-bottom: 12px; }
+.workspace-active #bookingPanel .weekday-picker {
+  padding: 14px;
+  border: 1px solid #d9e7d5;
+  border-radius: 15px;
+  background: #f5faf3;
+}
+.workspace-active #bookingPanel .checkbox-line {
+  min-height: 48px;
+  border-color: #c9dfc2;
+  background: #fff;
+}
+.workspace-active #bookingPanel .checkbox-line span { color: #153329; font-weight: 720; }
+.workspace-active #bookingPanel .booking-review {
+  padding: 15px;
+  border: 1px solid #c9dfc2;
+  border-radius: 14px;
+  background: #edf7e9;
+  color: #153329;
+}
+.workspace-active #bookingPanel .booking-field-error { color: #a32c24; font-weight: 720; }
+.workspace-active #bookingPanel .booking-table-toolbar {
+  border: 1px solid rgba(21,51,41,.15);
+  background: #fff;
+  box-shadow: 0 5px 14px rgba(17,42,29,.05);
+}
+.workspace-active #bookingPanel .booking-quick-filters button.is-active {
+  color: #153329;
+  border-color: #78cc5a;
+  background: #dff3d8;
+}
+.workspace-active #bookingPanel .booking-table-active-info {
+  padding: 9px 11px;
+  border-radius: 11px;
+  background: #edf7e9;
+  color: #24513b;
+}
+.workspace-active #bookingPanel .booking-table-wrap {
+  border: 1px solid rgba(21,51,41,.15);
+  background: #fff;
+  box-shadow: 0 6px 17px rgba(17,42,29,.06);
+}
+.workspace-active #bookingPanel .booking-table thead th {
+  background: #edf5ea;
+  color: #314238;
+  border-bottom-color: rgba(21,51,41,.12);
+}
+.workspace-active #bookingPanel .booking-table-row td { background: #fff; }
+.workspace-active #bookingPanel .booking-table-row:nth-of-type(4n + 1) td { background: #f7fbf5; }
+.workspace-active #bookingPanel .booking-table-row-highlight td { background: #fff8df; }
+.workspace-active #bookingPanel .booking-table-detail-cell { background: #f1f7ef !important; }
+.workspace-active #bookingPanel .booking-table-detail { padding: 14px; }
+.workspace-active #bookingPanel .booking-history-row {
+  padding: 14px;
+  border-color: #cfe3c8;
+  border-radius: 14px;
+  background: #fff;
+}
+.workspace-active #bookingPanel .booking-history-row-copy strong { color: #153329; }
+.workspace-active #bookingPanel .booking-history-summary-item {
+  border-color: #d9e7d5;
+  background: #f5faf3;
+}
+.workspace-active #bookingPanel .booking-history-summary-label,
+.workspace-active #bookingPanel .booking-history-row .stat-meta { color: #526357 !important; }
+
+.workspace-active #trialsPanel .trial-section { padding: 21px; }
+.workspace-active #trialsPanel .trial-section-probe { box-shadow: inset 4px 0 0 #78cc5a, 0 7px 19px rgba(17,42,29,.06); }
+.workspace-active #trialsPanel .trial-section-dropin {
+  border-color: #d8cb9b;
+  background: #fffdf6;
+  box-shadow: inset 4px 0 0 #dfb750, 0 7px 19px rgba(17,42,29,.06);
+}
+.workspace-active #trialsPanel .trial-section-dropin .eyebrow { color: #80601a !important; }
+.workspace-active #trialsPanel .trial-form {
+  gap: 11px;
+  padding: 15px;
+  border: 1px solid #d9e7d5;
+  border-radius: 16px;
+  background: rgba(255,255,255,.78);
+}
+.workspace-active #trialsPanel .trial-section-dropin .trial-form { border-color: #e6d7a6; }
+.workspace-active #trialsPanel :is(#trialCards, #dropInCards) {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.workspace-active #trialsPanel :is(#trialCards, #dropInCards) .stat-card {
+  min-height: 0;
+  padding: 16px;
+  border: 1px solid rgba(21,51,41,.15) !important;
+  background: #fff !important;
+  box-shadow: 0 5px 14px rgba(17,42,29,.05) !important;
+}
+.workspace-active #trialsPanel :is(#trialCards, #dropInCards) .stat-card h3 {
+  margin: 0 0 8px;
+  color: #153329;
+  font-size: 1.08rem;
+}
+.workspace-active #trialsPanel :is(#trialCards, #dropInCards) .stat-card .stat-meta {
+  margin: 0;
+  color: #526357 !important;
+  line-height: 1.43;
+}
+.workspace-active #trialsPanel .trial-pipeline {
+  padding: 10px;
+  border-radius: 11px;
+  background: #f1f7ef;
+}
+.workspace-active #trialsPanel .trial-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.workspace-active #trialsPanel .trial-actions button { min-height: 44px; margin: 0; }
+.workspace-active #trialsPanel .form-actions {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid #d9e7d5;
+  border-radius: 14px;
+  background: #f5faf3;
+}
+
+@media (max-width: 680px) {
+  .workspace-active :is(#bookingPanel, #trialsPanel) { padding: 16px 13px; }
+  .workspace-active :is(#bookingPanel, #trialsPanel) .panel-heading,
+  .workspace-active :is(#bookingPanel, #trialsPanel) :is(.booking-section-head, .trial-section-head) {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .workspace-active #bookingPanel :is(.booking-form-shell, .booking-list-shell),
+  .workspace-active #trialsPanel .trial-section { padding: 15px; border-radius: 17px; }
+  .workspace-active #bookingPanel .booking-steps li { padding: 8px 7px; font-size: .7rem; }
+  .workspace-active #bookingPanel .booking-steps li span { display: block; margin-top: 2px; }
+  .workspace-active #bookingPanel .booking-step { padding: 13px; }
+  .workspace-active #bookingPanel :is(.booking-grid, .weekday-picker) { grid-template-columns: 1fr; }
+  .workspace-active #bookingPanel .booking-table-toolbar { grid-template-columns: 1fr; gap: 10px; padding: 12px; }
+  .workspace-active #bookingPanel .booking-table-toolbar-actions { width: 100%; }
+  .workspace-active #bookingPanel .booking-table-toolbar-actions button { width: 100%; min-height: 46px; }
+  .workspace-active #bookingPanel .booking-quick-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .workspace-active #bookingPanel .booking-quick-filters button { min-height: 44px; padding-inline: 7px; font-size: .76rem; }
+  .workspace-active #bookingPanel .booking-table-wrap { max-height: none; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .workspace-active #bookingPanel .booking-table { min-width: 1080px; }
+  .workspace-active #trialsPanel .trial-form { grid-template-columns: 1fr; padding: 13px; }
+  .workspace-active #trialsPanel .trial-form button[type="submit"] { min-height: 48px; }
+  .workspace-active #trialsPanel :is(#trialCards, #dropInCards) { grid-template-columns: 1fr; gap: 10px; }
+  .workspace-active #trialsPanel .trial-actions button { min-height: 46px; font-size: .8rem; }
+  .workspace-active #trialsPanel .form-actions { display: grid; gap: 10px; }
+  .workspace-active #trialsPanel .form-actions button { min-height: 46px; }
+}
