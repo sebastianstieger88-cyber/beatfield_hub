@@ -234,7 +234,7 @@ create table if not exists public.drop_in_bookings (
   full_name text not null,
   email text,
   phone text,
-  status text not null default 'gebucht' check (status in ('gebucht', 'teilgenommen', 'abgesagt')),
+  status text not null default 'gebucht' check (status in ('gebucht', 'teilgenommen', 'abgesagt', 'abwesend')),
   notes text,
   created_at timestamptz not null default now()
 );

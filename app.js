@@ -10178,13 +10178,13 @@ function renderParticipants() {
         : left.is_dropin
           ? left.drop_in_status === "teilgenommen"
           : Boolean(leftRecord?.present);
-      const leftAbsent = !left.is_trial && !left.is_dropin && Boolean(leftRecord) && !leftRecord?.present;
+      const leftAbsent = left.is_dropin ? left.drop_in_status === "abwesend" : !left.is_trial && Boolean(leftRecord) && !leftRecord?.present;
       const rightPresent = right.is_trial
         ? right.trial_status === "teilgenommen"
         : right.is_dropin
           ? right.drop_in_status === "teilgenommen"
           : Boolean(rightRecord?.present);
-      const rightAbsent = !right.is_trial && !right.is_dropin && Boolean(rightRecord) && !rightRecord?.present;
+      const rightAbsent = right.is_dropin ? right.drop_in_status === "abwesend" : !right.is_trial && Boolean(rightRecord) && !rightRecord?.present;
       const leftBeatOut = getBeatOutEntryForParticipantSession(left.id, session?.id);
       const rightBeatOut = getBeatOutEntryForParticipantSession(right.id, session?.id);
       const getStatusRank = ({ present, absent, beatOut }) => {
@@ -10232,7 +10232,7 @@ function renderParticipants() {
     const attendanceState = isTrialParticipant
       ? participant.trial_status === "teilgenommen" ? "present" : "open"
       : isDropInParticipant
-        ? participant.drop_in_status === "teilgenommen" ? "present" : "open"
+        ? participant.drop_in_status === "teilgenommen" ? "present" : participant.drop_in_status === "abwesend" ? "absent" : "open"
         : getAttendanceStateFromRecord(record);
     const isPresent = attendanceState === "present";
     const isAbsent = attendanceState === "absent";
@@ -10335,7 +10335,9 @@ function renderParticipants() {
       const presentButton = attendanceButtons.find((button) => button.dataset.state === "present");
       const absentButton = attendanceButtons.find((button) => button.dataset.state === "absent");
       if (absentButton) {
-        absentButton.disabled = true;
+        absentButton.addEventListener("click", async () => {
+          await updateDropInStatus(participant.drop_in_booking_id, "abwesend");
+        });
       }
       presentButton?.addEventListener("click", async () => {
         await updateDropInStatus(
@@ -10489,7 +10491,10 @@ function renderParticipants() {
         const presentButton = mobileAttendanceButtons.find((button) => button.dataset.state === "present");
         const absentButton = mobileAttendanceButtons.find((button) => button.dataset.state === "absent");
         if (absentButton) {
-          absentButton.disabled = true;
+          absentButton.addEventListener("click", async (event) => {
+            event.stopPropagation();
+            await updateDropInStatus(participant.drop_in_booking_id, "abwesend");
+          });
         }
         mobileStatusRow.classList.add("participant-card-status-row-clickable");
         mobileStatusRow.addEventListener("click", async () => {
@@ -12640,7 +12645,7 @@ function setParticipantFilter(filter) {
 
 function getRosterAttendanceState(participant, sessionId) {
   if (participant.is_trial) return participant.trial_status === "teilgenommen" ? "present" : "open";
-  if (participant.is_dropin) return participant.drop_in_status === "teilgenommen" ? "present" : "open";
+  if (participant.is_dropin) return participant.drop_in_status === "teilgenommen" ? "present" : participant.drop_in_status === "abwesend" ? "absent" : "open";
   if (getBeatOutEntryForParticipantSession(participant.id, sessionId)) return "beatout";
   return getAttendanceStateFromRecord(getAttendanceRecordForSessionParticipant(sessionId, participant.id));
 }
@@ -12758,6 +12763,7 @@ function getTrialPipelineMeta(trial) {
 }
 
 function getDropInPipelineMeta(dropIn) {
+  if (dropIn?.status === "abwesend") return {label: "Abwesend", meta: "Kein teilgenommener Check-in", tone: "status-pill-warn"};
   const status = dropIn?.status || "gebucht";
   if (status === "gebucht") {
     return {
