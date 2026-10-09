@@ -12,4 +12,6 @@ test('Wix totals include voucher discount without subtracting twice', () => {
   assert.equal(wixPaidAmount({pricing:{prices:[{price:{total:'0'}}]}}),0);
   assert.equal(wixPaidAmount({priceDetails:{total:'79'}}),79);
   assert.equal(wixPaidAmount({pricing:{prices:[{},{}]}}),null);
+  assert.equal(wixPaidAmount({planPrice:'49',lastPaymentStatus:'PENDING',pricing:{prices:[{price:{total:'0.00',subtotal:'0.00',discount:'0'}}]}}),null);
+  assert.equal(wixPaidAmount({planPrice:'49',pricing:{prices:[{price:{total:'0',subtotal:'49',discount:'49'}}]}}),0);
 });
