@@ -1947,3 +1947,159 @@ tbody tr:hover { background: rgba(120,204,90,.055); }
   .workspace-active .action-toast-icon { width: 29px; height: 29px; }
   .workspace-active .action-toast .ghost { grid-column: 2; width: 100%; min-height: 40px; }
 }
+/* Course headers and attendance controls: readable on every mobile course page. */
+@media (max-width: 860px) {
+  .workspace-active :is(#attendancePanel, #courseListPanel) {
+    background: #f7faf5;
+    color: #162019;
+    padding: 20px 14px;
+  }
+  .workspace-active :is(#attendancePanel, #courseListPanel) > .panel-heading {
+    margin-bottom: 18px;
+  }
+  .workspace-active :is(#attendancePanel, #courseListPanel) > .panel-heading h2 {
+    color: #162019;
+    font-size: clamp(1.35rem, 5.5vw, 1.8rem);
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+  .workspace-active :is(#attendancePanel, #courseListPanel) > .panel-heading .eyebrow {
+    color: #32603b;
+    font-size: .8rem;
+  }
+  .workspace-active #attendancePanel :is(#mobileSessionSummary, #participantFormNotice, #attendanceSessionPicker, #sessionExclusionsCard, .attendance-toolbar, .attendance-options, .attendance-add-person, .search-row, .mobile-quickbar) {
+    background: #ffffff;
+    color: #162019;
+    border: 1px solid #b9cbbc;
+    border-radius: 14px;
+    box-shadow: none;
+    padding: 14px;
+  }
+  .workspace-active #attendancePanel #mobileSessionSummary {
+    background: #eaf5e5;
+    border-color: #9dbb99;
+  }
+  .workspace-active #attendancePanel :is(#mobileSessionSummary, #participantFormNotice, #attendanceSessionPicker, #sessionExclusionsCard, .attendance-toolbar, .attendance-options, .attendance-add-person, .search-row, .mobile-quickbar) :is(h3, strong, label, label > span, summary, .hero-stat) {
+    color: #162019;
+    opacity: 1;
+  }
+  .workspace-active #attendancePanel :is(#mobileSessionSummary, #participantFormNotice, #attendanceSessionPicker, #sessionExclusionsCard, .attendance-toolbar, .attendance-options, .attendance-add-person, .search-row) :is(.stat-meta, .attendance-correction-hint) {
+    color: #3c5143;
+    font-size: .9rem;
+    line-height: 1.55;
+    opacity: 1;
+  }
+  .workspace-active #attendancePanel #mobileSessionSummary .hero-stat {
+    font-size: clamp(1.35rem, 5vw, 1.75rem);
+    line-height: 1.3;
+    margin: 0 0 10px;
+  }
+  .workspace-active #attendancePanel .mobile-session-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .workspace-active #attendancePanel .mobile-session-summary-grid > div {
+    background: #ffffff;
+    border: 1px solid #b9cbbc;
+    border-radius: 10px;
+    padding: 12px;
+  }
+  .workspace-active #attendancePanel .mobile-session-summary-grid strong {
+    color: #153329;
+    font-size: 1.5rem;
+    line-height: 1.2;
+  }
+  .workspace-active #attendancePanel .mobile-session-summary-grid span {
+    color: #3c5143;
+    font-size: .9rem;
+    font-weight: 600;
+  }
+  .workspace-active #attendancePanel :is(.search-row, .attendance-toolbar) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+  .workspace-active #attendancePanel :is(.search-row, .attendance-toolbar, #participantForm, #attendanceSessionPicker) label {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+    font-size: .95rem;
+    font-weight: 650;
+  }
+  .workspace-active #attendancePanel :is(.search-row, .attendance-toolbar, #participantForm, #attendanceSessionPicker) :is(input, select) {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 48px;
+    box-sizing: border-box;
+    padding: 12px;
+    background: #ffffff;
+    color: #162019;
+    border: 1px solid #829b87;
+    border-radius: 10px;
+    font-size: 1rem;
+    opacity: 1;
+    color-scheme: light;
+  }
+  .workspace-active #attendancePanel input::placeholder { color: #526357; opacity: 1; }
+  .workspace-active #attendancePanel :is(.attendance-options, .attendance-add-person) > summary {
+    font-size: .95rem;
+    line-height: 1.45;
+    min-height: 44px;
+    display: list-item;
+    align-content: center;
+    cursor: pointer;
+  }
+  .workspace-active #attendancePanel :is(.attendance-filters, .toolbar-actions) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    width: 100%;
+  }
+  .workspace-active #attendancePanel :is(#courseActions > .form-actions, .mobile-quickbar, .attendance-filters, .toolbar-actions, #participantFormNotice, #attendanceSessionPicker, #sessionExclusionsCard) button {
+    min-height: 48px;
+    padding: 12px 14px;
+    font-size: .9rem;
+    line-height: 1.35;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    opacity: 1;
+  }
+  .workspace-active #attendancePanel :is(#courseActions > .form-actions, .mobile-quickbar, .attendance-filters, .toolbar-actions, #participantFormNotice, #attendanceSessionPicker, #sessionExclusionsCard) button.ghost {
+    background: #ffffff;
+    color: #153329;
+    border: 1px solid #829b87;
+  }
+  .workspace-active #attendancePanel :is(#courseActions > .form-actions, .mobile-quickbar, .attendance-filters, .toolbar-actions, #participantFormNotice) button.ghost:is(:hover, :focus-visible) {
+    background: #e3f1dc;
+    color: #153329;
+  }
+  .workspace-active #attendancePanel .attendance-filters button.is-active {
+    background: #153329;
+    color: #ffffff;
+    border-color: #153329;
+  }
+  .workspace-active #attendancePanel .attendance-filters button.is-active:is(:hover, :focus-visible) {
+    background: #28583d;
+    color: #ffffff;
+  }
+  .workspace-active #attendancePanel .toolbar-actions .primary {
+    background: #78cc5a;
+    color: #102015;
+  }
+  .workspace-active #attendancePanel :is(.attendance-filters, .toolbar-actions) button { flex: 1 1 120px; }
+  .workspace-active #attendancePanel #courseActions > .form-actions button { width: 100%; }
+  .workspace-active #attendancePanel #attendanceFilterResult { margin: 0; }
+  .workspace-active #courseListPanel .course-card {
+    background: #ffffff;
+    color: #162019;
+    border: 1px solid #b9cbbc;
+  }
+  .workspace-active #courseListPanel .course-card:is(.active, :hover, :focus-within) { background: #eaf5e5; border-color: #608d56; }
+  .workspace-active #courseListPanel .course-card :is(h3, strong) { color: #162019; }
+  .workspace-active #courseListPanel .course-card .stat-meta { color: #3c5143; font-size: .9rem; line-height: 1.5; }
+}
+@media (max-width: 860px) {
+  .workspace-active #courseListPanel .course-card .course-meta { color: #3c5143; font-size: .95rem; line-height: 1.5; opacity: 1; }
+  .workspace-active #courseListPanel .course-status-pill { background: #eaf5e5; color: #153329; border-color: #9dbb99; font-size: .8rem; }
+}
