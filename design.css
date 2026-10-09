@@ -2103,3 +2103,116 @@ tbody tr:hover { background: rgba(120,204,90,.055); }
   .workspace-active #courseListPanel .course-card .course-meta { color: #3c5143; font-size: .95rem; line-height: 1.5; opacity: 1; }
   .workspace-active #courseListPanel .course-status-pill { background: #eaf5e5; color: #153329; border-color: #9dbb99; font-size: .8rem; }
 }
+/* Mobile readability baseline across management, Campus, dashboard and reports. */
+@media (max-width: 860px) {
+  .workspace-active { background: #f4f6f1; }
+  .workspace-active .panel:not(#attendancePanel):not(#timerPanel),
+  .workspace-active .modal-card,
+  :is(#authPanel, #setupPanel) {
+    --text: #162019;
+    --muted: #526357;
+    --panel: #ffffff;
+    --panel-strong: #f1f6ee;
+    --bg-soft: #f1f6ee;
+    --line: #b9cbbc;
+    color-scheme: light;
+    color: #162019;
+    background: #ffffff;
+    border-color: #b9cbbc;
+  }
+  .workspace-active .panel:not(#timerPanel) { padding: 20px 14px; min-width: 0; }
+  .workspace-active .panel:not(#attendancePanel):not(#timerPanel) :is(.stat-card, .dashboard-card, .course-card, .exercise-card, .exercise-detail-card, .profile-sheet-card, .empty-state, .list-row, .report-actions, .operations-toolbar) {
+    background: #ffffff;
+    color: #162019;
+    border-color: #b9cbbc;
+    min-width: 0;
+  }
+  .workspace-active .panel:not(#attendancePanel):not(#timerPanel) :is(h2, h3, h4, label, legend, summary),
+  .workspace-active .modal-card :is(h2, h3, h4, label, legend, summary),
+  :is(#authPanel, #setupPanel) :is(h2, h3, label) { color: #162019; }
+  .workspace-active .panel:not(#timerPanel) > .panel-heading {
+    align-items: stretch;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .workspace-active .panel:not(#timerPanel) > .panel-heading h2 { font-size: clamp(1.35rem, 5.5vw, 1.8rem); line-height: 1.3; }
+  .workspace-active .panel:not(#attendancePanel):not(#timerPanel) :is(.stat-meta, .muted, .help-text, .course-meta, .exercise-copy),
+  .workspace-active .modal-card :is(.stat-meta, .muted) {
+    color: #526357 !important;
+    font-size: .9rem !important;
+    line-height: 1.55;
+    opacity: 1;
+  }
+  .workspace-active .panel:not(#attendancePanel):not(#timerPanel) :is(label > span, .status-pill, .badge, .course-status-pill, .exercise-tag) {
+    font-size: .875rem;
+    line-height: 1.4;
+  }
+  .workspace-active .panel:not(#timerPanel) :is(p, h2, h3, h4, label, summary, .stat-meta, .list-row, .course-meta),
+  .workspace-active .modal-card :is(p, h2, h3, label) { overflow-wrap: anywhere; }
+  .workspace-active .panel:not(#timerPanel) :is(input, select, textarea),
+  .workspace-active .modal-card :is(input, select, textarea),
+  :is(#authPanel, #setupPanel) :is(input, select, textarea) {
+    max-width: 100%;
+    min-width: 0;
+    min-height: 48px;
+    box-sizing: border-box;
+    font-size: 1rem;
+    color: #162019 !important;
+    background: #ffffff !important;
+    border-color: #829b87 !important;
+    color-scheme: light;
+  }
+  .workspace-active .panel:not(#timerPanel) :is(input, textarea)::placeholder,
+  .workspace-active .modal-card :is(input, textarea)::placeholder { color: #526357 !important; opacity: 1; }
+  .workspace-active .panel:not(#timerPanel) input[type=checkbox],
+  .workspace-active .panel:not(#timerPanel) input[type=radio] { min-height: 22px; min-width: 22px; accent-color: #397754; }
+  .workspace-active .panel:not(#timerPanel) :is(button, .button-link),
+  .workspace-active .modal-card button,
+  #authPanel button {
+    min-height: 48px;
+    font-size: .9rem;
+    line-height: 1.4;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .workspace-active .panel:not(#attendancePanel):not(#timerPanel) button.ghost {
+    color: #153329;
+    background: #ffffff;
+    border-color: #829b87;
+  }
+  .workspace-active .panel:not(#attendancePanel):not(#timerPanel) button.ghost:is(:hover, :focus-visible) { color: #153329; background: #e3f1dc; }
+  .workspace-active .panel:not(#attendancePanel):not(#timerPanel) button.primary { background: #78cc5a; color: #102015; }
+  .workspace-active .panel:not(#attendancePanel):not(#timerPanel) button.danger { background: #ffe0d9; color: #651e16; border-color: #d5958a; }
+  .workspace-active .panel:not(#attendancePanel):not(#timerPanel) :is(input, select, textarea, button, a, summary):focus-visible,
+  .workspace-active .modal-card :is(input, select, button):focus-visible { outline: 3px solid #397754; outline-offset: 3px; }
+  .workspace-active .panel:not(#attendancePanel):not(#timerPanel) .table-wrap { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .workspace-active .panel:not(#attendancePanel):not(#timerPanel) table { font-size: .9rem; }
+  .workspace-active .panel:not(#attendancePanel):not(#timerPanel) th { font-size: .8rem; line-height: 1.4; }
+  .workspace-active .panel:not(#attendancePanel):not(#timerPanel) td { line-height: 1.5; }
+  .workspace-active .modal-card { width: min(100%, 640px); max-height: calc(100dvh - 32px); overflow-y: auto; box-sizing: border-box; }
+  .workspace-active .modal-card :is(.profile-sheet-card, .list-row) { background: #f7faf5; color: #162019; }
+  .workspace-active #todayPanel .today-session {
+    background: #153329;
+    color: #ffffff;
+  }
+  .workspace-active #todayPanel .today-session :is(h3, p, span, strong, .stat-meta) { color: #ffffff !important; }
+  .workspace-active #todayPanel .today-session button.ghost { color: #153329; background: #ffffff; }
+  .workspace-active #revenueCards .stat-card:first-child :is(.stat-meta, h3) { color: #e1efda !important; }
+  .workspace-active .hero-card { background: #153329; color: #ffffff; }
+  .workspace-active .hero-card :is(h2, p, .hero-hint, .hero-stat) { color: #ffffff !important; }
+  .workspace-active .hero-brand :is(h1, .hero-copy) { color: #162019; }
+  .workspace-active .hero-brand .eyebrow { color: #32603b; }
+}
+@media (max-width: 480px) {
+  .workspace-active .panel:not(#timerPanel) :is(.form-actions, .toolbar-actions, .report-actions, .operations-toolbar) { flex-wrap: wrap; gap: 10px; }
+  .workspace-active .panel:not(#timerPanel) :is(.form-actions, .toolbar-actions) button { flex: 1 1 140px; }
+  .workspace-active .panel:not(#timerPanel) .panel-heading > button { width: 100%; }
+}
+@media (max-width: 860px) {
+  .workspace-active .panel:not(#attendancePanel):not(#timerPanel) :is(.checkbox-line, .weekday-picker) {
+    background: #f1f6ee;
+    color: #162019;
+    border-color: #b9cbbc;
+  }
+  .workspace-active .panel:not(#attendancePanel):not(#timerPanel) .checkbox-line > span { color: #162019; }
+}
