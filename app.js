@@ -2,7 +2,7 @@
 
 import { createPushReminders, preparePushWorker } from './push-reminders.js';
 import { createWixIntegration } from './wix-integration.js';
-import { paidAmount, packageRevenue } from './lib/revenue.js';
+import { paidAmount, packageRevenue as bookingPackageRevenue } from './lib/revenue.js';
 import { createWorkoutTimer } from './features/campus/timer/ui.js';
 const config = window.APP_CONFIG || {};
 const hasConfig = Boolean(config.supabaseUrl && config.supabaseAnonKey && config.siteUrl);
@@ -15739,7 +15739,7 @@ function formatCampusDetailCopy(value) {
     const packages = [['1x TRAIN',49], ['2x BEAT',79], ['3x REPEAT',99]].map(([label, unitPrice]) => {
       const bookings = state.seasonBookings.filter(entry => entry.season_id === season.id && entry.package_type === label);
       const discounted = bookings.filter(entry => paidAmount(entry.paid_amount) !== null && paidAmount(entry.paid_amount) < unitPrice).length;
-      const revenue = bookings.reduce((sum, entry) => { return sum + packageRevenue(entry, unitPrice); }, 0);
+      const revenue = bookings.reduce((sum, entry) => sum + bookingPackageRevenue(entry, unitPrice), 0);
       return { label, count: bookings.length, unitPrice, revenue, description: ['Season-Paket', discounted ? discounted + ' rabattiert' : '', bookings.some(entry => paidAmount(entry.paid_amount) === null) ? 'Vorläufig: fehlende Wix-Zahlbeträge zum Listenpreis' : ''].filter(Boolean).join(' · ') };
     });
     const sessionIds = new Set(state.sessions.filter(entry => entry.season_id === season.id).map(entry => entry.id));
@@ -15915,7 +15915,7 @@ function formatCampusDetailCopy(value) {
     const prices = { "1x TRAIN": 49, "2x BEAT": 79, "3x REPEAT": 99 };
     const packages = Object.entries(prices).map(([label, listPrice]) => {
       const bookings = state.seasonBookings.filter((booking) => booking.season_id === season.id && booking.package_type === label);
-      return { label, count: bookings.length, revenue: bookings.reduce((sum, booking) => sum + packageRevenue(booking, listPrice), 0) };
+      return { label, count: bookings.length, revenue: bookings.reduce((sum, booking) => sum + bookingPackageRevenue(booking, listPrice), 0) };
     });
     const sessionIds = new Set(state.sessions.filter((session) => session.season_id === season.id).map((session) => session.id));
     const singles = [
