@@ -6,6 +6,7 @@ const CORE_ASSETS = [
   "./styles.css",
   "./design.css",
   "./app.js",
+  "./lib/revenue.js",
   "./features/campus/timer/engine.js",
   "./features/campus/timer/audio.js",
   "./features/campus/timer/storage.js",

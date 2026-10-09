@@ -2,6 +2,7 @@
 
 import { createPushReminders, preparePushWorker } from './push-reminders.js';
 import { createWixIntegration } from './wix-integration.js';
+import { paidAmount, packageRevenue } from './lib/revenue.js';
 import { createWorkoutTimer } from './features/campus/timer/ui.js';
 const config = window.APP_CONFIG || {};
 const hasConfig = Boolean(config.supabaseUrl && config.supabaseAnonKey && config.siteUrl);
@@ -15737,9 +15738,9 @@ function formatCampusDetailCopy(value) {
     if (!season) return;
     const packages = [['1x TRAIN',49], ['2x BEAT',79], ['3x REPEAT',99]].map(([label, unitPrice]) => {
       const bookings = state.seasonBookings.filter(entry => entry.season_id === season.id && entry.package_type === label);
-      const discounted = bookings.filter(entry => Number.isFinite(Number(entry.paid_amount)) && Number(entry.paid_amount) < unitPrice).length;
-      const revenue = bookings.reduce((sum, entry) => { const paid = Number(entry.paid_amount); return sum + (Number.isFinite(paid) && paid >= 0 ? paid : unitPrice); }, 0);
-      return { label, count: bookings.length, unitPrice, revenue, description: discounted ? 'Season-Paket · ' + discounted + ' rabattiert' : 'Season-Paket' };
+      const discounted = bookings.filter(entry => paidAmount(entry.paid_amount) !== null && paidAmount(entry.paid_amount) < unitPrice).length;
+      const revenue = bookings.reduce((sum, entry) => { return sum + packageRevenue(entry, unitPrice); }, 0);
+      return { label, count: bookings.length, unitPrice, revenue, description: ['Season-Paket', discounted ? discounted + ' rabattiert' : '', bookings.some(entry => paidAmount(entry.paid_amount) === null) ? 'Vorläufig: fehlende Wix-Zahlbeträge zum Listenpreis' : ''].filter(Boolean).join(' · ') };
     });
     const sessionIds = new Set(state.sessions.filter(entry => entry.season_id === season.id).map(entry => entry.id));
     const singles = [
@@ -15787,8 +15788,8 @@ function formatCampusDetailCopy(value) {
     let total = 0;
     bookings.sort((a, b) => String(a.full_name || '').localeCompare(String(b.full_name || ''), 'de')).forEach(booking => {
       const listPrice = unitPrices[booking.package_type] || 0;
-      const paid = Number(booking.paid_amount);
-      const actual = Number.isFinite(paid) && paid >= 0 ? paid : listPrice;
+      const paid = paidAmount(booking.paid_amount);
+      const actual = paid ?? listPrice;
       total += actual;
       rows.push([booking.full_name || '', booking.package_type || '', (booking.selected_days || []).join(', '), money(listPrice), money(actual), money(Math.max(listPrice - actual, 0))]);
     });
@@ -15914,7 +15915,7 @@ function formatCampusDetailCopy(value) {
     const prices = { "1x TRAIN": 49, "2x BEAT": 79, "3x REPEAT": 99 };
     const packages = Object.entries(prices).map(([label, listPrice]) => {
       const bookings = state.seasonBookings.filter((booking) => booking.season_id === season.id && booking.package_type === label);
-      return { label, count: bookings.length, revenue: bookings.reduce((sum, booking) => { const paid = Number(booking.paid_amount); return sum + (Number.isFinite(paid) && paid >= 0 ? paid : listPrice); }, 0) };
+      return { label, count: bookings.length, revenue: bookings.reduce((sum, booking) => sum + packageRevenue(booking, listPrice), 0) };
     });
     const sessionIds = new Set(state.sessions.filter((session) => session.season_id === season.id).map((session) => session.id));
     const singles = [
