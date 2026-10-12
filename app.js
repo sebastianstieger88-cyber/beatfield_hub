@@ -14452,6 +14452,7 @@ function getNavigationSections(availableSections, { connected, loggedIn, appUnlo
   }
 
   return availableSections.filter((sectionId) => [
+    "#sessionPanel",
     "#todayPanel",
     "#campusPanel",
     "#timerPanel",
