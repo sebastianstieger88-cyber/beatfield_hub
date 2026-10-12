@@ -873,8 +873,9 @@ async function initialize() {
   state.session = sessionResult.data.session;
 
   state.supabase.auth.onAuthStateChange(async (event, session) => {
+    const sameUser = Boolean(session?.user?.id && session.user.id === state.session?.user?.id);
     state.session = session;
-    if (event === "TOKEN_REFRESHED") {
+    if (event === "TOKEN_REFRESHED" || (event === "SIGNED_IN" && sameUser)) {
       render();
       updateActiveNavLink();
       return;
@@ -891,6 +892,21 @@ async function initialize() {
   applyRoleLanding();
   updateActiveNavLink();
 }
+
+// Brief switches to another app should preserve the coach's current workflow.
+let appHiddenAt = null;
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    appHiddenAt = Date.now();
+    return;
+  }
+  const elapsed = appHiddenAt === null ? 0 : Date.now() - appHiddenAt;
+  appHiddenAt = null;
+  if (elapsed >= 120000 && state.session && state.profile) {
+    applyRoleLanding();
+    updateActiveNavLink();
+  }
+});
 
 async function loadProtectedData() {
   if (!state.session || !state.supabase) {
