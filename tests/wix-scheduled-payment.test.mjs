@@ -7,7 +7,8 @@ test('paid future online one-time orders import with coupon adjusted amount',()=
   const result=normalizeWix('plan',order,{info:{name:{first:'Test',last:'Coach'}}});
   assert.equal(result.action,'upsert');
   assert.equal(result.paid_amount,39.2);
+  assert.equal(isPaidScheduledSinglePayment({...order,wixPayOrderId:undefined}),true);
 });
 test('draft offline failed recurring trial and empty price schedules never qualify',()=>{
-  for(const change of [{status:'DRAFT'},{status:'CANCELED'},{type:'OFFLINE'},{lastPaymentStatus:'FAILED'},{wixPayOrderId:null},{freeTrialDays:7},{startDate:'2020-01-01'}, {pricing:{...order.pricing,subscription:{}}},{pricing:{...order.pricing,prices:[{price:{total:'0',subtotal:'0',discount:'0'}}]}}]) assert.equal(isPaidScheduledSinglePayment({...order,...change}),false);
+  for(const change of [{status:'DRAFT'},{status:'CANCELED'},{type:'OFFLINE'},{lastPaymentStatus:'FAILED'},{freeTrialDays:7},{startDate:'2020-01-01'}, {pricing:{...order.pricing,subscription:{}}},{pricing:{...order.pricing,prices:[{price:{total:'0',subtotal:'0',discount:'0'}}]}}]) assert.equal(isPaidScheduledSinglePayment({...order,...change}),false);
 });
