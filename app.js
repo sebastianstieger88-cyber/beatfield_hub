@@ -10027,7 +10027,7 @@ function handleJumpToToday() {
   scrollToSection("#courseListPanel");
 }
 
-function openTodaySession(sessionId) {
+function openTodaySession(sessionId, { onlyOpen = false } = {}) {
   const selectedSession = state.sessions.find((entry) => entry.id === sessionId);
   if (!selectedSession || !state.courses.some((course) => course.id === selectedSession.course_id)) return;
   state.selectedCourseId = selectedSession.course_id;
@@ -10035,7 +10035,7 @@ function openTodaySession(sessionId) {
   state.attendanceSeasonId = selectedSession.season_id || "";
   state.attendanceStandaloneFocus = null;
   state.participantSearch = "";
-  state.attendanceFilter = "all";
+  state.attendanceFilter = onlyOpen ? "open" : "all";
   participantSearch.value = "";
   attendanceDate.value = selectedSession.session_date;
   scrollToSection("#attendancePanel");
@@ -12469,7 +12469,8 @@ function standaloneEntryMatchesCourseDate(entry, courseId, sessionId, activeSess
 
 function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
   const activeSession = state.sessions.find((session) => session.id === sessionId) || null;
-  const baseParticipants = getParticipantsForCourse(courseId, activeSession ? activeSession.season_id : state.attendanceSeasonId);
+  const rosterSeasonId = activeSession ? activeSession.season_id : state.attendanceSeasonId;
+  const baseParticipants = getParticipantsForCourse(courseId, rosterSeasonId);
   const activeSessionDate = activeSession?.session_date || attendanceDate?.value || null;
   if (!sessionId && !activeSessionDate) {
     return baseParticipants;
@@ -12515,7 +12516,7 @@ function getAttendanceParticipantsForCourse(courseId, sessionId = null) {
       if (!participant) {
         return;
       }
-      if (state.attendanceSeasonId && participant.season_id !== state.attendanceSeasonId) {
+      if (rosterSeasonId && participant.season_id !== rosterSeasonId) {
         return;
       }
       if (excludedParticipantIds.has(participant.id)) {
@@ -15865,10 +15866,42 @@ function formatCampusDetailCopy(value) {
 /* Dashboard data composition. Kept separate so all existing workflows remain untouched. */
 (() => {
   const dashboardWeek = document.querySelector("#dashboardWeek");
+  const dashboardOpenAttendance = document.querySelector("#dashboardOpenAttendance");
   const dashboardRevenue = document.querySelector("#dashboardRevenue");
   const dashboardRevenueSection = document.querySelector("#dashboardRevenueSection");
   const money = (value) => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", minimumFractionDigits: 2 }).format(Number(value || 0));
   const dashboardSeason = () => state.seasons.find((season) => season.status === "aktiv") || state.seasons.slice().sort((left, right) => String(right.start_date || "").localeCompare(String(left.start_date || "")))[0] || null;
+
+  function renderOpenAttendance() {
+    if (!dashboardOpenAttendance) return;
+    dashboardOpenAttendance.replaceChildren();
+    if (!state.courses.length) return;
+    const courses = new Map(state.courses.map((course) => [course.id, course]));
+    const today = getToday();
+    const now = getCurrentMinutes();
+    const rows = state.sessions
+      .filter((session) => courses.has(session.course_id) && (session.session_date < today
+        || (session.session_date === today && getTimeInMinutes(courses.get(session.course_id).time) <= now)))
+      .map((session) => ({
+        session,
+        course: courses.get(session.course_id),
+        counts: getRosterCounts(getAttendanceParticipantsForCourse(session.course_id, session.id), session.id),
+      }))
+      .filter(({ counts }) => counts.open > 0)
+      .sort((a, b) => b.session.session_date.localeCompare(a.session.session_date)
+        || String(b.course.time || "").localeCompare(String(a.course.time || "")));
+    if (!rows.length) {
+      dashboardOpenAttendance.innerHTML = '<div class="dashboard-empty"><strong>Keine offenen Anwesenheiten</strong><span>Für deine bisherigen Kurstermine fehlt kein Eintrag.</span></div>';
+      return;
+    }
+    for (const { session, course, counts } of rows) {
+      const card = document.createElement("article");
+      card.className = "dashboard-week-card";
+      card.innerHTML = `<div class="dashboard-week-date"><strong>${escapeHtml(formatCompactDateLabel(session.session_date))}</strong><span>${escapeHtml(course.time ? course.time.slice(0, 5) + " Uhr" : "")}</span></div><div class="dashboard-week-course"><strong>${escapeHtml(course.name)}</strong><span>${escapeHtml(course.location || "")}</span></div><div class="dashboard-week-count"><strong>${counts.open} von ${counts.total}</strong><span>offen</span></div><button type="button" class="ghost">Offene pflegen</button>`;
+      card.querySelector("button").addEventListener("click", () => openTodaySession(session.id, { onlyOpen: true }));
+      dashboardOpenAttendance.append(card);
+    }
+  }
 
   function renderWeek() {
     if (!dashboardWeek) return;
@@ -15951,6 +15984,7 @@ function formatCampusDetailCopy(value) {
 
   renderTodayDashboard = function () {
     renderTodaySchedule();
+    renderOpenAttendance();
     todayCards.innerHTML = "";
     if (!state.courses.length) {
       todayCards.appendChild(emptyStateTemplate.content.cloneNode(true));
